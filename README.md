@@ -147,6 +147,10 @@ NOTE: The results are outputed in nice looking html files with an index file. <b
     5. TOMCAT LOGS
 
 ```
+## Screesnhot
+<img align="left" src="https://john.ng/wp-content/uploads/2022/02/Screenshot-2022-02-10-183038.png" alt="ebuka" />
+
+
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change or add.
 
