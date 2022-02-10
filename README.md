@@ -148,7 +148,7 @@ NOTE: The results are outputed in nice looking html files with an index file. <b
 
 ```
 ## Screesnhot
-<img align="left" src="https://john.ng/wp-content/uploads/2022/02/Screenshot-2022-02-10-183038.png" alt="ebuka" />
+<img align="left" src="https://john.ng/wp-content/uploads/2022/02/Screenshot-2022-02-10-183038.png" alt="ebuka" /> <br>
 
 
 ## Contributing
