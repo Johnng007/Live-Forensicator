@@ -65,8 +65,8 @@ run Forensicator.ps1 <parameters>
 
 ```
 
-NOTE: Run the script as an administrator to get value.
-NOTE: The results are outputed in nice looking html files with an index file. 
+NOTE: Run the script as an administrator to get value.<br>
+NOTE: The results are outputed in nice looking html files with an index file. <br>
       You can find all extracted Artifacts in the script's working directory.
 
 ## Features
