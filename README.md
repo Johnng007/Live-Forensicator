@@ -147,7 +147,7 @@ NOTE: The results are outputed in nice looking html files with an index file. <b
     5. TOMCAT LOGS
 
 ```
-## Screesnhot
+## Screenshot
 <img src="https://john.ng/wp-content/uploads/2022/02/Screenshot-2022-02-10-183038.png" alt="ebuka"  /> <br>
 <br></br>
 
