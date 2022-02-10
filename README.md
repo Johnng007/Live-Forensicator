@@ -148,8 +148,8 @@ NOTE: The results are outputed in nice looking html files with an index file. <b
 
 ```
 ## Screesnhot
-<img align="left" src="https://john.ng/wp-content/uploads/2022/02/Screenshot-2022-02-10-183038.png" alt="ebuka" height="100" width="210" alt="ebuka" /> <br>
-
+<img align="left" src="https://john.ng/wp-content/uploads/2022/02/Screenshot-2022-02-10-183038.png" alt="ebuka"  /> <br>
+<br></br>
 
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change or add.
