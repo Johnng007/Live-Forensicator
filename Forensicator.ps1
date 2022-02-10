@@ -571,12 +571,10 @@ echo "<center><h3>Group Policy Report</h3><table><a href='GPOReport.html' target
 ########  MEMORY (RAM) CAPTURE    ###########################################################################
 #############################################################################################################
 
+if ($RAM) {
 Write-Host -Fore DarkCyan '------------------------------------------------------'
 Write-Host -Fore Cyan '        CAPTURING THE RAM'
 Write-Host -Fore DarkCyan '------------------------------------------------------'
-
-
-if ($RAM) {
    
 # capture the RAM
 mkdir RAM
