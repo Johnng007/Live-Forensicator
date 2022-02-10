@@ -1,5 +1,5 @@
-<h1 align="center">📝 SSL HELPER 📝</h1>
-<h3 align="center">SSL CONVERTER AND GENERATOR BATCH SCRIPT</h3>
+<h1 align="center">📝 Forensicator 📝</h1>
+<h3 align="center">POWERSHELL SCRIPT TO AID LIVE FORENSICS & INCIDENCE RESPONSE</h3>
                                                
 ```bash
 
@@ -20,104 +20,136 @@ ___________                                .__               __
 
 # ABOUT
 
-I created this batch script out of the need to automate my team's SSL certificate generation process.
-we choose batch because we needed a lightweight solution. 
-so no need to remember all the openssl codes anymore.
-This project has moved from just a simple Batch Script to a sophisticated SSL Helpmate for all your SSL Needs
+Live Forensicator is part of the Black Widow Toolbox, its aim is to assist Forensic Investigator and Incidence responders in carrying out a quick live forensic investigation.
+It achieves this by gathering different system information for further review for anomalous behaviour or unexpected data entry, it also looks out for unusual files or activities and points it out to the investigator.
+It is paramount to note that this script has no inbuilt intelligence its left for the investigator to analyse the output and decide on a conclusion or decide on carrying out more deeper investigation.
 
 ## Dependencies
 
-This script leverages on openssl executable 'openssl.exe' and it's included in this package. for any reason the script fails to find openssl.exe in its working directory in your PC, it will fetch it from it's github repo, provided you have an internet connection and you can reach github.com
-
-This script also leverages on openssl.conf file, the file is particularly important if you intent to use the self certification option, the script will as well fetch this config file from its github's repo if it doesnt find it within its working directory.
-
-This script makes use of JAVA Keytool in some modules, It assumes you have Java Keytool installed(comes with JAVA application) and set in your Environment Variable.
-
-NOTE: For now it doesnt matter if you have openssl in your environment variable, if its not in the script's working directory, the script would not run.
+This script is written in powershell for use on windows PCs and Servers. 
+It has a supporting file WINPMEM for taking RAM dumps https://github.com/Velocidex/WinPmem
+This script is expected to work out of the box.
 
 ```bash
-openssl.exe | openssl.conf | keytool.exe
+powershell 2.* or 3.* | winpmem_mini_x64_rc2.exe 
 ```
 
 ## Usage
 
 ```python
-# copy the files to your computer
-git clone https://github.com/Johnng007/SSL-HELPER.git
+# copy the files to the computer
+git clone https://github.com/Johnng007/Live-Forensicator.git
 
-# run SSLHELPER.bat
-sslhelper.bat
+# Execution
+run Forensicator.ps1 <parameters>
+
 ```
-NOTE: you dont need administrator priviledges to run the batch file, even in a domain joined PC.
-      Powershell Plugins has been added to enhance the features, there my be a powershell execution policy in place if you are in a controlled environment.
+
+## Examples
+
+```python
+# Basic Usage
+.\Forensicator.ps1
+
+# Extract Event Logs alongside Basic Usage
+.\Forensicator.ps1 -EVTX EVTX
+
+# Extract RAM Dump alongside Basic Usage
+.\Forensicator.ps1 -RAM RAM
+
+# Check for log4j with the JNDILookup.class
+.\Forensicator.ps1 -log4j log4j
+
+# Yes of course you can do all
+.\Forensicator.ps1 -EVTX EVTX -RAM RAM -log4j log4j
+
+```
+
+NOTE: Run the script as an administrator to get value.
+NOTE: The results are outputed in nice looking html files with an index file. 
+      You can find all extracted Artifacts in the script's working directory.
 
 ## Features
 ```bash
 
    =================================
-     CONVERTING FROM PEM
+     USER AND ACCOUNT INFORMATION
    =================================
-     1. PEM to DER.
-     2. PEM to P7B.
-     3. PEM(.PEM, .CRT, .CER) TO PFX
+     1. GETS CURRENT USER.
+     2. SYSTEM DETAILS.
+     3. USER ACCOUNTS
+     4. LOGON SESSIONS
+     5. USER PROFILES
+     6. ADMINISTRATOR ACCOUNTS
+     7. LOCAL GROUPS
 
    =================================
-     CONVERTING FROM DER
+     SYSTEM INFORMATION
    =================================
-     4. DER(.CRT .CER .DER) TO PEM.
-     5. DER TO CER.
+     1. INSTALLED PROGRAMS.
+     2. INSTALLED PROGRAMS FROM REGISTERY.
+     3. ENVIRONMENT VARIABLES
+     4. SYSTEM INFORMATION
+     5. OPERATING SYSTEM INFORMATION
+     6. HOTFIXES
+     8. WINDOWS DEFENDER STATUS AND DETAILS
 
    =================================
-     CONVERTING FROM P7B
+     NETWORK INFORMATION
    =================================
-     6. P7B TO PEM.
-     7. P7B TO PFX.
-     8. P7B TO CER.
+     1. NETWORK ADAPTER INFORMATION.
+     2. CURRENT IP CONFIGURATION IPV6 IPV4.
+     3. CURRENT CONNECTION PROFILES.
+     4. ASSOCIATED WIFI NETWORKS AND PASSWORDS.
+     5. ARP CACHES
+     6. CURRENT TCP CONNECTIONS AND ASSOCIATED PROCESSES
+     7. DNS CACHE
+     8. CURRENT FIREWALL RULES
+     9. ACTIVE SMB SESSIONS (IF ITS A SERVER)
+     10. ACTIVE SMB SHARES
+     11. IP ROUTES TO NON LOCAL DESTINATIONS
+     12. NETWORK ADAPTERS WITH IP ROUTES TO NON LOCAL DESTINATIONS
+     13. IP ROUTES WITH INFINITE VALID LIFETIME
+
+   ========================================
+     PROCESSES | SCHEDULED TASK | REGISTRY
+   ========================================
+    1. PROCESSES.
+    2. STARTUP PROGRAMS
+    3. SCHEDULED TASK
+    4. SCHEDULED TASKS AND STATE
+    5. SERVICES
+    6. PERSISTANCE IN REGISTRY
 
    =================================
-     CONVERTING FROM PFX
+     OTHER CHECKS
    =================================
-     9. PFX TO PEM.
-    10. EXTRACT KEY File From PFX
-    11. PFX TO CRT
+    1. LOGICAL DRIVES
+    2. CONNECTED AND DISCONNECTED WEBCAMS
+    3. USB DEVICES
+    4. UPNP DEVICES
+    5. ALL PREVIOUSLY CONNECTED DRIVES
+    6. ALL FILES CREATED IN THE LAST 180 DAYS
+    7. 100 DAYS WORTH OF POWERSHELL HISTORY
+    8. EXECUTABLES IN DOWNLOADS FOLDER
+    9. EXECUTABLES IN APPDATA
+    10. EXECUATBLES IN TEMP
+    11. EXECUTABLES IN PERFLOGS
+    12. EXECUTABLES IN THE DOCUMENTS FOLDER
 
-   =================================
-     CONVERTING FROM CER
-   =================================
-    12. CER TO P7B
-    13. CER TO PFX
-    14. CER TO DER
+   =========================================
+      ORTHER REPORTS IN THE HTML INDEX FILE
+   =========================================
+    1. GROUP POLICY REPORT
+    2. WINPMEM RAM CAPTURE
+    3. LOG4J
+    4. IIS LOGS
+    5. TOMCAT LOGS
 
-   =================================
-     DECRYPT A KEY File
-   =================================
-    15. DECRYPT KEY FILE
-
-   =================================
-     CERTIFICATE GENERATION
-   =================================
-    16. GENERATE SELF SIGNED
-    17. GENERATE SELF SIGNED AUTO
-
-   ====================================================
-      AUDIT
-   ====================================================
-    18. CHECK SSL DETAILS AND VALIDITY
-    19. CHECK SSL DETAILS AND VALIDITY (MULTIPLE URLs)
-
-   =======================================
-      ADVANCED (POWERSHELL PLUGINS)
-   =======================================
-    20. PLUGINS
-
-    21. Close.
-    
-    [--u]Usage  [--h]Help [--update]Update
 ```
 ## Contributing
-Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
+Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change or add.
 
-Plugins are welcomed!!! you can enhance the features of sslhelper by adding powershell plugins in the plugin directory, then edit index.bat and point to your plugin.
 
 
 ## License
