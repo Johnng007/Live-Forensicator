@@ -11,7 +11,7 @@ ___________                                .__               __
  \___  / \____/|__|    \___  >___|  /____  >__|\___  >____  /__|  \____/|__|   
      \/                    \/     \/     \/        \/     \/                    
 
-                                                                          v1.0
+                                                                          v1.2
 
 
 
@@ -24,14 +24,16 @@ Live Forensicator is part of the Black Widow Toolbox, its aim is to assist Foren
 It achieves this by gathering different system information for further review for anomalous behaviour or unexpected data entry, it also looks out for unusual files or activities and points it out to the investigator.
 It is paramount to note that this script has no inbuilt intelligence its left for the investigator to analyse the output and decide on a conclusion or decide on carrying out more deeper investigation.
 
-## Dependencies
+## Optional Dependencies
 
 This script is written in powershell for use on windows PCs and Servers. 
+For additional features it depends on external binaries.
 It has a supporting file WINPMEM for taking RAM dumps https://github.com/Velocidex/WinPmem
+It also depends on Nirsoft's BrowserHistoryView for exporting browser history http://www.nirsoft.net/utils/browsing_history_view.html
 This script is expected to work out of the box.
 
 ```bash
-powershell 2.* or 3.* | winpmem_mini_x64_rc2.exe 
+powershell 2.* or 3.* | winpmem_mini_x64_rc2.exe | BrowsingHistoryView64.exe | BrowsingHistoryView86.exe
 ```
 
 ## Usage
@@ -62,6 +64,12 @@ run Forensicator.ps1 <parameters>
 
 # Yes of course you can do all
 .\Forensicator.ps1 -EVTX EVTX -RAM RAM -log4j log4j
+
+# For Unattended Mode on Basic Usage
+.\Forensicator.ps1 -OPERATOR "Ebuka John" -CASE 01123 -TITLE "Ransomeware Infected Laptop" -LOCATION Nigeria -DEVICE AZUZ
+
+# You can use unattended mode for each of the other parameters
+.\Forensicator.ps1 -OPERATOR "Ebuka John" -CASE 01123 -TITLE "Ransomeware Infected Laptop" -LOCATION Nigeria -DEVICE AZUZ -EVTX EVTX -RAM RAM -log4j log4j
 
 ```
 
@@ -145,8 +153,20 @@ NOTE: The results are outputed in nice looking html files with an index file. <b
     3. LOG4J
     4. IIS LOGS
     5. TOMCAT LOGS
+    6. BROWSING HISTORY OF ALL USERS 
 
 ```
+
+##ChangeLog
+```bash
+29/03/2022 
+Added unattended Mode Feature
+Added Ability to grab browsing history of all users
+2022
+Initial Release
+
+```
+
 ## Screenshot
 <img src="https://john.ng/wp-content/uploads/2022/02/Screenshot-2022-02-10-183038.png" alt="ebuka"  /> <br>
 <br></br>
