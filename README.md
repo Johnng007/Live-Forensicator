@@ -163,7 +163,7 @@ NOTE: The results are outputed in nice looking html files with an index file. <b
 Added unattended Mode Feature
 Added Ability to grab browsing history of all users
 
-2022
+28/01/2022
 Initial Release
 
 ```
