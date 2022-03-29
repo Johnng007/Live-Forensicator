@@ -162,6 +162,7 @@ NOTE: The results are outputed in nice looking html files with an index file. <b
 29/03/2022 
 Added unattended Mode Feature
 Added Ability to grab browsing history of all users
+Minor Bug Fix
 
 28/01/2022
 Initial Release
