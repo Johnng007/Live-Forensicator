@@ -20,17 +20,17 @@ ___________                                .__               __
 
 # ABOUT
 
-Live Forensicator is part of the Black Widow Toolbox, its aim is to assist Forensic Investigator and Incidence responders in carrying out a quick live forensic investigation.
+Live Forensicator is part of the Black Widow Toolbox, its aim is to assist Forensic Investigators and Incidence responders in carrying out a quick live forensic investigation.
 It achieves this by gathering different system information for further review for anomalous behaviour or unexpected data entry, it also looks out for unusual files or activities and points it out to the investigator.
 It is paramount to note that this script has no inbuilt intelligence its left for the investigator to analyse the output and decide on a conclusion or decide on carrying out more deeper investigation.
 
 ## Optional Dependencies
 
 This script is written in powershell for use on windows PCs and Servers. 
-For additional features it depends on external binaries.
-It has a supporting file WINPMEM for taking RAM dumps https://github.com/Velocidex/WinPmem
-It also depends on Nirsoft's BrowserHistoryView for exporting browser history http://www.nirsoft.net/utils/browsing_history_view.html
-This script is expected to work out of the box.
+<p>For additional features it depends on external binaries.</p>
+<p>It has a supporting file WINPMEM for taking RAM dumps https://github.com/Velocidex/WinPmem </p>
+<p>It also depends on Nirsoft's BrowserHistoryView for exporting browser history http://www.nirsoft.net/utils/browsing_history_view.html </p>
+<p>This script is expected to work out of the box. </p>
 
 ```bash
 powershell 2.* or 3.* | winpmem_mini_x64_rc2.exe | BrowsingHistoryView64.exe | BrowsingHistoryView86.exe
@@ -162,6 +162,7 @@ NOTE: The results are outputed in nice looking html files with an index file. <b
 29/03/2022 
 Added unattended Mode Feature
 Added Ability to grab browsing history of all users
+
 2022
 Initial Release
 
