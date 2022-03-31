@@ -71,7 +71,7 @@ run Forensicator.ps1 <parameters>
 # You can use unattended mode for each of the other parameters
 .\Forensicator.ps1 -OPERATOR "Ebuka John" -CASE 01123 -TITLE "Ransomeware Infected Laptop" -LOCATION Nigeria -DEVICE AZUZ -EVTX EVTX -RAM RAM -log4j log4j
 
-# You can compress the Forensicator output immidiately after execution Onliner
+# You can compress the Forensicator output immidiately after execution Oneliner
 .\Forensicator.ps1 ; Start-Sleep -s 15 ; Compress-Archive -Path "$env:computername" -DestinationPath "C:\inetpub\wwwroot\$env:computername.zip" -Force
 
 ```
