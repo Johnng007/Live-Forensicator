@@ -1275,3 +1275,5 @@ echo "<h3> Evidence gathered from  $env:computername  by  $operator at: $Endtime
 Write-Host -Fore DarkCyan '------------------------------------------------------------------------'
 Write-Host -Fore Cyan '        All Done... you can find the results in the script execution folder'
 Write-Host -Fore DarkCyan '------------------------------------------------------------------------'
+
+cd $PSScriptRoot
