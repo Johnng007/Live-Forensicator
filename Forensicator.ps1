@@ -251,7 +251,7 @@ Write-Host -Fore DarkCyan '-----------------------------------------------------
 
 $currentuser = Get-WMIObject -class Win32_ComputerSystem | select username | ConvertTo-Html -Fragment
 $systemname = Get-WmiObject -Class Win32_ComputerSystem | select Name, DNSHostName, Domain, Manufacturer, Model, PrimaryOwnerName, TotalPhysicalMemory, Workgroup   | ConvertTo-Html -Fragment 
-$useraccounts = Get-WmiObject -Class Win32_UserAccount  | Select-Object -Property AccountType,Domain,LocalAccount,Name,PasswordRequired,SID,SIDType | ConvertTo-Html -fragment
+#$useraccounts = Get-WmiObject -Class Win32_UserAccount  | Select-Object -Property AccountType,Domain,LocalAccount,Name,PasswordRequired,SID,SIDType | ConvertTo-Html -fragment
 $logonsession = Get-WmiObject -Class Win32_LogonSession | Select-Object -Property LogonID,LogonType,StartTime,  @{Name='Start Time';Expression={$_.ConvertToDateTime($_.starttime)}}  | ConvertTo-Html -fragment
 #######ADDITIONS
 $logonsession = query user | ConvertTo-Html -Fragment
@@ -973,7 +973,7 @@ $UserNav >> $UserDes
 echo "<h2><u>User(s) Information</u></h2>"                                                                | Out-File -Append $UserDes
 echo "<h3>Current User Information</h3><table>$currentuser</table><br>"                                   | Out-File -Append $UserDes
 echo "<h3>System Details</h3><table>$systemname</table><br>"                                              | Out-File -Append $UserDes
-echo "<h3>User Accounts</h3><table>$useraccounts</table><br>"                                             | Out-File -Append $UserDes
+#echo "<h3>User Accounts</h3><table>$useraccounts</table><br>"                                             | Out-File -Append $UserDes
 echo "<h3>Logon Sessions</h3><table>$logonsession</table><br>"                                            | Out-File -Append $UserDes
 echo "<h3>User Profile</h3><table>$userprofiles</table><br>"                                              | Out-File -Append $UserDes
 echo "<h3>Administrator Accounts</h3><table>$administrators</table><br>"                                  | Out-File -Append $UserDes
