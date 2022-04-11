@@ -181,7 +181,7 @@ Initial Release
 ```
 
 ## Screenshot
-<img src="https://john.ng/wp-content/uploads/2022/02/Screenshot-2022-02-10-183038.png" alt="ebuka"  /> <br>
+<img src="https://john.ng/wp-content/uploads/2022/04/NEW_FORENSICATOR_IMAGE.png" alt="Forensicator"  /> <br>
 <br></br>
 
 ## Contributing
