@@ -43,7 +43,7 @@ winpmem_mini_x64_rc2.exe | BrowsingHistoryView64.exe | BrowsingHistoryView86.exe
 git clone https://github.com/Johnng007/Live-Forensicator.git
 
 # Execution
-run Forensicator.ps1 <parameters>
+.\Forensicator.ps1 <parameters>
 
 ```
 
