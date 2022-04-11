@@ -33,7 +33,7 @@ This script is written in powershell for use on windows PCs and Servers.
 <p>This script is expected to work out of the box. </p>
 
 ```bash
-powershell 2.* or 3.* | winpmem_mini_x64_rc2.exe | BrowsingHistoryView64.exe | BrowsingHistoryView86.exe
+winpmem_mini_x64_rc2.exe | BrowsingHistoryView64.exe | BrowsingHistoryView86.exe
 ```
 
 ## Usage
