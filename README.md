@@ -176,7 +176,9 @@ NOTE: The results are outputed in nice looking html files with an index file. <b
 ```bash
 11/04/2022
 Added a feature to check for files that has similar extensions with known ransomeware encrypted files.
-YOU CAN NOW CHECK FOR UPDATES FROM WITHIN THE SCRIPT
+You can now check for updates within the script.
+UI update
+
 29/03/2022 
 Added unattended Mode Feature
 Added Ability to grab browsing history of all users
