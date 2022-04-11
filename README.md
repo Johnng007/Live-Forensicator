@@ -71,6 +71,9 @@ run Forensicator.ps1 <parameters>
 # You can use unattended mode for each of the other parameters
 .\Forensicator.ps1 -OPERATOR "Ebuka John" -CASE 01123 -TITLE "Ransomeware Infected Laptop" -LOCATION Nigeria -DEVICE AZUZ -EVTX EVTX -RAM RAM -log4j log4j
 
+# Check for files that has similar extensions with ransomeware encrypted files (can take some time to complete)
+.\Forensicator.ps1 -RANSOMEWARE RANSOMEWARE
+
 # You can compress the Forensicator output immidiately after execution Oneliner
 .\Forensicator.ps1 ; Start-Sleep -s 15 ; Compress-Archive -Path "$env:computername" -DestinationPath "C:\inetpub\wwwroot\$env:computername.zip" -Force
 
@@ -157,11 +160,16 @@ NOTE: The results are outputed in nice looking html files with an index file. <b
     4. IIS LOGS
     5. TOMCAT LOGS
     6. BROWSING HISTORY OF ALL USERS 
+    7. CHECK FOR FILES THAT HAS SIMILAR EXTENSIONS WITH KNOWN RANSOMEWARE ENCRYPTED FILES
+       NOTE: THIS CHECK CAN TAKE SOME TIME TO COMPLETE DEPENDING ON THE NUMBER OF DRIVES AND AMOUNT OF FILES.
 
 ```
 
 ##ChangeLog
 ```bash
+11/04/2022
+Added a feature to check for files that has similar extensions with known ransomeware encrypted files.
+YOU CAN NOW CHECK FOR UPDATES FROM WITHIN THE SCRIPT
 29/03/2022 
 Added unattended Mode Feature
 Added Ability to grab browsing history of all users
