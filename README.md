@@ -53,6 +53,12 @@ run Forensicator.ps1 <parameters>
 # Basic Usage
 .\Forensicator.ps1
 
+# Check for Version
+.\Forensicator.ps1 -Version
+
+# Check for Updates
+.\Forensicator.ps1 -Update
+
 # Extract Event Logs alongside Basic Usage
 .\Forensicator.ps1 -EVTX EVTX
 
