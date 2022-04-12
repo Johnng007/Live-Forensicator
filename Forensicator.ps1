@@ -705,7 +705,7 @@ echo "<h3><center> End Time and Date: $endtimecheck </h3><br>"                  
 
 Write-Host -Fore DarkCyan "[*] Collecting GPO Results"
 
-$GP = GPRESULT /H /F GPOReport.html
+$GP = GPRESULT /H GPOReport.html /F
 echo "<center><h3>Group Policy Report</h3><table><a href='GPOReport.html' target='_blank'>View the GPO report </a></table></center><br>"  | Out-File -Append $FinalDes
 
 Write-Host -Fore Cyan "[!] Done"
