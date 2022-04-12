@@ -309,7 +309,7 @@ $AdaptHops = Get-NetRoute | Where-Object -FilterScript {$_.NextHop -Ne "::"} | W
 
 $IpHops = Get-NetRoute | Where-Object -FilterScript { $_.ValidLifetime -Eq ([TimeSpan]::MaxValue) } | convertTo-Html -fragment
 
-Write-Host -Fore Cyan "[!] Network Information Gathering Completed"
+Write-Host -Fore Cyan "[!] Done"
 
 ##################################################
 # User & Account Information                     #
@@ -331,7 +331,7 @@ $administrators = Get-LocalGroupMember -Group "Administrators" | ConvertTo-Html 
 
 $LocalGroup = Get-LocalGroup | ConvertTo-Html -Fragment
 
-Write-Host -Fore Cyan "[!] User & Account Information Gathering Completed"
+Write-Host -Fore Cyan "[!] Done"
 
 ##################################################
 # Installed Programs                             #
@@ -343,7 +343,7 @@ $InstProgs = Get-CimInstance -ClassName win32_product | Select-Object Name, Vers
 
 $InstalledApps = Get-ItemProperty HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* | Select-Object DisplayName, DisplayVersion, Publisher, InstallDate | ConvertTo-Html -Fragment
 
-Write-Host -Fore Cyan "[!] Installed Programs Gathering Completed"
+Write-Host -Fore Cyan "[!] Done"
 
 ##################################################
 # System Info                                    #
@@ -367,7 +367,7 @@ $Hotfixes = Get-Hotfix | Select-Object -Property CSName, Caption,Description, Ho
 #Get Windows Defender Status
 $WinDefender = Get-MpComputerStatus | convertto-html -fragment
 
-Write-Host -Fore Cyan "[!] System Information Gathering Completed"
+Write-Host -Fore Cyan "[!] Done"
 
 ##################################################
 # Live Running Processes & Scheduled Tasks       #
@@ -391,7 +391,7 @@ $ScheduledTask2 = Get-ScheduledTask | ? State -eq running | Get-ScheduledTaskInf
 #Services
 $Services = Get-Service | Select-Object Name, DisplayName, Status, StartType | ConvertTo-Html -Fragment 
 
-Write-Host -Fore Cyan "[!] Gatthering of Processes and Tasks Completed"
+Write-Host -Fore Cyan "[!] Done"
 
 ##################################################
 # Settings from the Registry					 #
@@ -405,13 +405,13 @@ $RegRunOnce = Get-ItemProperty -Path HKLM:\Software\Microsoft\Windows\CurrentVer
 
 $RegRunOnceEx = Get-ItemProperty -Path HKLM:\Software\Microsoft\Windows\CurrentVersion\RunOnceEx | ConvertTo-Html -Fragment 
 
-Write-Host -Fore Cyan "[!] Registry Check Completed"
+Write-Host -Fore Cyan "[!] Done"
 
 ##################################################
 # Checking other worthwhiles					 #
 ##################################################
 
-Write-Host -Fore DarkCyan "[*] Running Other Final Checks"
+Write-Host -Fore DarkCyan "[*] Running Other Final Checks..."
 
 #Logical drives (current session)
 $LogicalDrives = get-wmiobject win32_logicaldisk | select DeviceID, DriveType, FreeSpace, Size, VolumeName | ConvertTo-Html -fragment
