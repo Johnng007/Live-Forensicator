@@ -33,7 +33,7 @@ This script is written in powershell for use on windows PCs and Servers.
 <p>This script is expected to work out of the box. </p>
 
 ```bash
-winpmem_mini_x64_rc2.exe | BrowsingHistoryView64.exe | BrowsingHistoryView86.exe
+winpmem_mini_x64_rc2.exe | BrowsingHistoryView64.exe | BrowsingHistoryView86.exe | etl2pcapng64.exe | etl2pcapng86.exe
 ```
 
 ## Usage
@@ -62,6 +62,12 @@ git clone https://github.com/Johnng007/Live-Forensicator.git
 # Extract Event Logs alongside Basic Usage
 .\Forensicator.ps1 -EVTX EVTX
 
+#Grab weblogs IIS & Apache
+.\Forensicator.ps1 -WEBLOGS WEBLOGS
+
+#Run Network Tracing & Capture PCAPNG
+.\Forensicator.ps1 -PCAP PCAP
+
 # Extract RAM Dump alongside Basic Usage
 .\Forensicator.ps1 -RAM RAM
 
@@ -88,7 +94,8 @@ git clone https://github.com/Johnng007/Live-Forensicator.git
 NOTE: Run the script as an administrator to get value.<br>
 NOTE: The results are outputed in nice looking html files with an index file. <br>
       You can find all extracted Artifacts in the script's working directory.
-<p>Forensicator Has the ability to Search through all the folders within a system looking for files with similar extensions as well known Ransomewares Albeit this search takes long but its helpful if the Alert you recieved is related to a Ransomeware attack, Use the -RANSOMEWARE Parameter to invoke this.</p>
+<p>Forensicator Has the ability to Search through all the folders within a system looking for files with similar extensions as well known Ransomewares, Albeit this search takes long but its helpful if the Alert you recieved is related to a Ransomeware attack, Use the -RANSOMEWARE Parameter to invoke this.</p>
+<p>Forensictor now hs the ability to capture network traffic using netsh trace, this is useful when your investigation has to do with asset communicating with known malicious IPs, this way you can parse the pcapng file to wireshark and examine for C&C servers.</p> 
 
 ## Features
 ```bash
@@ -169,11 +176,17 @@ NOTE: The results are outputed in nice looking html files with an index file. <b
     6. BROWSING HISTORY OF ALL USERS 
     7. CHECK FOR FILES THAT HAS SIMILAR EXTENSIONS WITH KNOWN RANSOMEWARE ENCRYPTED FILES
        NOTE: THIS CHECK CAN TAKE SOME TIME TO COMPLETE DEPENDING ON THE NUMBER OF DRIVES AND AMOUNT OF FILES.
+    8. RUNS NETWORK TRACING USING NETSH TRACE & CONVERTS TO PCAPNG FOR FURTHER ANALYSIS
 
 ```
 
 ##ChangeLog
 ```bash
+14/04/2022
+Added Ability perform network tracing using netsh trace, the subsequent et1 is converted to pcapng
+Minor Bug Fixes in Script Update.
+Added Weblogs as an option parameter.
+
 11/04/2022
 Added a feature to check for files that has similar extensions with known ransomeware encrypted files.
 You can now check for updates within the script.
