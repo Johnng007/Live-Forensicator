@@ -95,7 +95,7 @@ NOTE: Run the script as an administrator to get value.<br>
 NOTE: The results are outputed in nice looking html files with an index file. <br>
       You can find all extracted Artifacts in the script's working directory.
 <p>Forensicator Has the ability to Search through all the folders within a system looking for files with similar extensions as well known Ransomewares, Albeit this search takes long but its helpful if the Alert you recieved is related to a Ransomeware attack, Use the -RANSOMEWARE Parameter to invoke this.</p>
-<p>Forensictor now hs the ability to capture network traffic using netsh trace, this is useful when your investigation has to do with asset communicating with known malicious IPs, this way you can parse the pcapng file to wireshark and examine for C&C servers.</p> 
+<p>Forensictor now hs the ability to capture network traffic using netsh trace, this is useful when your investigation has to do with asset communicating with known malicious IPs, this way you can parse the pcapng file to wireshark and examine for C&C servers. By Defult i set the capture to take 120secs</p> 
 
 ## Features
 ```bash
