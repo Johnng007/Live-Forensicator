@@ -182,22 +182,22 @@ NOTE: The results are outputed in nice looking html files with an index file. <b
 
 ##ChangeLog
 ```bash
-14/04/2022
+v1.4 14/04/2022
 Added Ability perform network tracing using netsh trace, the subsequent et1 is converted to pcapng
 Minor Bug Fixes in Script Update.
 Added Weblogs as an option parameter.
 
-11/04/2022
+v1.3 11/04/2022
 Added a feature to check for files that has similar extensions with known ransomeware encrypted files.
 You can now check for updates within the script.
 UI update
 
-29/03/2022 
+v1.2 29/03/2022 
 Added unattended Mode Feature
 Added Ability to grab browsing history of all users
 Minor Bug Fix
 
-28/01/2022
+v1 28/01/2022
 Initial Release
 
 ```
