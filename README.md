@@ -204,6 +204,7 @@ Initial Release
 
 ## Screenshot
 <img src="https://john.ng/wp-content/uploads/2022/04/NEW_FORENSICATOR_IMAGE.png" alt="Forensicator"  /> <br>
+## HTML Output
 <img src="https://john.ng/wp-content/uploads/2022/04/HTML-VIEW-FORENSICATOR.png" alt="Forensicator"  /> <br>
 <br></br>
 
