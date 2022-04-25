@@ -59,13 +59,16 @@ git clone https://github.com/Johnng007/Live-Forensicator.git
 # Check for Updates
 .\Forensicator.ps1 -Update
 
+# Decrypt An Encrypted Artifact
+.\Forensicator.ps1 -DECRYPT DECRYPT
+
 # Extract Event Logs alongside Basic Usage
 .\Forensicator.ps1 -EVTX EVTX
 
 #Grab weblogs IIS & Apache
 .\Forensicator.ps1 -WEBLOGS WEBLOGS
 
-#Run Network Tracing & Capture PCAPNG
+#Run Network Tracing & Capture PCAPNG for 120 secounds
 .\Forensicator.ps1 -PCAP PCAP
 
 # Extract RAM Dump alongside Basic Usage
@@ -74,8 +77,11 @@ git clone https://github.com/Johnng007/Live-Forensicator.git
 # Check for log4j with the JNDILookup.class
 .\Forensicator.ps1 -log4j log4j
 
+# Encrypt Artifact after collecting it
+.\Forensicator.ps1 -ENCRYPTED ENCRYPTED
+
 # Yes of course you can do all
-.\Forensicator.ps1 -EVTX EVTX -RAM RAM -log4j log4j
+.\Forensicator.ps1 -EVTX EVTX -RAM RAM -log4j log4j -PCAP PCAP -WEBLOGS WEBLOGS
 
 # For Unattended Mode on Basic Usage
 .\Forensicator.ps1 -OPERATOR "Ebuka John" -CASE 01123 -TITLE "Ransomeware Infected Laptop" -LOCATION Nigeria -DEVICE AZUZ
