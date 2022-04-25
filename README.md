@@ -53,7 +53,7 @@ git clone https://github.com/Johnng007/Live-Forensicator.git
 # Basic
 .\Forensicator.ps1
 
-# Check for Version
+# Check your Version
 .\Forensicator.ps1 -Version
 
 # Check for Updates
