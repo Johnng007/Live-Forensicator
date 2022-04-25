@@ -50,7 +50,7 @@ git clone https://github.com/Johnng007/Live-Forensicator.git
 ## Examples
 
 ```python
-# Basic Usage
+# Basic
 .\Forensicator.ps1
 
 # Check for Version
