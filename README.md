@@ -91,13 +91,16 @@ git clone https://github.com/Johnng007/Live-Forensicator.git
 
 ```
 
-NOTE: Run the script as an administrator to get value.<br>
-NOTE: The results are outputed in nice looking html files with an index file. <br>
-      You can find all extracted Artifacts in the script's working directory.
+## Notes
+Run the script as an administrator to get value.<br>
+The results are outputed in nice looking html files with an index file. <br>
+You can find all extracted Artifacts in the script's working directory.
 <p>Forensicator Has the ability to Search through all the folders within a system looking for files with similar extensions as well known Ransomewares, Albeit this search takes long but its helpful if the Alert you recieved is related to a Ransomeware attack, Use the -RANSOMEWARE Parameter to invoke this.</p>
 <p>Forensictor now hs the ability to capture network traffic using netsh trace, this is useful when your investigation has to do with asset communicating with known malicious IPs, this way you can parse the pcapng file to wireshark and examine for C&C servers. By Defult i set the capture to take 120secs</p> 
+<p>Sometimes it may be paramount to maintain the integrity of the Artifacts, where lawyers may argue that it might have been compromised on transit to your lab
+Forensicator can now encrypt the Artifact with a unique randomely generated key using AES algorithm, you can specify this by using the -ENCRYPTED parameter. You can decrypt it at will anywhere anytime even with another copy of Forensicator, just keep your key safe.</p>
 
-## Features
+## What Forensicator Grabs
 ```bash
 
    =================================
@@ -182,6 +185,10 @@ NOTE: The results are outputed in nice looking html files with an index file. <b
 
 ##ChangeLog
 ```bash
+v2.0 25/04/2022
+Minor Bug Fixes
+Added the possiblity of encrypting the Artifact after acquiring it to maintain integrity.
+
 v1.4 14/04/2022
 Added Ability perform network tracing using netsh trace, the subsequent et1 is converted to pcapng
 Minor Bug Fixes in Script Update.
