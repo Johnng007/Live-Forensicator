@@ -307,7 +307,7 @@ $ProcDes = 'processes.html'
 # Setting Other Checks Output
 $OtherDes = 'others.html'
 
-Write-Host -Fore DarkCyan "[*] Gatthering Network & Network Settings"
+Write-Host -Fore DarkCyan "[*] Gathering Network & Network Settings"
 
 ##################################################
 #region Network Information and Settings         #
@@ -398,7 +398,7 @@ Write-Host -Fore Cyan "[!] Done"
 #region Installed Programs                       #
 ##################################################
 
-Write-Host -Fore DarkCyan "[*] Gatthering Installed Programs"
+Write-Host -Fore DarkCyan "[*] Gathering Installed Programs"
 
 $InstProgs = Get-CimInstance -ClassName win32_product | Select-Object Name, Version, Vendor, InstallDate, InstallSource, PackageName, LocalPackage | ConvertTo-Html -Fragment
 
@@ -413,7 +413,7 @@ Write-Host -Fore Cyan "[!] Done"
 #region System Info                              #
 ##################################################
 
-Write-Host -Fore DarkCyan "[*] Gatthering System Information"
+Write-Host -Fore DarkCyan "[*] Gathering System Information"
 
 #Environment Settings
 $env = Get-ChildItem ENV: | select name, value | convertto-html -fragment 
