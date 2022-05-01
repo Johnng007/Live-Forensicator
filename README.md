@@ -84,13 +84,13 @@ git clone https://github.com/Johnng007/Live-Forensicator.git
 .\Forensicator.ps1 -EVTX EVTX -RAM RAM -log4j log4j -PCAP PCAP -WEBLOGS WEBLOGS
 
 # For Unattended Mode on Basic Usage
-.\Forensicator.ps1 -OPERATOR "Ebuka John" -CASE 01123 -TITLE "Ransomeware Infected Laptop" -LOCATION Nigeria -DEVICE AZUZ
+.\Forensicator.ps1 -OPERATOR "Ebuka John" -CASE 01123 -TITLE "Ransomware Infected Laptop" -LOCATION Nigeria -DEVICE AZUZ
 
 # You can use unattended mode for each of the other parameters
-.\Forensicator.ps1 -OPERATOR "Ebuka John" -CASE 01123 -TITLE "Ransomeware Infected Laptop" -LOCATION Nigeria -DEVICE AZUZ -EVTX EVTX -RAM RAM -log4j log4j
+.\Forensicator.ps1 -OPERATOR "Ebuka John" -CASE 01123 -TITLE "Ransomware Infected Laptop" -LOCATION Nigeria -DEVICE AZUZ -EVTX EVTX -RAM RAM -log4j log4j
 
-# Check for files that has similar extensions with ransomeware encrypted files (can take some time to complete)
-.\Forensicator.ps1 -RANSOMEWARE RANSOMEWARE
+# Check for files that has similar extensions with ransomware encrypted files (can take some time to complete)
+.\Forensicator.ps1 -RANSOMWARE RANSOMWARE
 
 # You can compress the Forensicator output immidiately after execution Oneliner
 .\Forensicator.ps1 ; Start-Sleep -s 15 ; Compress-Archive -Path "$env:computername" -DestinationPath "C:\inetpub\wwwroot\$env:computername.zip" -Force
@@ -101,7 +101,7 @@ git clone https://github.com/Johnng007/Live-Forensicator.git
 Run the script as an administrator to get value.<br>
 The results are outputed in nice looking html files with an index file. <br>
 You can find all extracted Artifacts in the script's working directory.
-<p>Forensicator Has the ability to Search through all the folders within a system looking for files with similar extensions as well known Ransomewares, Albeit this search takes long but its helpful if the Alert you recieved is related to a Ransomeware attack, Use the -RANSOMEWARE Parameter to invoke this.</p>
+<p>Forensicator Has the ability to Search through all the folders within a system looking for files with similar extensions as well known Ransomwares, Albeit this search takes long but its helpful if the Alert you recieved is related to a Ransomware attack, Use the -RANSOMWARE Parameter to invoke this.</p>
 <p>Forensictor now hs the ability to capture network traffic using netsh trace, this is useful when your investigation has to do with asset communicating with known malicious IPs, this way you can parse the pcapng file to wireshark and examine for C&C servers. By Defult i set the capture to take 120secs</p> 
 <p>Sometimes it may be paramount to maintain the integrity of the Artifacts, where lawyers may argue that it might have been compromised on transit to your lab.
 Forensicator can now encrypt the Artifact with a unique randomely generated key using AES algorithm, you can specify this by using the -ENCRYPTED parameter. You can decrypt it at will anywhere anytime even with another copy of Forensicator, just keep your key safe. This task is performed by the FileCryptography.psm1 file</p>
@@ -183,7 +183,7 @@ Forensicator can now encrypt the Artifact with a unique randomely generated key 
     4. IIS LOGS
     5. TOMCAT LOGS
     6. BROWSING HISTORY OF ALL USERS 
-    7. CHECK FOR FILES THAT HAS SIMILAR EXTENSIONS WITH KNOWN RANSOMEWARE ENCRYPTED FILES
+    7. CHECK FOR FILES THAT HAS SIMILAR EXTENSIONS WITH KNOWN RANSOMWARE ENCRYPTED FILES
        NOTE: THIS CHECK CAN TAKE SOME TIME TO COMPLETE DEPENDING ON THE NUMBER OF DRIVES AND AMOUNT OF FILES.
     8. RUNS NETWORK TRACING USING NETSH TRACE & CONVERTS TO PCAPNG FOR FURTHER ANALYSIS
 
@@ -201,7 +201,7 @@ Minor Bug Fixes in Script Update.
 Added Weblogs as an option parameter.
 
 v1.3 11/04/2022
-Added a feature to check for files that has similar extensions with known ransomeware encrypted files.
+Added a feature to check for files that has similar extensions with known ransomware encrypted files.
 You can now check for updates within the script.
 UI update
 
