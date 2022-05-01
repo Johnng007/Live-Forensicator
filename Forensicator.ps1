@@ -279,8 +279,8 @@ Write-Host ''
 Write-Host ''
 Write-Host ''
 
-
-$currenttime = Get-Date -Format "dddd MM/dd/yyyy HH:mm K"
+$DateFormat = "yyyy'-'MM'-'dd HH':'mm':'ss'Z'"
+$currenttime = Get-Date -Format $DateFormat
 
 # creating a directory to store the artifacts of this host
 mkdir $env:computername -Force | Out-Null
@@ -526,7 +526,7 @@ $HiddenExecs4 = Get-ChildItem C:\Users\*\Documents\* -recurse  |  select  PSChil
 
 #End time date stamp
 
-$endtimecheck = Get-Date -Format "dddd MM/dd/yyyy HH:mm K"
+$endtimecheck = Get-Date -Format $DateFormat
 
 #endregion
 
