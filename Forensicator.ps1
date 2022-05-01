@@ -124,7 +124,7 @@ else {
 ##################################################
 
 ##################################################
-#region    START ARTIFACT DECRYPTION SWITCH      #
+#region    ARTIFACT DECRYPTION SWITCH            #
 ##################################################
 
 if ($DECRYPT) {
@@ -162,7 +162,7 @@ $Extension = ".forensicator"
 }
 
 ##################################################
-#endregion END ARTIFACT DECRYPTION SWITCH        #
+#endregion ARTIFACT DECRYPTION SWITCH            #
 ##################################################
 
 $ErrorActionPreference= 'silentlycontinue'
