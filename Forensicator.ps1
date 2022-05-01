@@ -1150,20 +1150,20 @@ $NetNav >> $NetDes
 
 
 echo "<h2><u>Network Information</u></h2>"'' >> $NetDes
-echo "<h3>Network Adapter Information</h3><table>$NetworkAdapter</table><br>"                                              | Out-File -Append $NetDes
-echo "<h3>Current IP Configuration</h3><table>$IPConfiguration</table><br>"                                                | Out-File -Append $NetDes
-echo "<h3>Network Adapter IP Addresses - IPv4 and v6</h3><table>$NetIPaddress</table><br>"                                 | Out-File -Append $NetDes
-echo "<h3>Current Connection Profiles</h3><table>$NetConnectProfile</table><br>"                                           | Out-File -Append $NetDes
-echo "<h3>Associated WiFi Networks and Passwords</h3><table>$WlanPasswords</table><br>"                                    | Out-File -Append $NetDes
-echo "<h3>Address Resolution Protocol Cache</h3><table>$NetNeighbor</table><br>"                                           | Out-File -Append $NetDes
-echo "<h3>Current TCP Connections and Associated Processes</h3><table>$NetTCPConnect</table><br>"                          | Out-File -Append $NetDes
-echo "<h3>DNS Cache</h3><table>$DNSCache</table><br>"                                                                      | Out-File -Append $NetDes
-echo "<h3>Current Firewall Rules</h3><table>$FirewallProfile</table><br>"                                                  | Out-File -Append $NetDes
-echo "<h3>Active SMB sessions (if this device is a server)</h3><table>$SMBSessions</table><br>"                            | Out-File -Append $NetDes
-echo "<h3>Active SMB Shares on this device</h3><table>$SMBShares</table><br>"                                              | Out-File -Append $NetDes
-echo "<h3>IP Routes to non local Destinations</h3><table>$NetHops</table><br>"                                             | Out-File -Append $NetDes
-echo "<h3>Network Adapters with IP Routes to non Local Destination</h3><table>$AdaptHops</table><br>"                      | Out-File -Append $NetDes
-echo "<h3>IP Routes with infinite valid lifetime</h3><table>$IpHops</table><br>"                                           | Out-File -Append $NetDes
+if ($NetworkAdapter) {echo "<h3>Network Adapter Information</h3><table>$NetworkAdapter</table><br>"                                              | Out-File -Append $NetDes}
+if ($IPConfiguration) {echo "<h3>Current IP Configuration</h3><table>$IPConfiguration</table><br>"                                                | Out-File -Append $NetDes}
+if ($NetIPaddress) {echo "<h3>Network Adapter IP Addresses - IPv4 and v6</h3><table>$NetIPaddress</table><br>"                                 | Out-File -Append $NetDes}
+if ($NetConnectProfile) {echo "<h3>Current Connection Profiles</h3><table>$NetConnectProfile</table><br>"                                           | Out-File -Append $NetDes}
+if ($WlanPasswords) {echo "<h3>Associated WiFi Networks and Passwords</h3><table>$WlanPasswords</table><br>"                                    | Out-File -Append $NetDes}
+if ($NetNeighbor) {echo "<h3>Address Resolution Protocol Cache</h3><table>$NetNeighbor</table><br>"                                           | Out-File -Append $NetDes}
+if ($NetTCPConnect) {echo "<h3>Current TCP Connections and Associated Processes</h3><table>$NetTCPConnect</table><br>"                          | Out-File -Append $NetDes}
+if ($DNSCache) {echo "<h3>DNS Cache</h3><table>$DNSCache</table><br>"                                                                      | Out-File -Append $NetDes}
+if ($FirewallProfile) {echo "<h3>Current Firewall Rules</h3><table>$FirewallProfile</table><br>"                                                  | Out-File -Append $NetDes}
+if ($SMBSessions) {echo "<h3>Active SMB sessions (if this device is a server)</h3><table>$SMBSessions</table><br>"                            | Out-File -Append $NetDes}
+if ($SMBShares) {echo "<h3>Active SMB Shares on this device</h3><table>$SMBShares</table><br>"                                              | Out-File -Append $NetDes}
+if ($NetHops) {echo "<h3>IP Routes to non local Destinations</h3><table>$NetHops</table><br>"                                             | Out-File -Append $NetDes}
+if ($AdaptHops) {echo "<h3>Network Adapters with IP Routes to non Local Destination</h3><table>$AdaptHops</table><br>"                      | Out-File -Append $NetDes}
+if ($IpHops) {echo "<h3>IP Routes with infinite valid lifetime</h3><table>$IpHops</table><br>"                                           | Out-File -Append $NetDes}
 
 
 
@@ -1251,14 +1251,14 @@ $UserNav >> $UserDes
 
 
 echo "<h2><u>User(s) Information</u></h2>"                                                                | Out-File -Append $UserDes
-echo "<h3>Current User Information</h3><table>$currentuser</table><br>"                                   | Out-File -Append $UserDes
-echo "<h3>System Details</h3><table>$systemname</table><br>"                                              | Out-File -Append $UserDes
-#echo "<h3>User Accounts</h3><table>$useraccounts</table><br>"                                             | Out-File -Append $UserDes
-echo "<h3>Logon Sessions</h3><table>$logonsession</table><br>"                                            | Out-File -Append $UserDes
-echo "<h3>User Profile</h3><table>$userprofiles</table><br>"                                              | Out-File -Append $UserDes
-echo "<h3>Administrator Accounts</h3><table>$administrators</table><br>"                                  | Out-File -Append $UserDes
-echo "<h3>Local Groups</h3><table>$LocalGroup</table><br>"                                                | Out-File -Append $UserDes
-#echo "<h3>DNS Cache</h3><table>$DNSCache</table><br>"                                                     | Out-File -Append $UserDes
+if ($currentuser) {echo "<h3>Current User Information</h3><table>$currentuser</table><br>"                                   | Out-File -Append $UserDes}
+if ($systemname) {echo "<h3>System Details</h3><table>$systemname</table><br>"                                              | Out-File -Append $UserDes}
+#if ($DNSCache) {echo "<h3>User Accounts</h3><table>$useraccounts</table><br>"                                             | Out-File -Append $UserDes}
+if ($logonsession) {echo "<h3>Logon Sessions</h3><table>$logonsession</table><br>"                                            | Out-File -Append $UserDes}
+if ($userprofiles) {echo "<h3>User Profile</h3><table>$userprofiles</table><br>"                                              | Out-File -Append $UserDes}
+if ($administrators) {echo "<h3>Administrator Accounts</h3><table>$administrators</table><br>"                                  | Out-File -Append $UserDes}
+if ($LocalGroup) {echo "<h3>Local Groups</h3><table>$LocalGroup</table><br>"                                                | Out-File -Append $UserDes}
+#if ($DNSCache) {echo "<h3>DNS Cache</h3><table>$DNSCache</table><br>"                                                     | Out-File -Append $UserDes}
 
 
 
@@ -1346,13 +1346,13 @@ $SysNav >> $SysDes
 
 
 echo "<h2><u>System Information</u></h2>"                                                           | Out-File -Append $SysDes
-echo "<h3>Installed Programs</h3><table>$InstProgs</table><br>"                                     | Out-File -Append $SysDes
-echo "<h3>Installed Programs - From Registry</h3><table>$InstalledApps</table><br>"                 | Out-File -Append $SysDes
-echo "<h3>Environment Variables</h3><table>$env</table><br>"                                        | Out-File -Append $SysDes
-echo "<h3>System Information</h3><table>$systeminfo</table><br>"                                    | Out-File -Append $SysDes
-echo "<h3>Operating System Information</h3><table>$OSinfo</table><br>"                              | Out-File -Append $SysDes
-echo "<h3>Hotfixes</h3><table>$Hotfixes</table><br>"                                                | Out-File -Append $SysDes
-echo "<h3>Windows Defender Status</h3><table>$WinDefender</table><br>"                              | Out-File -Append $SysDes
+if ($InstProgs) {echo "<h3>Installed Programs</h3><table>$InstProgs</table><br>"                                     | Out-File -Append $SysDes}
+if ($InstProgs) {echo "<h3>Installed Programs - From Registry</h3><table>$InstalledApps</table><br>"                 | Out-File -Append $SysDes}
+if ($InstProgs) {echo "<h3>Environment Variables</h3><table>$env</table><br>"                                        | Out-File -Append $SysDes}
+if ($InstProgs) {echo "<h3>System Information</h3><table>$systeminfo</table><br>"                                    | Out-File -Append $SysDes}
+if ($InstProgs) {echo "<h3>Operating System Information</h3><table>$OSinfo</table><br>"                              | Out-File -Append $SysDes}
+if ($InstProgs) {echo "<h3>Hotfixes</h3><table>$Hotfixes</table><br>"                                                | Out-File -Append $SysDes}
+if ($InstProgs) {echo "<h3>Windows Defender Status</h3><table>$WinDefender</table><br>"                              | Out-File -Append $SysDes}
 
 
 
@@ -1440,15 +1440,15 @@ $ProcNav >> $ProcDes
 
 
 echo "<h2><u>PROCESSES | SCHEDULED TASK | REGISTRY</u></h2>"                                     | Out-File -Append $ProcDes
-echo "<h3>Processes</h3><table>$Processes</table><br>"                                           | Out-File -Append $ProcDes
-echo "<h3>Startup Programs</h3><table>$StartupProgs</table><br>"                                 | Out-File -Append $ProcDes
-echo "<h3>Scheduled Task</h3><table>$ScheduledTask</table><br>"                                  | Out-File -Append $ProcDes
-echo "<h3>Scheduled Task & State</h3><table>$ScheduledTask2</table><br>"                         | Out-File -Append $ProcDes
-echo "<h3>Services</h3><table>$Services</table><br>"                                             | Out-File -Append $ProcDes
-echo "<h3>Services Detailed</h3><table>$Services2</table><br>"                                   | Out-File -Append $ProcDes
-echo "<h3>Persistance in Registry</h3><table>$RegRun</table><br>"                                | Out-File -Append $ProcDes
-echo "<h3>Persistance in Registry</h3><table>$RegRunOnce</table><br>"                            | Out-File -Append $ProcDes
-echo "<h3>Persistance in Registry</h3><table>$RegRunOnceEx</table><br>"                          | Out-File -Append $ProcDes
+if ($Processes) {echo "<h3>Processes</h3><table>$Processes</table><br>"                                           | Out-File -Append $ProcDes}
+if ($StartupProgs) {echo "<h3>Startup Programs</h3><table>$StartupProgs</table><br>"                                 | Out-File -Append $ProcDes}
+if ($ScheduledTask) {echo "<h3>Scheduled Task</h3><table>$ScheduledTask</table><br>"                                  | Out-File -Append $ProcDes}
+if ($ScheduledTask2) {echo "<h3>Scheduled Task & State</h3><table>$ScheduledTask2</table><br>"                         | Out-File -Append $ProcDes}
+if ($Services) {echo "<h3>Services</h3><table>$Services</table><br>"                                             | Out-File -Append $ProcDes}
+if ($Services2) {echo "<h3>Services Detailed</h3><table>$Services2</table><br>"                                   | Out-File -Append $ProcDes}
+if ($RegRun) {echo "<h3>Persistance in Registry</h3><table>$RegRun</table><br>"                                | Out-File -Append $ProcDes}
+if ($RegRunOnce) {echo "<h3>Persistance in Registry</h3><table>$RegRunOnce</table><br>"                            | Out-File -Append $ProcDes}
+if ($RegRunOnceEx) {echo "<h3>Persistance in Registry</h3><table>$RegRunOnceEx</table><br>"                          | Out-File -Append $ProcDes}
 
 
 
@@ -1538,19 +1538,19 @@ $OtherNav >> $OtherDes
 
 
 echo "<h2><u>OTHER NOTABLE CHECKS</u></h2> "                                                         | Out-File -Append $OtherDes
-echo "<h3>Logical Drives</h3><table>$LogicalDrives</table><br> "                                     | Out-File -Append $OtherDes
-echo "<h3>Connected & Disconnected Webcams</h3><table>$Imagedevice</table><br> "                     | Out-File -Append $OtherDes
-echo "<h3>USB Devices</h3><table>$USBDevices</table><br>"                                            | Out-File -Append $OtherDes
-echo "<h3>UPNPDevices</h3><table>$UPNPDevices</table><br>"                                           | Out-File -Append $OtherDes
-echo "<h3>All Previously Connected Drives</h3><table>$UnknownDrives</table><br>"                     | Out-File -Append $OtherDes
-echo "<h3>All Files Created in the last 180days</h3><table>$LinkFiles</table><br>"                   | Out-File -Append $OtherDes
-echo "<h3>100Days Powershell History</h3><table>$PSHistory</table><br>"                              | Out-File -Append $OtherDes
-echo "<h3>Executables in the Downloads folder</h3><table>$Downloads</table><br>"                     | Out-File -Append $OtherDes
-echo "<h3>Executables In AppData</h3><table>$HiddenExecs1</table><br>"                               | Out-File -Append $OtherDes
-echo "<h3>Executables In Temp</h3><table>$HiddenExecs2</table><br>"                                  | Out-File -Append $OtherDes
-echo "<h3>Executables In Perflogs</h3><table>$HiddenExecs3</table><br>"                              | Out-File -Append $OtherDes
-echo "<h3>Executables In Documents Folder </h3><table>$HiddenExecs4</table><br>"                     | Out-File -Append $OtherDes
-echo "<h3>FILES WITH SAME EXTENTION AS WELL KNOWN RANSOMWARE ENCRYPTED FILES </h3><table>$FindFiles</table><br>"              | Out-File -Append $OtherDes
+if ($LogicalDrives) {echo "<h3>Logical Drives</h3><table>$LogicalDrives</table><br> "                                     | Out-File -Append $OtherDes}
+if ($Imagedevice) {echo "<h3>Connected & Disconnected Webcams</h3><table>$Imagedevice</table><br> "                     | Out-File -Append $OtherDes}
+if ($USBDevices) {echo "<h3>USB Devices</h3><table>$USBDevices</table><br>"                                            | Out-File -Append $OtherDes}
+if ($UPNPDevices) {echo "<h3>UPNPDevices</h3><table>$UPNPDevices</table><br>"                                           | Out-File -Append $OtherDes}
+if ($UnknownDrives) {echo "<h3>All Previously Connected Drives</h3><table>$UnknownDrives</table><br>"                     | Out-File -Append $OtherDes}
+if ($LinkFiles) {echo "<h3>All Files Created in the last 180days</h3><table>$LinkFiles</table><br>"                   | Out-File -Append $OtherDes}
+if ($PSHistory) {echo "<h3>100Days Powershell History</h3><table>$PSHistory</table><br>"                              | Out-File -Append $OtherDes}
+if ($Downloads) {echo "<h3>Executables in the Downloads folder</h3><table>$Downloads</table><br>"                     | Out-File -Append $OtherDes}
+if ($HiddenExecs1) {echo "<h3>Executables In AppData</h3><table>$HiddenExecs1</table><br>"                               | Out-File -Append $OtherDes}
+if ($HiddenExecs2) {echo "<h3>Executables In Temp</h3><table>$HiddenExecs2</table><br>"                                  | Out-File -Append $OtherDes}
+if ($HiddenExecs3) {echo "<h3>Executables In Perflogs</h3><table>$HiddenExecs3</table><br>"                              | Out-File -Append $OtherDes}
+if ($HiddenExecs4) {echo "<h3>Executables In Documents Folder </h3><table>$HiddenExecs4</table><br>"                     | Out-File -Append $OtherDes}
+if ($FindFiles) {echo "<h3>Files with same extension as well-known ransomware encrypted files </h3><table>$FindFiles</table><br>"              | Out-File -Append $OtherDes}
 
 
 '<br><br>' >> $OtherDes
