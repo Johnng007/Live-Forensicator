@@ -16,7 +16,7 @@ param(
 	[String]$TITLE,
 	[String]$LOCATION,
 	[String]$DEVICE,
-	[String]$RANSOMEWARE,
+	[String]$RANSOMWARE,
 	[String]$WEBLOGS,
 	[String]$PCAP,
 	[String]$ENCRYPTED,
@@ -815,12 +815,12 @@ Write-Host -Fore Cyan "[!] Done"
 #region  CHECKING FOR RANSOMWARE ENCRYPTED FILES    #######################################################
 ###########################################################################################################
 
-if ($RANSOMEWARE) {
+if ($RANSOMWARE) {
 	
-Write-Host -Fore DarkCyan "[*] Checking For Ransomeware Encrypted Files"
+Write-Host -Fore DarkCyan "[*] Checking For Ransomware Encrypted Files"
 Write-Host -Fore DarkCyan "[!] NOTE: This May Take a While Depending on the Number of Drives"
 
-#CHECKING FOR RANSOMEWARE ENCRYPTED FILES
+#CHECKING FOR RANSOMWARE ENCRYPTED FILES
 
 $Drives = Get-PSDrive -PSProvider 'FileSystem'
 
