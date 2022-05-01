@@ -532,7 +532,7 @@ $endtimecheck = Get-Date -Format $DateFormat
 
 
 ###########################################################################################################
-#region ############################ CREATING AND FORMATING THE HTML FILES  ################################
+#region ########################## CREATING AND FORMATTING THE HTML FILES  ################################
 ###########################################################################################################
 
 Write-Host -Fore DarkCyan "[*] Creating and Formatting our Index file"
