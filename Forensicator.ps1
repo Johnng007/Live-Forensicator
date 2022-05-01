@@ -27,7 +27,7 @@ param(
 )
 
 ##################################################
-#              Versioning & Update               #
+#region        Versioning & Update               #
 ##################################################
 
 $MyVersion = 'You are Currently Running v1.3'
@@ -120,13 +120,12 @@ else {
 
 
 ##################################################
-#          END Versioning & Update               #
-##################################################
-##################################################
-#          START ARTIFACT DECRYPTION SWITCH      #
+#endregion     Versioning & Update               #
 ##################################################
 
-
+##################################################
+#region    START ARTIFACT DECRYPTION SWITCH      #
+##################################################
 
 if ($DECRYPT) {
 	
@@ -140,7 +139,6 @@ else{
 $TargetPath = $PSScriptRoot + "\" + "$env:computername" + "\"	
 	
 }
-	
 
 	
 # Import FileCryptography module
@@ -163,17 +161,9 @@ $Extension = ".forensicator"
 	
 }
 
-
-
 ##################################################
-#          END ARTIFACT DECRYPTION SWITCH        #
+#endregion END ARTIFACT DECRYPTION SWITCH        #
 ##################################################
-
-
-
-
-
-
 
 $ErrorActionPreference= 'silentlycontinue'
 
@@ -206,8 +196,6 @@ else {
 write-host $t[$i] -NoNewline -ForegroundColor $c
 }
 
-
-
 Write-Host ''
 Write-Host -Fore DarkCyan   'Live Forensicator'
 Write-Host ''
@@ -220,7 +208,7 @@ Write-Host ''
 Write-Host ''
 
 #######################################################################
-##PARAMETER SETTINGS  #################################################
+#region PARAMETER SETTINGS  ###########################################
 #######################################################################
 #FOR OPERATOR
 
@@ -283,9 +271,9 @@ $Des = Read-Host -Prompt 'Enter description of device e.g. "Asus Laptop"'
 
 }
 
-################################################################
-## END PARAMETER SETTINGS ######################################
-################################################################
+#######################################################################
+#endregion END PARAMETER SETTINGS #####################################
+#######################################################################
 
 Write-Host ''
 Write-Host ''
@@ -322,7 +310,7 @@ $OtherDes = 'others.html'
 Write-Host -Fore DarkCyan "[*] Gatthering Network & Network Settings"
 
 ##################################################
-# Network Information and Settings               #
+#region Network Information and Settings         #
 ##################################################
 
 #Gets DNS cache. Replaces ipconfig /dislaydns
@@ -378,8 +366,11 @@ $IpHops = Get-NetRoute | Where-Object -FilterScript { $_.ValidLifetime -Eq ([Tim
 
 Write-Host -Fore Cyan "[!] Done"
 
+#endregion
+
+
 ##################################################
-# User & Account Information                     #
+#region User & Account Information               #
 ##################################################
 
 Write-Host -Fore DarkCyan "[*] Gathering User & Account Information"
@@ -400,8 +391,11 @@ $LocalGroup = Get-LocalGroup | ConvertTo-Html -Fragment
 
 Write-Host -Fore Cyan "[!] Done"
 
+#endregion
+
+
 ##################################################
-# Installed Programs                             #
+#region Installed Programs                       #
 ##################################################
 
 Write-Host -Fore DarkCyan "[*] Gatthering Installed Programs"
@@ -412,8 +406,11 @@ $InstalledApps = Get-ItemProperty HKLM:\Software\Wow6432Node\Microsoft\Windows\C
 
 Write-Host -Fore Cyan "[!] Done"
 
+#endregion
+
+
 ##################################################
-# System Info                                    #
+#region System Info                              #
 ##################################################
 
 Write-Host -Fore DarkCyan "[*] Gatthering System Information"
@@ -436,11 +433,14 @@ $WinDefender = Get-MpComputerStatus | convertto-html -fragment
 
 Write-Host -Fore Cyan "[!] Done"
 
+#endregion
+
+
 ##################################################
-# Live Running Processes & Scheduled Tasks       #
+#region Live Running Processes & Scheduled Tasks #
 ##################################################
 
-Write-Host -Fore DarkCyan "[*] Gatthering Processes and Tasks"
+Write-Host -Fore DarkCyan "[*] Gathering Processes and Tasks"
 
 
 $Processes = Get-Process | Select Handles, StartTime, PM, VM, SI, id, ProcessName, Path, Product, FileVersion | ConvertTo-Html -Fragment 
@@ -460,8 +460,11 @@ $Services = Get-Service | Select-Object Name, DisplayName, Status, StartType | C
 
 Write-Host -Fore Cyan "[!] Done"
 
+#endregion
+
+
 ##################################################
-# Settings from the Registry					 #
+#region Settings from the Registry			     #
 ##################################################
 
 Write-Host -Fore DarkCyan "[*] Checking Registry for persistance"
@@ -474,8 +477,11 @@ $RegRunOnceEx = Get-ItemProperty -Path HKLM:\Software\Microsoft\Windows\CurrentV
 
 Write-Host -Fore Cyan "[!] Done"
 
+#endregion
+
+
 ##################################################
-# Checking other worthwhiles					 #
+#region Checking other worthwhiles			     #
 ##################################################
 
 Write-Host -Fore DarkCyan "[*] Running Other Final Checks..."
@@ -522,10 +528,12 @@ $HiddenExecs4 = Get-ChildItem C:\Users\*\Documents\* -recurse  |  select  PSChil
 
 $endtimecheck = Get-Date -Format "dddd MM/dd/yyyy HH:mm K"
 
+#endregion
+
 
 ###########################################################################################################
-#################################### CREATING AND FRMATING THE HTML FILES  ################################
-##########################################################################################################
+#region ############################ CREATING AND FRMATING THE HTML FILES  ################################
+###########################################################################################################
 
 Write-Host -Fore DarkCyan "[*] Creating and Formatting our Index file"
 
@@ -723,9 +731,12 @@ echo "<h3><center> End Time and Date: $endtimecheck </h3><br>"                  
 
 '<br><br>' >> $FinalDes
 '<br><br>' >> $FinalDes
-#############################################################################################################
-########  VIEW USER GP RESULTS    ###########################################################################
-#############################################################################################################
+
+#endregion
+
+###########################################################################################################
+#region #######  VIEW USER GP RESULTS    ##################################################################
+###########################################################################################################
 # get GPO REsult if on domain
 
 Write-Host -Fore DarkCyan "[*] Collecting GPO Results"
@@ -735,9 +746,12 @@ echo "<center><h3>Group Policy Report</h3><table><a href='GPOReport.html' target
 
 Write-Host -Fore Cyan "[!] Done"
 
-#############################################################################################################
-########  MEMORY (RAM) CAPTURE    ###########################################################################
-#############################################################################################################
+#endregion
+
+
+###########################################################################################################
+#region  MEMORY (RAM) CAPTURE    ##########################################################################
+###########################################################################################################
 
 Write-Host -Fore DarkCyan "[*] Capturing The RAM"
 
@@ -778,7 +792,7 @@ Write-Host -Fore DarkCyan "[*] Extracting Browser History"
 #GETTING BROWSING History
 if ((gwmi win32_operatingsystem | select osarchitecture).osarchitecture -eq "64-bit"){
     
-& $PSScriptRoot\BrowsingHistoryView64.exe /sverhtml "BrowserHistry.html" /SaveDirect /HistorySource 1 /VisitTimeFilterType 1 /LoadIE 1 /LoadFirefox 1 /LoadChrome 1 /LoadSafari 1
+& $PSScriptRoot\BrowsingHistoryView64.exe /sverhtml "BrowserHistory.html" /SaveDirect /HistorySource 1 /VisitTimeFilterType 1 /LoadIE 1 /LoadFirefox 1 /LoadChrome 1 /LoadSafari 1
 echo "<center><h3>BROWSING HISTORY:</h3><table></table><a href='BrowserHistry.html'>View Browsing History</a></center><br>"     | Out-File -Append $FinalDes
 	
 }
@@ -786,7 +800,7 @@ else{
     
 & $PSScriptRoot\BrowsingHistoryView86.exe /sverhtml "BrowserHistry.html" /SaveDirect /HistorySource 1 /VisitTimeFilterType 1 /LoadIE 1 /LoadFirefox 1 /LoadChrome 1 /LoadSafari 1
 
-echo "<center><h3>BROWSEING HISTORY:</h3><table></table><a href='BrowserHistry.html'>View Browsing History</a></center><br>"     | Out-File -Append $FinalDes
+echo "<center><h3>BROWSING HISTORY:</h3><table></table><a href='BrowserHistry.html'>View Browsing History</a></center><br>"     | Out-File -Append $FinalDes
 }
 
 #Lets wait a while for this to finish
@@ -794,11 +808,12 @@ Start-Sleep -s 15
 
 Write-Host -Fore Cyan "[!] Done"
 
-#############################################################################################################
-########  CHECKING FOR RANSOMEWARE ENCRYPTED FILES    #######################################################
-#############################################################################################################
+#endregion
 
 
+###########################################################################################################
+#region  CHECKING FOR RANSOMEWARE ENCRYPTED FILES    ######################################################
+###########################################################################################################
 
 if ($RANSOMEWARE) {
 	
@@ -822,14 +837,11 @@ else {
 
 }
 
-#############################################################################################################
-#### NETWORK TRACE ##########################################################################################
-#############################################################################################################
+#endregion
 
-
-
-
-
+###########################################################################################################
+#region  NETWORK TRACE ####################################################################################
+###########################################################################################################
 
 if ($PCAP) {
 	
@@ -874,18 +886,16 @@ else {
 
 }
 
+#endregion
+
+###########################################################################################################
+#region NETWORK TRACE #####################################################################################
+###########################################################################################################
 
 
-
-
-############################################################################################################
-######NETWORK TRACE ########################################################################################
-############################################################################################################
-
-
-#############################################################################################################
-########  Export Event Logs       ###########################################################################
-#############################################################################################################
+###########################################################################################################
+#region  Export Event Logs       ##########################################################################
+###########################################################################################################
 
 
 
@@ -925,10 +935,8 @@ Foreach($log in $logArray)
 
     # Extract each log file listed in $logArray from the local server.
     wevtutil epl $log $destination
-
-    
-
 }
+
 Write-Host -Fore Cyan "[!] Done"
 # End Code
 
@@ -947,11 +955,11 @@ else {
 
 }
 
-
+#endregion
 
 
 ############################################################
-# GETTING HOLD OF IIS & APACHE WEBLOGS #####################
+#region GETTING HOLD OF IIS & APACHE WEBLOGS ###############
 ############################################################
 
 if ($WEBLOGS) {
@@ -976,10 +984,6 @@ else{
     echo "<center><h3>IIS Logs</h3><table></table><a href='IISLogs' >View IIS Logs</a></center><br>"           | Out-File -Append $FinalDes
 	
 }
-
-
-
-
 
 
 #checking for Tomcat and try to get log files
@@ -1015,30 +1019,17 @@ Else
     Write-Host -Fore DarkCyan "[!] Cannot find Tomcat install path in registry"
     
     }
-	
-
-
-   
 } 
 else {
 
 }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 #'<br><br>' >> $FinalDes
+
+#endregion
+
+
 #############################################################################################################
 ########  View Log4j Paths        ###########################################################################
 #############################################################################################################
@@ -1066,7 +1057,7 @@ else {
 
 #'<br><br>' >> $FinalDes
 #############################################################################################################
-########  FOOTER                  ###########################################################################
+#region   FOOTER                  ###########################################################################
 #############################################################################################################
 
 
@@ -1078,10 +1069,12 @@ echo "<h3> Evidence gathered from  $env:computername  by  $operator at: $Endtime
 
 Write-Host -Fore DarkCyan "[!] Hang on, the Forensicator is compiling your results"
 
+#endregion
+
 
 #############################################################################################################
-########  NETWORKS SECTION     ##############################################################################
-##############################################################################################################
+#region   NETWORKS SECTION     ##############################################################################
+#############################################################################################################
 
 # Making the head for network.html
 ConvertTo-Html -Head $head -Title "Live Forensic Output For $env:computername"  >$NetDes
@@ -1178,8 +1171,11 @@ echo "<h3>IP Routes with infinite valid lifetime</h3><table>$IpHops</table><br>"
 echo "<h3> Evidence gathered from  $env:computername  by  $operator at: $Endtimecheck with: <a href='https://github.com/Johnng007/Live-Forensicator' >Live Forensicator </a> </h3>" | Out-File -Append $NetDes
 '</center>' >> $NetDes
 
+#endregion
+
+
 #############################################################################################################
-########  USER & ACCOUNTS SECTION     #######################################################################
+#region   USER & ACCOUNTS SECTION     #######################################################################
 #############################################################################################################
 
 # Making the head for users.html
@@ -1271,8 +1267,10 @@ echo "<h3>Local Groups</h3><table>$LocalGroup</table><br>"                      
 echo "<h3> Evidence gathered from  $env:computername  by  $operator at: $Endtimecheck with: <a href='https://github.com/Johnng007/Live-Forensicator' >Live Forensicator </a> </h3>"  | Out-File -Append $UserDes
 '</center>' >> $UserDes
 
+#endregion
+
 #############################################################################################################
-########  INSTALLED PROGS | SYSTEM INFO    ##################################################################
+#region   INSTALLED PROGS | SYSTEM INFO    ##################################################################
 #############################################################################################################
 
 # Making the head for system.html
@@ -1363,8 +1361,10 @@ echo "<h3>Windows Defender Status</h3><table>$WinDefender</table><br>"          
 "'<h3> Evidence gathered from  $env:computername  by  $operator at: $Endtimecheck with: <a href='https://github.com/Johnng007/Live-Forensicator' >Live Forensicator </a> </h3>'" >>$SysDes
 '</center>' >> $SysDes
 
+#endregion
+
 #############################################################################################################
-########  PROCESSES | SCHEDULED TASK | REGISTRY    ##########################################################
+#region   PROCESSES | SCHEDULED TASK | REGISTRY    ##########################################################
 #############################################################################################################
 
 # Making the head for processes.html
@@ -1457,8 +1457,10 @@ echo "<h3>Persistance in Registry</h3><table>$RegRunOnceEx</table><br>"         
 echo "<h3> Evidence gathered from  $env:computername  by  $operator at: $Endtimecheck with: <a href='https://github.com/Johnng007/Live-Forensicator' >Live Forensicator </a> </h3>" | Out-File -Append $ProcDes
 '</center>' >> $ProcDes
 
+#endregion
+
 #############################################################################################################
-########              OHTER NOTABLE CHECKS         ##########################################################
+#region               OTHER NOTABLE CHECKS         ##########################################################
 #############################################################################################################
 
 # Making the head for others.html
@@ -1556,6 +1558,8 @@ echo "<h3> Evidence gathered from  $env:computername  by  $operator at: $Endtime
 '</center>' >> $OtherDes
 
 #cd $PSScriptRoot
+
+#endregion
 
 
 if ($ENCRYPTED) {
