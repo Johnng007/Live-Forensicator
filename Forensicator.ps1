@@ -32,7 +32,7 @@ param(
 $version_file = $PSScriptRoot + "\" + "Updated" + "\" + "version.txt"
 $current_version = $PSScriptRoot + "\" + "version.txt"
 
-$MyVersion = 'You are Currently Running v1.4'
+$MyVersion = 'You are Currently Running v2.0'
 
 if ($Version.IsPresent) {
   $MyVersion
@@ -141,7 +141,7 @@ ___________                                .__               __
  \___  / \____/|__|    \___  >___|  /____  >__|\___  >____  /__|  \____/|__|   
      \/                    \/     \/     \/        \/     \/                    
 
-                                                                          v1.4
+                                                                          v2.0
 
 "@
 
