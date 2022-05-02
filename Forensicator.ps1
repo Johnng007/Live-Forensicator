@@ -29,6 +29,8 @@ param(
 ##################################################
 #region        Versioning & Update               #
 ##################################################
+$version_file = $PSScriptRoot + "\" + "Updated" + "\" + "version.txt"
+$current_version = $PSScriptRoot + "\" + "version.txt"
 
 $MyVersion = 'You are Currently Running v1.3'
 
@@ -39,23 +41,16 @@ if ($Version.IsPresent) {
 
 
 if ($Update) {
-	
-Write-Host -Fore DarkCyan "[*] Downloading & Comparing Version Files"
+	Write-Host -Fore DarkCyan "[*] Downloading & Comparing Version Files"
+	New-Item -Name "Updated" -ItemType "directory" -Force | Out-Null
+	Set-Location Updated
 
-New-Item -Name "Updated" -ItemType "directory" -Force | Out-Null
+	$source = 'https://raw.githubusercontent.com/Johnng007/Live-Forensicator/main/version.txt'
 
-Set-Location Updated
+	$destination = 'version.txt'
 
-
-$source = 'https://raw.githubusercontent.com/Johnng007/Live-Forensicator/main/version.txt'
-
-$destination = 'version.txt'
-
-IF (((Test-NetConnection www.githubusercontent.com -Port 80 -InformationLevel "Detailed").TcpTestSucceeded) -eq $true)
-{
+if (((Test-NetConnection www.githubusercontent.com -Port 80 -InformationLevel "Detailed").TcpTestSucceeded) -eq $true) {
 	Invoke-WebRequest -Uri $source -OutFile $destination	
-	
-	
 }
 
 else {
@@ -63,22 +58,9 @@ else {
 	cd $PSScriptRoot
 	Remove-Item 'Updated' -Force -Recurse
 	exit 0
-	
-	
 }
 
-
-$version_file = $PSScriptRoot + "\" + "Updated" + "\" + "version.txt"
-
-
-
-$current_version = $PSScriptRoot + "\" + "version.txt"
-
-
-
-if((Get-FileHash $version_file).hash  -eq (Get-FileHash $current_version).hash)
-
- {
+if((Get-FileHash $version_file).hash  -eq (Get-FileHash $current_version).hash) {
 	 
 	Write-Host -Fore Cyan "[*] Congratualtion you have the current version"
 	cd $PSScriptRoot
@@ -86,37 +68,21 @@ if((Get-FileHash $version_file).hash  -eq (Get-FileHash $current_version).hash)
     exit
  }
 
-Else {
-	
+else {
 	Write-Host -Fore DarkCyan "[!] You have an outdated version, we are sorting that out..."
-	
-    $source = 'https://github.com/Johnng007/Live-Forensicator/archive/refs/heads/main.zip'
-    
+	$source = 'https://github.com/Johnng007/Live-Forensicator/archive/refs/heads/main.zip'
     $destination = 'Live-Forensicator-main.zip'
-    
     Invoke-WebRequest -Uri $source -OutFile $destination
-	
 	Write-Host -Fore DarkCyan "[*] Extracting the downloads....."
-	
 	Expand-Archive -Force $PSScriptRoot\Updated\Live-Forensicator-main.zip -DestinationPath $PSScriptRoot\Updated 
-	
 	Write-Host -Fore DarkCyan "[*] Cleaning Up...."
-	
 	Remove-Item -Path $PSScriptRoot\Updated\Live-Forensicator-main.zip -Force
-	
 	Remove-Item -Path $PSScriptRoot\Updated\version.txt -Force
-	
 	Write-Host -Fore Cyan "[*] All Done Enjoy the new version in the Updated Folder"
-	
 	cd $PSScriptRoot
 	exit 0
 	}	
-	
-	
-	} 
-else {
-
-}
+} 
 
 
 ##################################################
@@ -137,7 +103,6 @@ $TargetPath = Read-Host -Prompt 'Enter Path to the Encrypted File'
 }
 else{
 $TargetPath = $PSScriptRoot + "\" + "$env:computername" + "\"	
-	
 }
 
 	
@@ -176,7 +141,7 @@ ___________                                .__               __
  \___  / \____/|__|    \___  >___|  /____  >__|\___  >____  /__|  \____/|__|   
      \/                    \/     \/     \/        \/     \/                    
 
-                                                                          v1.4
+                                                                          v$current_version
 
 "@
 
@@ -280,7 +245,11 @@ Write-Host ''
 Write-Host ''
 
 $DateFormat = "yyyy'-'MM'-'dd HH':'mm':'ss'Z'"
+<<<<<<< Updated upstream
 $currenttime = Get-Date -Format $DateFormat
+=======
+$currenttime = Get-Date -Format $DateDateFormat
+>>>>>>> Stashed changes
 
 # creating a directory to store the artifacts of this host
 mkdir $env:computername -Force | Out-Null
@@ -512,6 +481,66 @@ $LinkFiles = Get-WmiObject Win32_ShortcutFile | select Filename, Caption, @{NAME
 
 $PSHistory = Get-History -count 100 | select id, commandline, startexecutiontime, endexecutiontime | ConvertTo-Html -fragment
 
+#region 'Powershell ConsoleHost_history.txt' and 'Visual Studio Code Host_history.txt'
+# Construct 'Powershell ConsoleHost_history.txt' and 'Visual Studio Code Host_history.txt' file paths
+$PSConsoleHostHistoryFilepathList = @{}
+$VSCodeHostHistoryFilepathList = @{}
+
+Get-LocalUser | foreach {
+    $LocalUsername = $_.Name
+        
+    # 'Powershell ConsoleHost_history.txt'
+    $PSConsoleHostHistoryFilepath = "C:\Users\$LocalUsername\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\" + 'ConsoleHost_history.txt'
+    if (gci $PSConsoleHostHistoryFilepath) {
+        $PSConsoleHostHistoryFilepathList.Add($LocalUsername,$PSConsoleHostHistoryFilepath)
+    }
+    
+    # 'Visual Studio Code Host_history.txt'
+    $VSCodeHostHistoryFilepath = "C:\Users\$LocalUsername\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\" + 'Visual Studio Code Host_history.txt'
+    if (gci $VSCodeHostHistoryFilepath) {
+        $VSCodeHostHistoryFilepathList.Add(@{Username=$LocalUsername;FilePath=$VSCodeHostHistoryFilepath})
+    }
+}
+
+# Grab existing 'Powershell ConsoleHost_history.txt'
+if ($PSConsoleHostHistoryFilepathList -eq $null){
+    Write-Host -Fore DarkCyan "[!] Cannot find any Powershell Console Host History File"
+}
+else {
+	#Create Powershell Console Host History log Dirs
+    $OutputFolderName = 'PSConsoleHostHistoryLogs'
+    mkdir $OutputFolderName | Out-Null
+    Foreach ($key in $PSConsoleHostHistoryFilepathList.keys) {
+        $Username = '{0}' -f $key
+        $SourceFilePath = '{0}' -f $PSConsoleHostHistoryFilepathList[$key]
+        Copy-Item -Path $SourceFilePath -Destination $OutputFolderName
+        Rename-Item -Path "$OutputFolderName\ConsoleHost_history.txt" -NewName "$Username--ConsoleHost_history.txt"
+    }
+    echo "<center><h3>Powershell Console Host History Logs</h3><table></table><a href='PSConsoleHostHistoryLogs' >View Powershell Console Host History Logs</a></center><br>"           | Out-File -Append $FinalDes
+	
+}
+
+# Grab existing 'Visual Studio Code Host_history.txt'
+if ($VSCodeHostHistoryFilepath -eq $null){
+    Write-Host -Fore DarkCyan "[!] Cannot find any Visual Studio Code Host History File"
+}
+else {
+	#Create Visual Studio Code Host History log Dirs
+    $OutputFolderName = 'VSCodeHostHistoryLogs'
+    mkdir $OutputFolderName | Out-Null
+    Foreach ($key in $VSCodeHostHistoryFilepath.keys) {
+        $Username = '{0}' -f $key
+        $SourceFilePath = '{0}' -f $VSCodeHostHistoryFilepath[$key]
+        Copy-Item -Path $SourceFilePath -Destination $OutputFolderName
+        Rename-Item -Path $($OutputFolderName + '\Visual Studio Code Host_history.txt') -NewName "$Username--Visual Studio Code Host_history.txt"
+    }
+    echo "<center><h3>Visual Studio Code Host History Logs</h3><table></table><a href='VSCodeHostHistoryLogs' >View Visual Studio Code Host History Logs</a></center><br>"           | Out-File -Append $FinalDes
+	
+}
+
+#endregion
+
+
 #All items in Downloads folder. This may cause an error if the script is run from an external USB or Network drive, even when
 $Downloads = Get-ChildItem C:\Users\*\Downloads\* -recurse  |  select  PSChildName, Root, Name, FullName, Extension, CreationTimeUTC, LastAccessTimeUTC, LastWriteTimeUTC, Attributes | where {$_.extension -eq '.exe'} | ConvertTo-Html -Fragment
 
@@ -526,7 +555,11 @@ $HiddenExecs4 = Get-ChildItem C:\Users\*\Documents\* -recurse  |  select  PSChil
 
 #End time date stamp
 
+<<<<<<< Updated upstream
 $endtimecheck = Get-Date -Format $DateFormat
+=======
+$endtimecheck = Get-Date -Format "yyyy'-'MM'-'dd HH':'mm':'ss'Z'"
+>>>>>>> Stashed changes
 
 #endregion
 
@@ -699,12 +732,6 @@ h1, h2, h3, h4, h5, h6, p{
 
 $BlackWidowStyle >> $FinalDes
 $BlackWidow >> $FinalDes
-
-
-
-
-
-
 $IndexNav >> $FinalDes
 
 '<br><br>' >> $FinalDes
@@ -778,9 +805,6 @@ Write-Host -Fore Cyan "[!] Done"
 echo "<center><h3>WINPMEM RAM CAPTURE:</h3><table></table><a href='RAM'>View RAM Capture</a></center><br>"     | Out-File -Append $FinalDes
 }
    
-
-
-
    
 } 
 else {
@@ -793,14 +817,14 @@ Write-Host -Fore DarkCyan "[*] Extracting Browser History"
 if ((gwmi win32_operatingsystem | select osarchitecture).osarchitecture -eq "64-bit"){
     
 & $PSScriptRoot\BrowsingHistoryView64.exe /sverhtml "BrowserHistory.html" /SaveDirect /HistorySource 1 /VisitTimeFilterType 1 /LoadIE 1 /LoadFirefox 1 /LoadChrome 1 /LoadSafari 1
-echo "<center><h3>BROWSING HISTORY:</h3><table></table><a href='BrowserHistry.html'>View Browsing History</a></center><br>"     | Out-File -Append $FinalDes
+echo "<center><h3>BROWSING HISTORY:</h3><table></table><a href='BrowserHistory.html'>View Browsing History</a></center><br>"     | Out-File -Append $FinalDes
 	
 }
 else{
     
-& $PSScriptRoot\BrowsingHistoryView86.exe /sverhtml "BrowserHistry.html" /SaveDirect /HistorySource 1 /VisitTimeFilterType 1 /LoadIE 1 /LoadFirefox 1 /LoadChrome 1 /LoadSafari 1
+& $PSScriptRoot\BrowsingHistoryView86.exe /sverhtml "BrowserHistory.html" /SaveDirect /HistorySource 1 /VisitTimeFilterType 1 /LoadIE 1 /LoadFirefox 1 /LoadChrome 1 /LoadSafari 1
 
-echo "<center><h3>BROWSING HISTORY:</h3><table></table><a href='BrowserHistry.html'>View Browsing History</a></center><br>"     | Out-File -Append $FinalDes
+echo "<center><h3>BROWSING HISTORY:</h3><table></table><a href='BrowserHistory.html'>View Browsing History</a></center><br>"     | Out-File -Append $FinalDes
 }
 
 #Lets wait a while for this to finish
@@ -862,7 +886,6 @@ Write-Host -Fore DarkCyan "[*] Converting to PCAP"
 
 if ((gwmi win32_operatingsystem | select osarchitecture).osarchitecture -eq "64-bit")
 {
-
     
 
 & $PSScriptRoot\etl2pcapng64.exe PCAP\$env:computername.et1 PCAP\$env:computername.pcap
@@ -998,7 +1021,7 @@ If ($ApacheRegKeyExists)
         {$FoundRegKey = Get-ItemProperty $_.pspath | Select InstallPath}
     }
 }
-Else
+else
 {
     Write-Host -Fore DarkCyan "[!] Cannot find Tomcat software keys in registry"
     
@@ -1012,7 +1035,7 @@ If ($FoundRegKey)
 	echo "<center><h3>TomCat Logs</h3><table></table><a href='TomCatLogs'>View TomCat Logs</a></center><br>"   | Out-File -Append $FinalDes
 	
     }
-Else
+else
     {
     Write-Host -Fore DarkCyan "[!] Cannot find Tomcat install path in registry"
     
@@ -1466,7 +1489,7 @@ echo "<h3> Evidence gathered from  $env:computername  by  $operator at: $Endtime
 #############################################################################################################
 
 # Making the head for others.html
-ConvertTo-Html -Head $head -Title "Live Forensic Output For $env:computername" >$OtherDes
+ConvertTo-Html -Head $head -Title "Live Forensic Output For $env:computername" > $OtherDes
 
 # Header style for System Page
 
@@ -1545,6 +1568,22 @@ if ($UPNPDevices) {echo "<h3>UPNPDevices</h3><table>$UPNPDevices</table><br>"   
 if ($UnknownDrives) {echo "<h3>All Previously Connected Drives</h3><table>$UnknownDrives</table><br>"                     | Out-File -Append $OtherDes}
 if ($LinkFiles) {echo "<h3>All Files Created in the last 180days</h3><table>$LinkFiles</table><br>"                   | Out-File -Append $OtherDes}
 if ($PSHistory) {echo "<h3>100Days Powershell History</h3><table>$PSHistory</table><br>"                              | Out-File -Append $OtherDes}
+<<<<<<< Updated upstream
+=======
+<#
+if ($PSConsoleHostHistoryFilepathList){
+    echo "<h3>Powershell Console Host History</h3><table>$PSConsoleHostHistory</table><br>"                         | Out-File -Append $OtherDes
+    $PSConsoleHostHistoryLogsFileList = gci -Path .\PSConsoleHostHistoryLogs\* | Select Name,FullName
+    $PSConsoleHostHistoryLogsFileList | ForEach-Object {
+        [string]$PSConsoleHostHistoryLogsFileName = $_.Name
+        [string]$PSConsoleHostHistoryLogsFilePath = $_.FullName
+        echo "<h4>$PSConsoleHostHistoryLogsFileName</h4><table>$(Get-Content $PSConsoleHostHistoryLogsFilePath.FullName | ConvertTo-HTML)</table><br>"                         | Out-File -Append $OtherDes    
+    }
+}
+
+if ($LogicalDrives) {echo "<h3>Visual Studio Code Host History</h3><table>$PSHistory</table><br>"                         | Out-File -Append $OtherDes}
+#>
+>>>>>>> Stashed changes
 if ($Downloads) {echo "<h3>Executables in the Downloads folder</h3><table>$Downloads</table><br>"                     | Out-File -Append $OtherDes}
 if ($HiddenExecs1) {echo "<h3>Executables In AppData</h3><table>$HiddenExecs1</table><br>"                               | Out-File -Append $OtherDes}
 if ($HiddenExecs2) {echo "<h3>Executables In Temp</h3><table>$HiddenExecs2</table><br>"                                  | Out-File -Append $OtherDes}
