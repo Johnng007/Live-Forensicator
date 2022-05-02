@@ -32,7 +32,7 @@ param(
 $version_file = $PSScriptRoot + "\" + "Updated" + "\" + "version.txt"
 $current_version = $PSScriptRoot + "\" + "version.txt"
 
-$MyVersion = 'You are Currently Running v1.3'
+$MyVersion = 'You are Currently Running v1.4'
 
 if ($Version.IsPresent) {
   $MyVersion
@@ -141,7 +141,7 @@ ___________                                .__               __
  \___  / \____/|__|    \___  >___|  /____  >__|\___  >____  /__|  \____/|__|   
      \/                    \/     \/     \/        \/     \/                    
 
-                                                                          v$current_version
+                                                                          v1.4
 
 "@
 
@@ -488,15 +488,16 @@ $VSCodeHostHistoryFilepathList = @{}
 
 Get-LocalUser | foreach {
     $LocalUsername = $_.Name
+    $PSReadlineFolderPath = "C:\Users\$LocalUsername\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\"
         
     # 'Powershell ConsoleHost_history.txt'
-    $PSConsoleHostHistoryFilepath = "C:\Users\$LocalUsername\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\" + 'ConsoleHost_history.txt'
+    $PSConsoleHostHistoryFilepath = $PSReadlineFolderPath + 'ConsoleHost_history.txt'
     if (gci $PSConsoleHostHistoryFilepath) {
         $PSConsoleHostHistoryFilepathList.Add($LocalUsername,$PSConsoleHostHistoryFilepath)
     }
     
     # 'Visual Studio Code Host_history.txt'
-    $VSCodeHostHistoryFilepath = "C:\Users\$LocalUsername\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\" + 'Visual Studio Code Host_history.txt'
+    $VSCodeHostHistoryFilepath = $PSReadlineFolderPath + 'Visual Studio Code Host_history.txt'
     if (gci $VSCodeHostHistoryFilepath) {
         $VSCodeHostHistoryFilepathList.Add(@{Username=$LocalUsername;FilePath=$VSCodeHostHistoryFilepath})
     }
