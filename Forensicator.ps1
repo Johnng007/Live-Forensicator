@@ -16,7 +16,7 @@ param(
 	[String]$TITLE,
 	[String]$LOCATION,
 	[String]$DEVICE,
-	[String]$RANSOMEWARE,
+	[String]$RANSOMWARE,
 	[String]$WEBLOGS,
 	[String]$PCAP,
 	[String]$ENCRYPTED,
@@ -27,10 +27,12 @@ param(
 )
 
 ##################################################
-#              Versioning & Update               #
+#region        Versioning & Update               #
 ##################################################
+$version_file = $PSScriptRoot + "\" + "Updated" + "\" + "version.txt"
+$current_version = $PSScriptRoot + "\" + "version.txt"
 
-$MyVersion = 'You are Currently Running v1.3'
+$MyVersion = 'You are Currently Running v2.0'
 
 if ($Version.IsPresent) {
   $MyVersion
@@ -39,23 +41,16 @@ if ($Version.IsPresent) {
 
 
 if ($Update) {
-	
-Write-Host -Fore DarkCyan "[*] Downloading & Comparing Version Files"
+	Write-Host -Fore DarkCyan "[*] Downloading & Comparing Version Files"
+	New-Item -Name "Updated" -ItemType "directory" -Force | Out-Null
+	Set-Location Updated
 
-New-Item -Name "Updated" -ItemType "directory" -Force | Out-Null
+	$source = 'https://raw.githubusercontent.com/Johnng007/Live-Forensicator/main/version.txt'
 
-Set-Location Updated
+	$destination = 'version.txt'
 
-
-$source = 'https://raw.githubusercontent.com/Johnng007/Live-Forensicator/main/version.txt'
-
-$destination = 'version.txt'
-
-IF (((Test-NetConnection www.githubusercontent.com -Port 80 -InformationLevel "Detailed").TcpTestSucceeded) -eq $true)
-{
+if (((Test-NetConnection www.githubusercontent.com -Port 80 -InformationLevel "Detailed").TcpTestSucceeded) -eq $true) {
 	Invoke-WebRequest -Uri $source -OutFile $destination	
-	
-	
 }
 
 else {
@@ -63,22 +58,9 @@ else {
 	cd $PSScriptRoot
 	Remove-Item 'Updated' -Force -Recurse
 	exit 0
-	
-	
 }
 
-
-$version_file = $PSScriptRoot + "\" + "Updated" + "\" + "version.txt"
-
-
-
-$current_version = $PSScriptRoot + "\" + "version.txt"
-
-
-
-if((Get-FileHash $version_file).hash  -eq (Get-FileHash $current_version).hash)
-
- {
+if((Get-FileHash $version_file).hash  -eq (Get-FileHash $current_version).hash) {
 	 
 	Write-Host -Fore Cyan "[*] Congratualtion you have the current version"
 	cd $PSScriptRoot
@@ -86,47 +68,30 @@ if((Get-FileHash $version_file).hash  -eq (Get-FileHash $current_version).hash)
     exit
  }
 
-Else {
-	
+else {
 	Write-Host -Fore DarkCyan "[!] You have an outdated version, we are sorting that out..."
-	
-    $source = 'https://github.com/Johnng007/Live-Forensicator/archive/refs/heads/main.zip'
-    
+	$source = 'https://github.com/Johnng007/Live-Forensicator/archive/refs/heads/main.zip'
     $destination = 'Live-Forensicator-main.zip'
-    
     Invoke-WebRequest -Uri $source -OutFile $destination
-	
 	Write-Host -Fore DarkCyan "[*] Extracting the downloads....."
-	
 	Expand-Archive -Force $PSScriptRoot\Updated\Live-Forensicator-main.zip -DestinationPath $PSScriptRoot\Updated 
-	
 	Write-Host -Fore DarkCyan "[*] Cleaning Up...."
-	
 	Remove-Item -Path $PSScriptRoot\Updated\Live-Forensicator-main.zip -Force
-	
 	Remove-Item -Path $PSScriptRoot\Updated\version.txt -Force
-	
 	Write-Host -Fore Cyan "[*] All Done Enjoy the new version in the Updated Folder"
-	
 	cd $PSScriptRoot
 	exit 0
 	}	
-	
-	
-	} 
-else {
-
-}
+} 
 
 
 ##################################################
-#          END Versioning & Update               #
-##################################################
-##################################################
-#          START ARTIFACT DECRYPTION SWITCH      #
+#endregion     Versioning & Update               #
 ##################################################
 
-
+##################################################
+#region    ARTIFACT DECRYPTION SWITCH            #
+##################################################
 
 if ($DECRYPT) {
 	
@@ -138,9 +103,7 @@ $TargetPath = Read-Host -Prompt 'Enter Path to the Encrypted File'
 }
 else{
 $TargetPath = $PSScriptRoot + "\" + "$env:computername" + "\"	
-	
 }
-	
 
 	
 # Import FileCryptography module
@@ -163,17 +126,9 @@ $Extension = ".forensicator"
 	
 }
 
-
-
 ##################################################
-#          END ARTIFACT DECRYPTION SWITCH        #
+#endregion ARTIFACT DECRYPTION SWITCH            #
 ##################################################
-
-
-
-
-
-
 
 $ErrorActionPreference= 'silentlycontinue'
 
@@ -186,7 +141,7 @@ ___________                                .__               __
  \___  / \____/|__|    \___  >___|  /____  >__|\___  >____  /__|  \____/|__|   
      \/                    \/     \/     \/        \/     \/                    
 
-                                                                          v1.4
+                                                                          v2.0
 
 "@
 
@@ -206,8 +161,6 @@ else {
 write-host $t[$i] -NoNewline -ForegroundColor $c
 }
 
-
-
 Write-Host ''
 Write-Host -Fore DarkCyan   'Live Forensicator'
 Write-Host ''
@@ -220,7 +173,7 @@ Write-Host ''
 Write-Host ''
 
 #######################################################################
-##PARAMETER SETTINGS  #################################################
+#region PARAMETER SETTINGS  ###########################################
 #######################################################################
 #FOR OPERATOR
 
@@ -283,16 +236,20 @@ $Des = Read-Host -Prompt 'Enter description of device e.g. "Asus Laptop"'
 
 }
 
-################################################################
-## END PARAMETER SETTINGS ######################################
-################################################################
+#######################################################################
+#endregion END PARAMETER SETTINGS #####################################
+#######################################################################
 
 Write-Host ''
 Write-Host ''
 Write-Host ''
 
-
-$currenttime = Get-Date -Format "dddd MM/dd/yyyy HH:mm K"
+$DateFormat = "yyyy'-'MM'-'dd HH':'mm':'ss'Z'"
+<<<<<<< Updated upstream
+$currenttime = Get-Date -Format $DateFormat
+=======
+$currenttime = Get-Date -Format $DateDateFormat
+>>>>>>> Stashed changes
 
 # creating a directory to store the artifacts of this host
 mkdir $env:computername -Force | Out-Null
@@ -319,10 +276,10 @@ $ProcDes = 'processes.html'
 # Setting Other Checks Output
 $OtherDes = 'others.html'
 
-Write-Host -Fore DarkCyan "[*] Gatthering Network & Network Settings"
+Write-Host -Fore DarkCyan "[*] Gathering Network & Network Settings"
 
 ##################################################
-# Network Information and Settings               #
+#region Network Information and Settings         #
 ##################################################
 
 #Gets DNS cache. Replaces ipconfig /dislaydns
@@ -378,8 +335,11 @@ $IpHops = Get-NetRoute | Where-Object -FilterScript { $_.ValidLifetime -Eq ([Tim
 
 Write-Host -Fore Cyan "[!] Done"
 
+#endregion
+
+
 ##################################################
-# User & Account Information                     #
+#region User & Account Information               #
 ##################################################
 
 Write-Host -Fore DarkCyan "[*] Gathering User & Account Information"
@@ -400,11 +360,14 @@ $LocalGroup = Get-LocalGroup | ConvertTo-Html -Fragment
 
 Write-Host -Fore Cyan "[!] Done"
 
+#endregion
+
+
 ##################################################
-# Installed Programs                             #
+#region Installed Programs                       #
 ##################################################
 
-Write-Host -Fore DarkCyan "[*] Gatthering Installed Programs"
+Write-Host -Fore DarkCyan "[*] Gathering Installed Programs"
 
 $InstProgs = Get-CimInstance -ClassName win32_product | Select-Object Name, Version, Vendor, InstallDate, InstallSource, PackageName, LocalPackage | ConvertTo-Html -Fragment
 
@@ -412,11 +375,14 @@ $InstalledApps = Get-ItemProperty HKLM:\Software\Wow6432Node\Microsoft\Windows\C
 
 Write-Host -Fore Cyan "[!] Done"
 
+#endregion
+
+
 ##################################################
-# System Info                                    #
+#region System Info                              #
 ##################################################
 
-Write-Host -Fore DarkCyan "[*] Gatthering System Information"
+Write-Host -Fore DarkCyan "[*] Gathering System Information"
 
 #Environment Settings
 $env = Get-ChildItem ENV: | select name, value | convertto-html -fragment 
@@ -436,11 +402,14 @@ $WinDefender = Get-MpComputerStatus | convertto-html -fragment
 
 Write-Host -Fore Cyan "[!] Done"
 
+#endregion
+
+
 ##################################################
-# Live Running Processes & Scheduled Tasks       #
+#region Live Running Processes & Scheduled Tasks #
 ##################################################
 
-Write-Host -Fore DarkCyan "[*] Gatthering Processes and Tasks"
+Write-Host -Fore DarkCyan "[*] Gathering Processes and Tasks"
 
 
 $Processes = Get-Process | Select Handles, StartTime, PM, VM, SI, id, ProcessName, Path, Product, FileVersion | ConvertTo-Html -Fragment 
@@ -460,8 +429,11 @@ $Services = Get-Service | Select-Object Name, DisplayName, Status, StartType | C
 
 Write-Host -Fore Cyan "[!] Done"
 
+#endregion
+
+
 ##################################################
-# Settings from the Registry					 #
+#region Settings from the Registry			     #
 ##################################################
 
 Write-Host -Fore DarkCyan "[*] Checking Registry for persistance"
@@ -474,8 +446,11 @@ $RegRunOnceEx = Get-ItemProperty -Path HKLM:\Software\Microsoft\Windows\CurrentV
 
 Write-Host -Fore Cyan "[!] Done"
 
+#endregion
+
+
 ##################################################
-# Checking other worthwhiles					 #
+#region Checking other worthwhiles			     #
 ##################################################
 
 Write-Host -Fore DarkCyan "[*] Running Other Final Checks..."
@@ -506,6 +481,67 @@ $LinkFiles = Get-WmiObject Win32_ShortcutFile | select Filename, Caption, @{NAME
 
 $PSHistory = Get-History -count 100 | select id, commandline, startexecutiontime, endexecutiontime | ConvertTo-Html -fragment
 
+#region 'Powershell ConsoleHost_history.txt' and 'Visual Studio Code Host_history.txt'
+# Construct 'Powershell ConsoleHost_history.txt' and 'Visual Studio Code Host_history.txt' file paths
+$PSConsoleHostHistoryFilepathList = @{}
+$VSCodeHostHistoryFilepathList = @{}
+
+Get-LocalUser | foreach {
+    $LocalUsername = $_.Name
+    $PSReadlineFolderPath = "C:\Users\$LocalUsername\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\"
+        
+    # 'Powershell ConsoleHost_history.txt'
+    $PSConsoleHostHistoryFilepath = $PSReadlineFolderPath + 'ConsoleHost_history.txt'
+    if (gci $PSConsoleHostHistoryFilepath) {
+        $PSConsoleHostHistoryFilepathList.Add($LocalUsername,$PSConsoleHostHistoryFilepath)
+    }
+    
+    # 'Visual Studio Code Host_history.txt'
+    $VSCodeHostHistoryFilepath = $PSReadlineFolderPath + 'Visual Studio Code Host_history.txt'
+    if (gci $VSCodeHostHistoryFilepath) {
+        $VSCodeHostHistoryFilepathList.Add(@{Username=$LocalUsername;FilePath=$VSCodeHostHistoryFilepath})
+    }
+}
+
+# Grab existing 'Powershell ConsoleHost_history.txt'
+if ($PSConsoleHostHistoryFilepathList -eq $null){
+    Write-Host -Fore DarkCyan "[!] Cannot find any Powershell Console Host History File"
+}
+else {
+	#Create Powershell Console Host History log Dirs
+    $OutputFolderName = 'PSConsoleHostHistoryLogs'
+    mkdir $OutputFolderName | Out-Null
+    Foreach ($key in $PSConsoleHostHistoryFilepathList.keys) {
+        $Username = '{0}' -f $key
+        $SourceFilePath = '{0}' -f $PSConsoleHostHistoryFilepathList[$key]
+        Copy-Item -Path $SourceFilePath -Destination $OutputFolderName
+        Rename-Item -Path "$OutputFolderName\ConsoleHost_history.txt" -NewName "$Username--ConsoleHost_history.txt"
+    }
+    echo "<center><h3>Powershell Console Host History Logs</h3><table></table><a href='PSConsoleHostHistoryLogs' >View Powershell Console Host History Logs</a></center><br>"           | Out-File -Append $FinalDes
+	
+}
+
+# Grab existing 'Visual Studio Code Host_history.txt'
+if ($VSCodeHostHistoryFilepath -eq $null){
+    Write-Host -Fore DarkCyan "[!] Cannot find any Visual Studio Code Host History File"
+}
+else {
+	#Create Visual Studio Code Host History log Dirs
+    $OutputFolderName = 'VSCodeHostHistoryLogs'
+    mkdir $OutputFolderName | Out-Null
+    Foreach ($key in $VSCodeHostHistoryFilepath.keys) {
+        $Username = '{0}' -f $key
+        $SourceFilePath = '{0}' -f $VSCodeHostHistoryFilepath[$key]
+        Copy-Item -Path $SourceFilePath -Destination $OutputFolderName
+        Rename-Item -Path $($OutputFolderName + '\Visual Studio Code Host_history.txt') -NewName "$Username--Visual Studio Code Host_history.txt"
+    }
+    echo "<center><h3>Visual Studio Code Host History Logs</h3><table></table><a href='VSCodeHostHistoryLogs' >View Visual Studio Code Host History Logs</a></center><br>"           | Out-File -Append $FinalDes
+	
+}
+
+#endregion
+
+
 #All items in Downloads folder. This may cause an error if the script is run from an external USB or Network drive, even when
 $Downloads = Get-ChildItem C:\Users\*\Downloads\* -recurse  |  select  PSChildName, Root, Name, FullName, Extension, CreationTimeUTC, LastAccessTimeUTC, LastWriteTimeUTC, Attributes | where {$_.extension -eq '.exe'} | ConvertTo-Html -Fragment
 
@@ -520,12 +556,18 @@ $HiddenExecs4 = Get-ChildItem C:\Users\*\Documents\* -recurse  |  select  PSChil
 
 #End time date stamp
 
-$endtimecheck = Get-Date -Format "dddd MM/dd/yyyy HH:mm K"
+<<<<<<< Updated upstream
+$endtimecheck = Get-Date -Format $DateFormat
+=======
+$endtimecheck = Get-Date -Format "yyyy'-'MM'-'dd HH':'mm':'ss'Z'"
+>>>>>>> Stashed changes
+
+#endregion
 
 
 ###########################################################################################################
-#################################### CREATING AND FRMATING THE HTML FILES  ################################
-##########################################################################################################
+#region ########################## CREATING AND FORMATTING THE HTML FILES  ################################
+###########################################################################################################
 
 Write-Host -Fore DarkCyan "[*] Creating and Formatting our Index file"
 
@@ -691,12 +733,6 @@ h1, h2, h3, h4, h5, h6, p{
 
 $BlackWidowStyle >> $FinalDes
 $BlackWidow >> $FinalDes
-
-
-
-
-
-
 $IndexNav >> $FinalDes
 
 '<br><br>' >> $FinalDes
@@ -723,9 +759,12 @@ echo "<h3><center> End Time and Date: $endtimecheck </h3><br>"                  
 
 '<br><br>' >> $FinalDes
 '<br><br>' >> $FinalDes
-#############################################################################################################
-########  VIEW USER GP RESULTS    ###########################################################################
-#############################################################################################################
+
+#endregion
+
+###########################################################################################################
+#region #######  VIEW USER GP RESULTS    ##################################################################
+###########################################################################################################
 # get GPO REsult if on domain
 
 Write-Host -Fore DarkCyan "[*] Collecting GPO Results"
@@ -735,9 +774,12 @@ echo "<center><h3>Group Policy Report</h3><table><a href='GPOReport.html' target
 
 Write-Host -Fore Cyan "[!] Done"
 
-#############################################################################################################
-########  MEMORY (RAM) CAPTURE    ###########################################################################
-#############################################################################################################
+#endregion
+
+
+###########################################################################################################
+#region  MEMORY (RAM) CAPTURE    ##########################################################################
+###########################################################################################################
 
 Write-Host -Fore DarkCyan "[*] Capturing The RAM"
 
@@ -764,9 +806,6 @@ Write-Host -Fore Cyan "[!] Done"
 echo "<center><h3>WINPMEM RAM CAPTURE:</h3><table></table><a href='RAM'>View RAM Capture</a></center><br>"     | Out-File -Append $FinalDes
 }
    
-
-
-
    
 } 
 else {
@@ -778,15 +817,15 @@ Write-Host -Fore DarkCyan "[*] Extracting Browser History"
 #GETTING BROWSING History
 if ((gwmi win32_operatingsystem | select osarchitecture).osarchitecture -eq "64-bit"){
     
-& $PSScriptRoot\BrowsingHistoryView64.exe /sverhtml "BrowserHistry.html" /SaveDirect /HistorySource 1 /VisitTimeFilterType 1 /LoadIE 1 /LoadFirefox 1 /LoadChrome 1 /LoadSafari 1
-echo "<center><h3>BROWSING HISTORY:</h3><table></table><a href='BrowserHistry.html'>View Browsing History</a></center><br>"     | Out-File -Append $FinalDes
+& $PSScriptRoot\BrowsingHistoryView64.exe /sverhtml "BrowserHistory.html" /SaveDirect /HistorySource 1 /VisitTimeFilterType 1 /LoadIE 1 /LoadFirefox 1 /LoadChrome 1 /LoadSafari 1
+echo "<center><h3>BROWSING HISTORY:</h3><table></table><a href='BrowserHistory.html'>View Browsing History</a></center><br>"     | Out-File -Append $FinalDes
 	
 }
 else{
     
-& $PSScriptRoot\BrowsingHistoryView86.exe /sverhtml "BrowserHistry.html" /SaveDirect /HistorySource 1 /VisitTimeFilterType 1 /LoadIE 1 /LoadFirefox 1 /LoadChrome 1 /LoadSafari 1
+& $PSScriptRoot\BrowsingHistoryView86.exe /sverhtml "BrowserHistory.html" /SaveDirect /HistorySource 1 /VisitTimeFilterType 1 /LoadIE 1 /LoadFirefox 1 /LoadChrome 1 /LoadSafari 1
 
-echo "<center><h3>BROWSEING HISTORY:</h3><table></table><a href='BrowserHistry.html'>View Browsing History</a></center><br>"     | Out-File -Append $FinalDes
+echo "<center><h3>BROWSING HISTORY:</h3><table></table><a href='BrowserHistory.html'>View Browsing History</a></center><br>"     | Out-File -Append $FinalDes
 }
 
 #Lets wait a while for this to finish
@@ -794,18 +833,19 @@ Start-Sleep -s 15
 
 Write-Host -Fore Cyan "[!] Done"
 
-#############################################################################################################
-########  CHECKING FOR RANSOMEWARE ENCRYPTED FILES    #######################################################
-#############################################################################################################
+#endregion
 
 
+###########################################################################################################
+#region  CHECKING FOR RANSOMWARE ENCRYPTED FILES    #######################################################
+###########################################################################################################
 
-if ($RANSOMEWARE) {
+if ($RANSOMWARE) {
 	
-Write-Host -Fore DarkCyan "[*] Checking For Ransomeware Encrypted Files"
+Write-Host -Fore DarkCyan "[*] Checking For Ransomware Encrypted Files"
 Write-Host -Fore DarkCyan "[!] NOTE: This May Take a While Depending on the Number of Drives"
 
-#CHECKING FOR RANSOMEWARE ENCRYPTED FILES
+#CHECKING FOR RANSOMWARE ENCRYPTED FILES
 
 $Drives = Get-PSDrive -PSProvider 'FileSystem'
 
@@ -822,14 +862,11 @@ else {
 
 }
 
-#############################################################################################################
-#### NETWORK TRACE ##########################################################################################
-#############################################################################################################
+#endregion
 
-
-
-
-
+###########################################################################################################
+#region  NETWORK TRACE ####################################################################################
+###########################################################################################################
 
 if ($PCAP) {
 	
@@ -850,7 +887,6 @@ Write-Host -Fore DarkCyan "[*] Converting to PCAP"
 
 if ((gwmi win32_operatingsystem | select osarchitecture).osarchitecture -eq "64-bit")
 {
-
     
 
 & $PSScriptRoot\etl2pcapng64.exe PCAP\$env:computername.et1 PCAP\$env:computername.pcap
@@ -874,18 +910,16 @@ else {
 
 }
 
+#endregion
+
+###########################################################################################################
+#region NETWORK TRACE #####################################################################################
+###########################################################################################################
 
 
-
-
-############################################################################################################
-######NETWORK TRACE ########################################################################################
-############################################################################################################
-
-
-#############################################################################################################
-########  Export Event Logs       ###########################################################################
-#############################################################################################################
+###########################################################################################################
+#region  Export Event Logs       ##########################################################################
+###########################################################################################################
 
 
 
@@ -925,10 +959,8 @@ Foreach($log in $logArray)
 
     # Extract each log file listed in $logArray from the local server.
     wevtutil epl $log $destination
-
-    
-
 }
+
 Write-Host -Fore Cyan "[!] Done"
 # End Code
 
@@ -947,16 +979,14 @@ else {
 
 }
 
-
+#endregion
 
 
 ############################################################
-# GETTING HOLD OF IIS & APACHE WEBLOGS #####################
+#region GETTING HOLD OF IIS & APACHE WEBLOGS ###############
 ############################################################
 
 if ($WEBLOGS) {
-   
-
 
 #Lets get hold of some weblogs
 Write-Host -Fore DarkCyan "[*] Lets Get hold of some weblogs"
@@ -978,10 +1008,6 @@ else{
 }
 
 
-
-
-
-
 #checking for Tomcat and try to get log files
 
 $FoundRegKey = $null
@@ -996,7 +1022,7 @@ If ($ApacheRegKeyExists)
         {$FoundRegKey = Get-ItemProperty $_.pspath | Select InstallPath}
     }
 }
-Else
+else
 {
     Write-Host -Fore DarkCyan "[!] Cannot find Tomcat software keys in registry"
     
@@ -1010,37 +1036,24 @@ If ($FoundRegKey)
 	echo "<center><h3>TomCat Logs</h3><table></table><a href='TomCatLogs'>View TomCat Logs</a></center><br>"   | Out-File -Append $FinalDes
 	
     }
-Else
+else
     {
     Write-Host -Fore DarkCyan "[!] Cannot find Tomcat install path in registry"
     
     }
-	
-
-
-   
 } 
 else {
 
 }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 #'<br><br>' >> $FinalDes
+
+#endregion
+
+
 #############################################################################################################
-########  View Log4j Paths        ###########################################################################
+#region   View Log4j Paths        ###########################################################################
 #############################################################################################################
 
 if ($log4j) {
@@ -1065,8 +1078,12 @@ else {
 }
 
 #'<br><br>' >> $FinalDes
+
+#endregion
+
+
 #############################################################################################################
-########  FOOTER                  ###########################################################################
+#region   FOOTER                  ###########################################################################
 #############################################################################################################
 
 
@@ -1078,10 +1095,12 @@ echo "<h3> Evidence gathered from  $env:computername  by  $operator at: $Endtime
 
 Write-Host -Fore DarkCyan "[!] Hang on, the Forensicator is compiling your results"
 
+#endregion
+
 
 #############################################################################################################
-########  NETWORKS SECTION     ##############################################################################
-##############################################################################################################
+#region   NETWORKS SECTION     ##############################################################################
+#############################################################################################################
 
 # Making the head for network.html
 ConvertTo-Html -Head $head -Title "Live Forensic Output For $env:computername"  >$NetDes
@@ -1155,20 +1174,20 @@ $NetNav >> $NetDes
 
 
 echo "<h2><u>Network Information</u></h2>"'' >> $NetDes
-echo "<h3>Network Adapter Information</h3><table>$NetworkAdapter</table><br>"                                              | Out-File -Append $NetDes
-echo "<h3>Current IP Configuration</h3><table>$IPConfiguration</table><br>"                                                | Out-File -Append $NetDes
-echo "<h3>Network Adapter IP Addresses - IPv4 and v6</h3><table>$NetIPaddress</table><br>"                                 | Out-File -Append $NetDes
-echo "<h3>Current Connection Profiles</h3><table>$NetConnectProfile</table><br>"                                           | Out-File -Append $NetDes
-echo "<h3>Associated WiFi Networks and Passwords</h3><table>$WlanPasswords</table><br>"                                    | Out-File -Append $NetDes
-echo "<h3>Address Resolution Protocol Cache</h3><table>$NetNeighbor</table><br>"                                           | Out-File -Append $NetDes
-echo "<h3>Current TCP Connections and Associated Processes</h3><table>$NetTCPConnect</table><br>"                          | Out-File -Append $NetDes
-echo "<h3>DNS Cache</h3><table>$DNSCache</table><br>"                                                                      | Out-File -Append $NetDes
-echo "<h3>Current Firewall Rules</h3><table>$FirewallProfile</table><br>"                                                  | Out-File -Append $NetDes
-echo "<h3>Active SMB sessions (if this device is a server)</h3><table>$SMBSessions</table><br>"                            | Out-File -Append $NetDes
-echo "<h3>Active SMB Shares on this device</h3><table>$SMBShares</table><br>"                                              | Out-File -Append $NetDes
-echo "<h3>IP Routes to non local Destinations</h3><table>$NetHops</table><br>"                                             | Out-File -Append $NetDes
-echo "<h3>Network Adapters with IP Routes to non Local Destination</h3><table>$AdaptHops</table><br>"                      | Out-File -Append $NetDes
-echo "<h3>IP Routes with infinite valid lifetime</h3><table>$IpHops</table><br>"                                           | Out-File -Append $NetDes
+if ($NetworkAdapter) {echo "<h3>Network Adapter Information</h3><table>$NetworkAdapter</table><br>"                                              | Out-File -Append $NetDes}
+if ($IPConfiguration) {echo "<h3>Current IP Configuration</h3><table>$IPConfiguration</table><br>"                                                | Out-File -Append $NetDes}
+if ($NetIPaddress) {echo "<h3>Network Adapter IP Addresses - IPv4 and v6</h3><table>$NetIPaddress</table><br>"                                 | Out-File -Append $NetDes}
+if ($NetConnectProfile) {echo "<h3>Current Connection Profiles</h3><table>$NetConnectProfile</table><br>"                                           | Out-File -Append $NetDes}
+if ($WlanPasswords) {echo "<h3>Associated WiFi Networks and Passwords</h3><table>$WlanPasswords</table><br>"                                    | Out-File -Append $NetDes}
+if ($NetNeighbor) {echo "<h3>Address Resolution Protocol Cache</h3><table>$NetNeighbor</table><br>"                                           | Out-File -Append $NetDes}
+if ($NetTCPConnect) {echo "<h3>Current TCP Connections and Associated Processes</h3><table>$NetTCPConnect</table><br>"                          | Out-File -Append $NetDes}
+if ($DNSCache) {echo "<h3>DNS Cache</h3><table>$DNSCache</table><br>"                                                                      | Out-File -Append $NetDes}
+if ($FirewallProfile) {echo "<h3>Current Firewall Rules</h3><table>$FirewallProfile</table><br>"                                                  | Out-File -Append $NetDes}
+if ($SMBSessions) {echo "<h3>Active SMB sessions (if this device is a server)</h3><table>$SMBSessions</table><br>"                            | Out-File -Append $NetDes}
+if ($SMBShares) {echo "<h3>Active SMB Shares on this device</h3><table>$SMBShares</table><br>"                                              | Out-File -Append $NetDes}
+if ($NetHops) {echo "<h3>IP Routes to non local Destinations</h3><table>$NetHops</table><br>"                                             | Out-File -Append $NetDes}
+if ($AdaptHops) {echo "<h3>Network Adapters with IP Routes to non Local Destination</h3><table>$AdaptHops</table><br>"                      | Out-File -Append $NetDes}
+if ($IpHops) {echo "<h3>IP Routes with infinite valid lifetime</h3><table>$IpHops</table><br>"                                           | Out-File -Append $NetDes}
 
 
 
@@ -1178,8 +1197,11 @@ echo "<h3>IP Routes with infinite valid lifetime</h3><table>$IpHops</table><br>"
 echo "<h3> Evidence gathered from  $env:computername  by  $operator at: $Endtimecheck with: <a href='https://github.com/Johnng007/Live-Forensicator' >Live Forensicator </a> </h3>" | Out-File -Append $NetDes
 '</center>' >> $NetDes
 
+#endregion
+
+
 #############################################################################################################
-########  USER & ACCOUNTS SECTION     #######################################################################
+#region   USER & ACCOUNTS SECTION     #######################################################################
 #############################################################################################################
 
 # Making the head for users.html
@@ -1253,14 +1275,14 @@ $UserNav >> $UserDes
 
 
 echo "<h2><u>User(s) Information</u></h2>"                                                                | Out-File -Append $UserDes
-echo "<h3>Current User Information</h3><table>$currentuser</table><br>"                                   | Out-File -Append $UserDes
-echo "<h3>System Details</h3><table>$systemname</table><br>"                                              | Out-File -Append $UserDes
-#echo "<h3>User Accounts</h3><table>$useraccounts</table><br>"                                             | Out-File -Append $UserDes
-echo "<h3>Logon Sessions</h3><table>$logonsession</table><br>"                                            | Out-File -Append $UserDes
-echo "<h3>User Profile</h3><table>$userprofiles</table><br>"                                              | Out-File -Append $UserDes
-echo "<h3>Administrator Accounts</h3><table>$administrators</table><br>"                                  | Out-File -Append $UserDes
-echo "<h3>Local Groups</h3><table>$LocalGroup</table><br>"                                                | Out-File -Append $UserDes
-#echo "<h3>DNS Cache</h3><table>$DNSCache</table><br>"                                                     | Out-File -Append $UserDes
+if ($currentuser) {echo "<h3>Current User Information</h3><table>$currentuser</table><br>"                                   | Out-File -Append $UserDes}
+if ($systemname) {echo "<h3>System Details</h3><table>$systemname</table><br>"                                              | Out-File -Append $UserDes}
+#if ($DNSCache) {echo "<h3>User Accounts</h3><table>$useraccounts</table><br>"                                             | Out-File -Append $UserDes}
+if ($logonsession) {echo "<h3>Logon Sessions</h3><table>$logonsession</table><br>"                                            | Out-File -Append $UserDes}
+if ($userprofiles) {echo "<h3>User Profile</h3><table>$userprofiles</table><br>"                                              | Out-File -Append $UserDes}
+if ($administrators) {echo "<h3>Administrator Accounts</h3><table>$administrators</table><br>"                                  | Out-File -Append $UserDes}
+if ($LocalGroup) {echo "<h3>Local Groups</h3><table>$LocalGroup</table><br>"                                                | Out-File -Append $UserDes}
+#if ($DNSCache) {echo "<h3>DNS Cache</h3><table>$DNSCache</table><br>"                                                     | Out-File -Append $UserDes}
 
 
 
@@ -1271,8 +1293,10 @@ echo "<h3>Local Groups</h3><table>$LocalGroup</table><br>"                      
 echo "<h3> Evidence gathered from  $env:computername  by  $operator at: $Endtimecheck with: <a href='https://github.com/Johnng007/Live-Forensicator' >Live Forensicator </a> </h3>"  | Out-File -Append $UserDes
 '</center>' >> $UserDes
 
+#endregion
+
 #############################################################################################################
-########  INSTALLED PROGS | SYSTEM INFO    ##################################################################
+#region   INSTALLED PROGS | SYSTEM INFO    ##################################################################
 #############################################################################################################
 
 # Making the head for system.html
@@ -1346,13 +1370,13 @@ $SysNav >> $SysDes
 
 
 echo "<h2><u>System Information</u></h2>"                                                           | Out-File -Append $SysDes
-echo "<h3>Installed Programs</h3><table>$InstProgs</table><br>"                                     | Out-File -Append $SysDes
-echo "<h3>Installed Programs - From Registry</h3><table>$InstalledApps</table><br>"                 | Out-File -Append $SysDes
-echo "<h3>Environment Variables</h3><table>$env</table><br>"                                        | Out-File -Append $SysDes
-echo "<h3>System Information</h3><table>$systeminfo</table><br>"                                    | Out-File -Append $SysDes
-echo "<h3>Operating System Information</h3><table>$OSinfo</table><br>"                              | Out-File -Append $SysDes
-echo "<h3>Hotfixes</h3><table>$Hotfixes</table><br>"                                                | Out-File -Append $SysDes
-echo "<h3>Windows Defender Status</h3><table>$WinDefender</table><br>"                              | Out-File -Append $SysDes
+if ($InstProgs) {echo "<h3>Installed Programs</h3><table>$InstProgs</table><br>"                                     | Out-File -Append $SysDes}
+if ($InstProgs) {echo "<h3>Installed Programs - From Registry</h3><table>$InstalledApps</table><br>"                 | Out-File -Append $SysDes}
+if ($InstProgs) {echo "<h3>Environment Variables</h3><table>$env</table><br>"                                        | Out-File -Append $SysDes}
+if ($InstProgs) {echo "<h3>System Information</h3><table>$systeminfo</table><br>"                                    | Out-File -Append $SysDes}
+if ($InstProgs) {echo "<h3>Operating System Information</h3><table>$OSinfo</table><br>"                              | Out-File -Append $SysDes}
+if ($InstProgs) {echo "<h3>Hotfixes</h3><table>$Hotfixes</table><br>"                                                | Out-File -Append $SysDes}
+if ($InstProgs) {echo "<h3>Windows Defender Status</h3><table>$WinDefender</table><br>"                              | Out-File -Append $SysDes}
 
 
 
@@ -1363,8 +1387,10 @@ echo "<h3>Windows Defender Status</h3><table>$WinDefender</table><br>"          
 "'<h3> Evidence gathered from  $env:computername  by  $operator at: $Endtimecheck with: <a href='https://github.com/Johnng007/Live-Forensicator' >Live Forensicator </a> </h3>'" >>$SysDes
 '</center>' >> $SysDes
 
+#endregion
+
 #############################################################################################################
-########  PROCESSES | SCHEDULED TASK | REGISTRY    ##########################################################
+#region   PROCESSES | SCHEDULED TASK | REGISTRY    ##########################################################
 #############################################################################################################
 
 # Making the head for processes.html
@@ -1438,15 +1464,15 @@ $ProcNav >> $ProcDes
 
 
 echo "<h2><u>PROCESSES | SCHEDULED TASK | REGISTRY</u></h2>"                                     | Out-File -Append $ProcDes
-echo "<h3>Processes</h3><table>$Processes</table><br>"                                           | Out-File -Append $ProcDes
-echo "<h3>Startup Programs</h3><table>$StartupProgs</table><br>"                                 | Out-File -Append $ProcDes
-echo "<h3>Scheduled Task</h3><table>$ScheduledTask</table><br>"                                  | Out-File -Append $ProcDes
-echo "<h3>Scheduled Task & State</h3><table>$ScheduledTask2</table><br>"                         | Out-File -Append $ProcDes
-echo "<h3>Services</h3><table>$Services</table><br>"                                             | Out-File -Append $ProcDes
-echo "<h3>Services Detailed</h3><table>$Services2</table><br>"                                   | Out-File -Append $ProcDes
-echo "<h3>Persistance in Registry</h3><table>$RegRun</table><br>"                                | Out-File -Append $ProcDes
-echo "<h3>Persistance in Registry</h3><table>$RegRunOnce</table><br>"                            | Out-File -Append $ProcDes
-echo "<h3>Persistance in Registry</h3><table>$RegRunOnceEx</table><br>"                          | Out-File -Append $ProcDes
+if ($Processes) {echo "<h3>Processes</h3><table>$Processes</table><br>"                                           | Out-File -Append $ProcDes}
+if ($StartupProgs) {echo "<h3>Startup Programs</h3><table>$StartupProgs</table><br>"                                 | Out-File -Append $ProcDes}
+if ($ScheduledTask) {echo "<h3>Scheduled Task</h3><table>$ScheduledTask</table><br>"                                  | Out-File -Append $ProcDes}
+if ($ScheduledTask2) {echo "<h3>Scheduled Task & State</h3><table>$ScheduledTask2</table><br>"                         | Out-File -Append $ProcDes}
+if ($Services) {echo "<h3>Services</h3><table>$Services</table><br>"                                             | Out-File -Append $ProcDes}
+if ($Services2) {echo "<h3>Services Detailed</h3><table>$Services2</table><br>"                                   | Out-File -Append $ProcDes}
+if ($RegRun) {echo "<h3>Persistance in Registry</h3><table>$RegRun</table><br>"                                | Out-File -Append $ProcDes}
+if ($RegRunOnce) {echo "<h3>Persistance in Registry</h3><table>$RegRunOnce</table><br>"                            | Out-File -Append $ProcDes}
+if ($RegRunOnceEx) {echo "<h3>Persistance in Registry</h3><table>$RegRunOnceEx</table><br>"                          | Out-File -Append $ProcDes}
 
 
 
@@ -1457,12 +1483,14 @@ echo "<h3>Persistance in Registry</h3><table>$RegRunOnceEx</table><br>"         
 echo "<h3> Evidence gathered from  $env:computername  by  $operator at: $Endtimecheck with: <a href='https://github.com/Johnng007/Live-Forensicator' >Live Forensicator </a> </h3>" | Out-File -Append $ProcDes
 '</center>' >> $ProcDes
 
+#endregion
+
 #############################################################################################################
-########              OHTER NOTABLE CHECKS         ##########################################################
+#region   OTHER NOTABLE CHECKS         ######################################################################
 #############################################################################################################
 
 # Making the head for others.html
-ConvertTo-Html -Head $head -Title "Live Forensic Output For $env:computername" >$OtherDes
+ConvertTo-Html -Head $head -Title "Live Forensic Output For $env:computername" > $OtherDes
 
 # Header style for System Page
 
@@ -1534,19 +1562,35 @@ $OtherNav >> $OtherDes
 
 
 echo "<h2><u>OTHER NOTABLE CHECKS</u></h2> "                                                         | Out-File -Append $OtherDes
-echo "<h3>Logical Drives</h3><table>$LogicalDrives</table><br> "                                     | Out-File -Append $OtherDes
-echo "<h3>Connected & Disconnected Webcams</h3><table>$Imagedevice</table><br> "                     | Out-File -Append $OtherDes
-echo "<h3>USB Devices</h3><table>$USBDevices</table><br>"                                            | Out-File -Append $OtherDes
-echo "<h3>UPNPDevices</h3><table>$UPNPDevices</table><br>"                                           | Out-File -Append $OtherDes
-echo "<h3>All Previously Connected Drives</h3><table>$UnknownDrives</table><br>"                     | Out-File -Append $OtherDes
-echo "<h3>All Files Created in the last 180days</h3><table>$LinkFiles</table><br>"                   | Out-File -Append $OtherDes
-echo "<h3>100Days Powershell History</h3><table>$PSHistory</table><br>"                              | Out-File -Append $OtherDes
-echo "<h3>Executables in the Downloads folder</h3><table>$Downloads</table><br>"                     | Out-File -Append $OtherDes
-echo "<h3>Executables In AppData</h3><table>$HiddenExecs1</table><br>"                               | Out-File -Append $OtherDes
-echo "<h3>Executables In Temp</h3><table>$HiddenExecs2</table><br>"                                  | Out-File -Append $OtherDes
-echo "<h3>Executables In Perflogs</h3><table>$HiddenExecs3</table><br>"                              | Out-File -Append $OtherDes
-echo "<h3>Executables In Documents Folder </h3><table>$HiddenExecs4</table><br>"                     | Out-File -Append $OtherDes
-echo "<h3>FILES WITH SAME EXTENTION AS WELL KNOWN RANSOMWARE ENCRYPTED FILES </h3><table>$FindFiles</table><br>"              | Out-File -Append $OtherDes
+if ($LogicalDrives) {echo "<h3>Logical Drives</h3><table>$LogicalDrives</table><br> "                                     | Out-File -Append $OtherDes}
+if ($Imagedevice) {echo "<h3>Connected & Disconnected Webcams</h3><table>$Imagedevice</table><br> "                     | Out-File -Append $OtherDes}
+if ($USBDevices) {echo "<h3>USB Devices</h3><table>$USBDevices</table><br>"                                            | Out-File -Append $OtherDes}
+if ($UPNPDevices) {echo "<h3>UPNPDevices</h3><table>$UPNPDevices</table><br>"                                           | Out-File -Append $OtherDes}
+if ($UnknownDrives) {echo "<h3>All Previously Connected Drives</h3><table>$UnknownDrives</table><br>"                     | Out-File -Append $OtherDes}
+if ($LinkFiles) {echo "<h3>All Files Created in the last 180days</h3><table>$LinkFiles</table><br>"                   | Out-File -Append $OtherDes}
+if ($PSHistory) {echo "<h3>100Days Powershell History</h3><table>$PSHistory</table><br>"                              | Out-File -Append $OtherDes}
+<<<<<<< Updated upstream
+=======
+<#
+if ($PSConsoleHostHistoryFilepathList){
+    echo "<h3>Powershell Console Host History</h3><table>$PSConsoleHostHistory</table><br>"                         | Out-File -Append $OtherDes
+    $PSConsoleHostHistoryLogsFileList = gci -Path .\PSConsoleHostHistoryLogs\* | Select Name,FullName
+    $PSConsoleHostHistoryLogsFileList | ForEach-Object {
+        [string]$PSConsoleHostHistoryLogsFileName = $_.Name
+        [string]$PSConsoleHostHistoryLogsFilePath = $_.FullName
+        echo "<h4>$PSConsoleHostHistoryLogsFileName</h4><table>$(Get-Content $PSConsoleHostHistoryLogsFilePath.FullName | ConvertTo-HTML)</table><br>"                         | Out-File -Append $OtherDes    
+    }
+}
+
+if ($LogicalDrives) {echo "<h3>Visual Studio Code Host History</h3><table>$PSHistory</table><br>"                         | Out-File -Append $OtherDes}
+#>
+>>>>>>> Stashed changes
+if ($Downloads) {echo "<h3>Executables in the Downloads folder</h3><table>$Downloads</table><br>"                     | Out-File -Append $OtherDes}
+if ($HiddenExecs1) {echo "<h3>Executables In AppData</h3><table>$HiddenExecs1</table><br>"                               | Out-File -Append $OtherDes}
+if ($HiddenExecs2) {echo "<h3>Executables In Temp</h3><table>$HiddenExecs2</table><br>"                                  | Out-File -Append $OtherDes}
+if ($HiddenExecs3) {echo "<h3>Executables In Perflogs</h3><table>$HiddenExecs3</table><br>"                              | Out-File -Append $OtherDes}
+if ($HiddenExecs4) {echo "<h3>Executables In Documents Folder </h3><table>$HiddenExecs4</table><br>"                     | Out-File -Append $OtherDes}
+if ($FindFiles) {echo "<h3>Files with same extension as well-known ransomware encrypted files </h3><table>$FindFiles</table><br>"              | Out-File -Append $OtherDes}
 
 
 '<br><br>' >> $OtherDes
@@ -1556,6 +1600,8 @@ echo "<h3> Evidence gathered from  $env:computername  by  $operator at: $Endtime
 '</center>' >> $OtherDes
 
 #cd $PSScriptRoot
+
+#endregion
 
 
 if ($ENCRYPTED) {
