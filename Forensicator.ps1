@@ -720,12 +720,11 @@ if ((gwmi win32_computersystem).partofdomain -eq $true) {
 #region  MEMORY (RAM) CAPTURE    ##########################################################################
 ###########################################################################################################
 
-Write-Host -Fore DarkCyan "[*] Capturing The RAM"
-
 
 if ($RAM) {
 # capture the RAM
 mkdir RAM | Out-Null
+Write-Host -Fore DarkCyan "[*] Capturing The RAM"
 	
 if ((gwmi win32_operatingsystem | select osarchitecture).osarchitecture -eq "64-bit"){
     
