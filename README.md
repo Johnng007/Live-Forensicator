@@ -11,7 +11,7 @@ ___________                                .__               __
  \___  / \____/|__|    \___  >___|  /____  >__|\___  >____  /__|  \____/|__|   
      \/                    \/     \/     \/        \/     \/                    
 
-                                                                          v2.0
+                                                                          v3.1.0
 
 
 
@@ -27,13 +27,13 @@ Live Forensicator is part of the Black Widow Toolbox, its aim is to assist Foren
 ## Optional Dependencies
 
 This script is written in powershell for use on windows PCs and Servers. 
-<p>For additional features it depends on external binaries.</p>
-<p>It has a supporting file WINPMEM for taking RAM dumps https://github.com/Velocidex/WinPmem </p>
-<p>It also depends on Nirsoft's BrowserHistoryView for exporting browser history http://www.nirsoft.net/utils/browsing_history_view.html </p>
-<p>This script is expected to work out of the box. </p>
+<p>For additional features it depends on external binaries, they are in the Forensicator-Share folder.</p>
+<p>But Forensicator can work without the Binaries, they just help with additional features</p>
 
 ```bash
-winpmem_mini_x64_rc2.exe | BrowsingHistoryView64.exe | BrowsingHistoryView86.exe | etl2pcapng64.exe | etl2pcapng86.exe
+winpmem_mini_x64_rc2.exe   For taking RAM capture (https://github.com/Velocidex/WinPmem)
+BrowsingHistoryView64.exe  For a more robust Browsing History View (http://www.nirsoft.net/utils/browsing_history_view.html)
+etl2pcapng64.exe           For converting network trace to pcap
 ```
 
 ## Usage
@@ -54,10 +54,13 @@ git clone https://github.com/Johnng007/Live-Forensicator.git
 .\Forensicator.ps1
 
 # Check your Version
-.\Forensicator.ps1 -Version
+.\Forensicator.ps1 -VERSION
 
 # Check for Updates
-.\Forensicator.ps1 -Update
+.\Forensicator.ps1 -UPDATE
+
+# Check Usage
+.\Forensicator.ps1 -USAGE
 
 # Decrypt An Encrypted Artifact
 .\Forensicator.ps1 -DECRYPT DECRYPT
@@ -75,7 +78,7 @@ git clone https://github.com/Johnng007/Live-Forensicator.git
 .\Forensicator.ps1 -RAM RAM
 
 # Check for log4j with the JNDILookup.class
-.\Forensicator.ps1 -log4j log4j
+.\Forensicator.ps1 -LOG4J LOG4J
 
 # Encrypt Artifact after collecting it
 .\Forensicator.ps1 -ENCRYPTED ENCRYPTED
@@ -99,6 +102,7 @@ git clone https://github.com/Johnng007/Live-Forensicator.git
 
 ## Notes
 Run the script as an administrator to get value.<br>
+Forensicator Activities may be flagged by IDS, IPS or Antivirus Solutions so take note.<br>
 The results are outputed in nice looking html files with an index file. <br>
 You can find all extracted Artifacts in the script's working directory.
 <p>Forensicator Has the ability to Search through all the folders within a system looking for files with similar extensions as well known Ransomwares, Albeit this search takes long but its helpful if the Alert you recieved is related to a Ransomware attack, Use the -RANSOMWARE Parameter to invoke this.</p>
@@ -191,6 +195,12 @@ Forensicator can now encrypt the Artifact with a unique randomely generated key 
 
 ##ChangeLog
 ```bash
+v3.1.0 27/05/2022
+Moved all the Binary Helpers to a folder.
+Added an inbuilt powershell based browser history extractor.
+Added a flag for calling Nirsoft Based browser history extractor in case you need a robust extraction.
+Added a usage switch to show usage options.
+Minor Bug fixes.
 
 v2.0 25/04/2022
 Minor Bug Fixes
