@@ -105,7 +105,7 @@ git clone https://github.com/Johnng007/Live-Forensicator.git
 
 ## Notes
 Run the script as an administrator to get value.<br>
-Forensicator Activities may be flagged by IDS, IPS or Antivirus Solutions so take note.<br>
+Forensicator Activities may be flagged by IDS or IPS Solutions so take note.<br>
 The results are outputed in nice looking html files with an index file. <br>
 You can find all extracted Artifacts in the script's working directory.
 <p>Forensicator Has the ability to Search through all the folders within a system looking for files with similar extensions as well known Ransomwares, Albeit this search takes long but its helpful if the Alert you recieved is related to a Ransomware attack, Use the -RANSOMWARE Parameter to invoke this.</p>
