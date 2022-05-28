@@ -68,6 +68,9 @@ git clone https://github.com/Johnng007/Live-Forensicator.git
 # Extract Event Logs alongside Basic Usage
 .\Forensicator.ps1 -EVTX EVTX
 
+# Use the Nirsoft Browser History View to Capture Browser History
+.\Forensicator.ps1 -BROWSER BROWSER
+
 #Grab weblogs IIS & Apache
 .\Forensicator.ps1 -WEBLOGS WEBLOGS
 
