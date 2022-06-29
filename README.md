@@ -170,7 +170,7 @@ Forensicator can now encrypt the Artifact with a unique randomely generated key 
      EVENTLOG ANALYSIS
    ========================================
     1. USER RELATED ACTIVITES.
-    2.
+    NOTE: I WILL KEEP UPDATING THE ANALYSIS SCOPE WITH TIME.
 
    =================================
      OTHER CHECKS
@@ -200,6 +200,7 @@ Forensicator can now encrypt the Artifact with a unique randomely generated key 
     7.  CHECK FOR FILES THAT HAS SIMILAR EXTENSIONS WITH KNOWN RANSOMWARE ENCRYPTED FILES
         NOTE: THIS CHECK CAN TAKE SOME TIME TO COMPLETE DEPENDING ON THE NUMBER OF DRIVES AND AMOUNT OF FILES.
     8.  RUNS NETWORK TRACING USING NETSH TRACE & CONVERTS TO PCAPNG FOR FURTHER ANALYSIS
+    9.  Event Logs in EVTX Format
 
 ```
 
