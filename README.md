@@ -257,7 +257,7 @@ Pull requests are welcome. For major changes, please open an issue first to disc
 
 
 <h3 align="left">Support:</h3>
-<p><a href="https://www.buymeacoffee.com/ebuka"> <img align="left" src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" height="50" width="210" alt="ebuka" /></a></p><br><br>
+<p><a href="https://ko-fi.com/forensicator"> <img align="left" src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" height="50" width="210" alt="ebuka" /></a></p><br><br>
 
 <h3 align="left">Connect with me:</h3>
 <p align="left">
