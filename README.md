@@ -171,7 +171,7 @@ Forensicator can now encrypt the Artifact with a unique randomely generated key 
    ========================================
     1. USER RELATED ACTIVITES.
        1. RDP LOGINS
-       2. ENUMERATED A USER'S GROUP MEMBERSHIP
+       2. ENUMERATED A USER GROUP MEMBERSHIP
        3. CREATED USERS
        4. PASSWORD RESETS
        5. ADDED USERS TO GROUP
