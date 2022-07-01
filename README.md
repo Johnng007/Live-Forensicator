@@ -11,7 +11,7 @@ ___________                                .__               __
  \___  / \____/|__|    \___  >___|  /____  >__|\___  >____  /__|  \____/|__|   
      \/                    \/     \/     \/        \/     \/                    
 
-                                                                          v3.1.0
+                                                                          v3.2.1
 
 
 
@@ -170,6 +170,18 @@ Forensicator can now encrypt the Artifact with a unique randomely generated key 
      EVENTLOG ANALYSIS
    ========================================
     1. USER RELATED ACTIVITES.
+       1. RDP LOGINS
+       2. ENUMERATED A USER'S GROUP MEMBERSHIP
+       3. CREATED USERS
+       4. PASSWORD RESETS
+       5. ADDED USERS TO GROUP
+       6. ENABLED USERS
+       7. DISABLED USERS
+       8. DELETED USERS
+       9. ACCOUNT LOCKOUTS
+       10. CREDENTIAL MANAGER BACKUPS
+       11. CREDNTIAL MANAGER RESTORES
+       
     NOTE: I WILL KEEP UPDATING THE ANALYSIS SCOPE WITH TIME.
 
    =================================
