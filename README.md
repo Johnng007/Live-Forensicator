@@ -18,26 +18,27 @@ ___________                                .__               __
 ```
 
 
-# ABOUT
+# 🤔 ABOUT
 
 Live Forensicator is part of the Black Widow Toolbox, its aim is to assist Forensic Investigators and Incidence responders in carrying out a quick live forensic investigation.
 <p>It achieves this by gathering different system information for further review for anomalous behaviour or unexpected data entry, it also looks out for unusual files or activities and points it out to the investigator.</p>
 <p> **The latest version now analysis Event Logs, it querries the event logs for certain log IDs that might point to an unusual activity or compromise. </p>
 <p>It is paramount to note that this script has no inbuilt intelligence its left for the investigator to analyse the output and decide on a conclusion or decide on carrying out more deeper investigation.</p>
 
-## Optional Dependencies
+## 🎫 Optional Dependencies
 
 This script is written in powershell for use on windows PCs and Servers. 
 <p>For additional features it depends on external binaries, they are in the Forensicator-Share folder.</p>
-<p>But Forensicator can work without the Binaries, they just help with additional features</p>
+<p>But Forensicator can work without these dependencies, they just help with additional features</p>
 
 ```bash
 winpmem_mini_x64_rc2.exe   For taking RAM capture (https://github.com/Velocidex/WinPmem)
 BrowsingHistoryView64.exe  For a more robust Browsing History View (http://www.nirsoft.net/utils/browsing_history_view.html)
 etl2pcapng64.exe           For converting network trace to pcap
+FileCryptography.psm1      For Encrypting the Artifacts
 ```
 
-## Usage
+## 🔨 Usage
 
 ```python
 # copy the files to the computer
@@ -48,7 +49,7 @@ git clone https://github.com/Johnng007/Live-Forensicator.git
 
 ```
 
-## Examples
+## 🥊 Examples
 
 ```python
 # Basic
@@ -104,17 +105,20 @@ git clone https://github.com/Johnng007/Live-Forensicator.git
 
 ```
 
-## Notes
+## ✍ Notes
 Run the script as an administrator to get value.<br>
 Forensicator Activities may be flagged by IDS or IPS Solutions so take note.<br>
 The results are outputed in nice looking html files with an index file. <br>
 You can find all extracted Artifacts in the script's working directory.
+
 <p>Forensicator Has the ability to Search through all the folders within a system looking for files with similar extensions as well known Ransomwares, Albeit this search takes long but its helpful if the Alert you recieved is related to a Ransomware attack, Use the -RANSOMWARE Parameter to invoke this.</p>
-<p>Forensictor now hs the ability to capture network traffic using netsh trace, this is useful when your investigation has to do with asset communicating with known malicious IPs, this way you can parse the pcapng file to wireshark and examine for C&C servers. By Defult i set the capture to take 120secs</p> 
+
+<p>Forensictor now has the ability to capture network traffic using netsh trace, this is useful when your investigation has to do with asset communicating with known malicious IPs, this way you can parse the pcapng file to wireshark and examine for C&C servers. By Defult i set the capture to take 120secs</p>
+
 <p>Sometimes it may be paramount to maintain the integrity of the Artifacts, where lawyers may argue that it might have been compromised on transit to your lab.
 Forensicator can now encrypt the Artifact with a unique randomely generated key using AES algorithm, you can specify this by using the -ENCRYPTED parameter. You can decrypt it at will anywhere anytime even with another copy of Forensicator, just keep your key safe. This task is performed by the FileCryptography.psm1 file</p>
 
-## What Forensicator Grabs
+## 🔥 What Forensicator Grabs
 ```bash
 
    =================================
@@ -216,7 +220,7 @@ Forensicator can now encrypt the Artifact with a unique randomely generated key 
 
 ```
 
-##ChangeLog
+## ✨ ChangeLog
 ```bash
 v3.2.1 29/06/2022
 Updated The UI
