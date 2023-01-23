@@ -35,6 +35,9 @@ git clone https://github.com/Johnng007/Live-Forensicator.git
 # move into the MacOS directory
 cd MacOS
 
+# Give permission
+chmod 777 Forensicator.sh
+
 # Execution
 ./Forensicator.sh
 
