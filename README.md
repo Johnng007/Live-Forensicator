@@ -28,7 +28,7 @@ Live Forensicator is part of the Black Widow Toolbox, its aim is to assist Foren
  
 ## 🥊 NOTE: THERE IS A MacOS VERSION AVAILABLE 
 YOU CAN CHECK IT OUT HERE: https://github.com/Johnng007/Live-Forensicator/tree/main/MacOS
-OR FROM RELEASES FROM RELEASES: https://github.com/Johnng007/Live-Forensicator/releases/download/v0.1-Bash/forensicator.sh
+OR FROM RELEASES: https://github.com/Johnng007/Live-Forensicator/releases/download/v0.1-Bash/forensicator.sh
 ```
 
 ## 🎫 Optional Dependencies
