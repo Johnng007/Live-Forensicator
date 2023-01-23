@@ -25,8 +25,10 @@ Live Forensicator is part of the Black Widow Toolbox, its aim is to assist Foren
 <p> **The latest version now analysis Event Logs, it querries the event logs for certain log IDs that might point to an unusual activity or compromise. </p>
 <p>It is paramount to note that this script has no inbuilt intelligence its left for the investigator to analyse the output and decide on a conclusion or decide on carrying out more deeper investigation.</p>
 
+```bash
 <p>NOTE: THERE IS A MACOS VERSION AVAILABLE, YOU CAN CHECK IT OUT HERE: https://github.com/Johnng007/Live-Forensicator/tree/main/MacOS</p>
 <p>      YOU CAN ALSO GRAB IT FROM RELEASES: https://github.com/Johnng007/Live-Forensicator/releases/download/v0.1-Bash/forensicator.sh </p>
+```
 
 ## 🎫 Optional Dependencies
 
