@@ -230,6 +230,11 @@ git clone https://github.com/Johnng007/Live-Forensicator.git
 
 ## ✨ ChangeLog
 ```bash
+v3.3.1 22/02/2023
+Updated The UI
+Added Eventlog Analysis for {Logon Events, Object Access, Process Execution & Suspicious Activities}
+Added auto checking of update.
+
 v3.2.1 29/06/2022
 Updated The UI
 Added EventLog Analysis
