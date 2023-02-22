@@ -235,11 +235,14 @@ git clone https://github.com/Johnng007/Live-Forensicator.git
 ```
 
 
+
 ## 🤔 MORE TOOLS
 Want to check out other Black Widow Tools?
 1. Anteater - A python based web reconnaisence tool. https://github.com/Johnng007/Anteater
 
-
+```bash
+.
+```
 
 
 ## ✨ ChangeLog
