@@ -1,3 +1,4 @@
+
 # Live Forensicator Powershell Script
 # Part of the Black Widow Tools
 # Coded by Ebuka John Onyejegbu
@@ -1205,9 +1206,9 @@ $HomeTableStyle >> $HomeDes
 $HomeDiv = ' <div style='' width: 30%; padding-bottom: 46.25%;padding-top: 25px;height: 0;padding-left: 15.25%;'' >'
 $HomeDiv >> $HomeDes
 
-'<h3>Live Forensics Result for <u>$env:computername</u></h3><br>' >> $HomeDes
+"<h3>Live Forensics Result for <u>$env:computername</u></h3><br>" >> $HomeDes
 
-$HomeTable = '
+$HomeTable = "
 
 <table style=''width:100%''>
   <tr>
@@ -1249,7 +1250,7 @@ $HomeTable = '
 </table>
 
 
-'
+"
 $HomeTable >> $HomeDes
 
 
