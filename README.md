@@ -1,5 +1,5 @@
 <h1 align="center">📝 Forensicator 📝</h1>
-<h3 align="center">POWERSHELL SCRIPT TO AID LIVE FORENSICS & INCIDENCE RESPONSE</h3>
+<h3 align="center">POWERSHELL | BASH SCRIPT TO AID LIVE FORENSICS & INCIDENCE RESPONSE</h3>
                                                
 ```bash
 
@@ -11,7 +11,7 @@ ___________                                .__               __
  \___  / \____/|__|    \___  >___|  /____  >__|\___  >____  /__|  \____/|__|   
      \/                    \/     \/     \/        \/     \/                    
 
-                                                                          v3.2.1
+                                                                          v3.3.1
 
 
 
@@ -126,6 +126,8 @@ git clone https://github.com/Johnng007/Live-Forensicator.git
 * <p>Sometimes it may be paramount to maintain the integrity of the Artifacts, where lawyers may argue that it might have been compromised on transit to your lab.
   Forensicator can now encrypt the Artifact with a unique randomely generated key using AES algorithm, you can specify this by using the -ENCRYPTED parameter. You can   decrypt it at will anywhere anytime even with another copy of Forensicator, just keep your key safe. This task is performed by the FileCryptography.psm1 file</p>
 
+* <p>Forensictor looks out for suspicious activities within the Event Log, it has a long list of malicious executables, and powershell commands which it queries the event log against. CREDITS TO: https://github.com/ahmedkhlief/APT-Hunter</p>
+
 ## 🔥 What Forensicator Grabs
 ```bash
 
@@ -193,6 +195,10 @@ git clone https://github.com/Johnng007/Live-Forensicator.git
        9. ACCOUNT LOCKOUTS
        10. CREDENTIAL MANAGER BACKUPS
        11. CREDNTIAL MANAGER RESTORES
+       12. LOGON EVENTS
+       13. OBJECT ACCESS
+       14. PROCESS EXECUTION
+       15. SUSPICIOUS ACTIVITIES
        
     NOTE: I WILL KEEP UPDATING THE ANALYSIS SCOPE WITH TIME.
 
@@ -227,6 +233,13 @@ git clone https://github.com/Johnng007/Live-Forensicator.git
     9.  Event Logs in EVTX Format
 
 ```
+
+```bash
+want to check out other Black Widow Tools?
+1. Anteater - A python based web reconnaisence tool. https://github.com/Johnng007/Anteater
+
+```
+
 
 ## ✨ ChangeLog
 ```bash
