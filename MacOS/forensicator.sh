@@ -26,9 +26,10 @@ YELLOW='\033[1;33m'
 PURPLE='\033[1;35m'
 NC='\033[0m'
 
+export DIRECTORY_ROOT=$HOSTNAME
 
 echo -e "${YELLOW} Creating our Artifact Directory${NC}"
-mkdir "$HOSTNAME"
+mkdir $DIRECTORY_ROOT
 echo -e "${GREEN} Done!!!${NC}"
 
 
@@ -47,7 +48,7 @@ echo -e "${GREEN} Done!!!${NC}"
 ###########################################################
 # LOOPING THROUGH USER'S DOWNLOAD HISTORIES  ##############
 ###########################################################
-echo "<h2>All Users Download History</h2>" > $HOSTNAME/downloads.html
+echo "<h2>All Users Download History</h2>" > $DIRECTORY_ROOT/downloads.html
 echo -e "${YELLOW} Starting to Get All User's Download History..${NC}"
 
 # Get the list of users
@@ -58,21 +59,21 @@ for user in $users; do
   if [[ $user == "Guest" || $user == "Shared" ]]; then
     continue
   fi
-  echo "<h2>$user</h2>" >> $HOSTNAME/downloads.html
+  echo "<h2>$user</h2>" >> $DIRECTORY_ROOT/downloads.html
 
   # Get the most recently used items for the current user
   downloads=$(sqlite3 ~/Library/Preferences/com.apple.LaunchServices.QuarantineEventsV2 'select LSQuarantineAgentName, LSQuarantineDataURLString, date(LSQuarantineTimeStamp + 978307200, "unixepoch") as downloadedDate from LSQuarantineEvent order by LSQuarantineTimeStamp' | sort -u | grep '|' --color)
 
   # Check if any items were found
   if [ -z "$downloads" ]; then
-    echo "<p>No download history was found for $user.</p>" >> $HOSTNAME/downloads.html
+    echo "<p>No download history was found for $user.</p>" >> $DIRECTORY_ROOT/downloads.html
   else
-    echo "<ul>" >> $HOSTNAME/downloads.html
+    echo "<ul>" >> $DIRECTORY_ROOT/downloads.html
     # Output the list of items in an HTML list
     for item in $downloads; do
-      echo "<li>$item</li>" >> $HOSTNAME/downloads.html
+      echo "<li>$item</li>" >> $DIRECTORY_ROOT/downloads.html
     done
-    echo "</ul>" >> $HOSTNAME/downloads.html
+    echo "</ul>" >> $DIRECTORY_ROOT/downloads.html
   fi
 done
 echo -e "${GREEN} All Done!!!${NC}"
@@ -83,50 +84,50 @@ echo -e "${GREEN} All Done!!!${NC}"
 echo -e "${YELLOW} Starting system information Gathering..${NC}"
 echo -e "${CYAN} ....Collecting system profiler Info${NC}"
 # Collect system information and store it in the forensic data directory
-system_profiler > $HOSTNAME/system_profiler.txt
-cat $HOSTNAME/system_profiler.txt | awk '{printf("%s<br>",$0)}' > $HOSTNAME/system_profiler.html
+system_profiler > $DIRECTORY_ROOT/system_profiler.txt
+cat $DIRECTORY_ROOT/system_profiler.txt | awk '{printf("%s<br>",$0)}' > $DIRECTORY_ROOT/system_profiler.html
 echo -e "${CYAN} Done!!!"
 
 echo -e "${CYAN} ....Collecting list of all installed application${NC}"
 # Collect a list of all installed applications
-ls /Applications > $HOSTNAME/installed_applications.txt
-cat $HOSTNAME/installed_applications.txt | awk '{printf("%s<br>",$0)}' > $HOSTNAME/installed_applications.html
+ls /Applications > $DIRECTORY_ROOT/installed_applications.txt
+cat $DIRECTORY_ROOT/installed_applications.txt | awk '{printf("%s<br>",$0)}' > $DIRECTORY_ROOT/installed_applications.html
 echo -e "${CYAN} Done!!!"
 
 echo -e "${CYAN} ....Collecting list of all user accounts${NC}"
 # Collect a list of all user accounts on the system
-dscl . -list /Users > $HOSTNAME/user_accounts.txt
-cat $HOSTNAME/user_accounts.txt | awk '{printf("%s<br>",$0)}' > $HOSTNAME/user_accounts.html
+dscl . -list /Users > $DIRECTORY_ROOT/user_accounts.txt
+cat $DIRECTORY_ROOT/user_accounts.txt | awk '{printf("%s<br>",$0)}' > $DIRECTORY_ROOT/user_accounts.html
 echo -e "${CYAN} Done!!!"
 
 echo -e "${CYAN} ....Collecting list of all launch agents and daemons${NC}"
 # Collect a list of all launch agents and daemons
-ls /Library/LaunchAgents > $HOSTNAME/launch_agents.txt
-cat $HOSTNAME/launch_agents.txt | awk '{printf("%s<br>",$0)}' > $HOSTNAME/launch_agents.html
-ls /Library/LaunchDaemons > $HOSTNAME/launch_daemons.txt
-cat $HOSTNAME/launch_daemons.txt | awk '{printf("%s<br>",$0)}' > $HOSTNAME/launch_daemons.html
+ls /Library/LaunchAgents > $DIRECTORY_ROOT/launch_agents.txt
+cat $DIRECTORY_ROOT/launch_agents.txt | awk '{printf("%s<br>",$0)}' > $DIRECTORY_ROOT/launch_agents.html
+ls /Library/LaunchDaemons > $DIRECTORY_ROOT/launch_daemons.txt
+cat $DIRECTORY_ROOT/launch_daemons.txt | awk '{printf("%s<br>",$0)}' > $DIRECTORY_ROOT/launch_daemons.html
 echo -e "${CYAN} Done!!!"
 
 echo -e "${CYAN} ....Collecting list of all cron jobs${NC}"
 # Collect a list of all cron jobs
-crontab -l > $HOSTNAME/cron_jobs.txt
-cat $HOSTNAME/cron_jobs.txt | awk '{printf("%s<br>",$0)}' > $HOSTNAME/cron_jobs.html
+crontab -l > $DIRECTORY_ROOT/cron_jobs.txt
+cat $DIRECTORY_ROOT/cron_jobs.txt | awk '{printf("%s<br>",$0)}' > $DIRECTORY_ROOT/cron_jobs.html
 echo -e "${CYAN} Done!!!"
 
 echo -e "${CYAN} ....Collecting network Info${NC}"
 # Collect network information
-ifconfig > $HOSTNAME/network_info.txt
-cat $HOSTNAME/network_info.txt | awk '{printf("%s<br>",$0)}' > $HOSTNAME/network_info.html
-netstat -an > $HOSTNAME/network_connections.txt
-cat $HOSTNAME/network_connections.txt | awk '{printf("%s<br>",$0)}' > $HOSTNAME/network_connections.html
+ifconfig > $DIRECTORY_ROOT/network_info.txt
+cat $DIRECTORY_ROOT/network_info.txt | awk '{printf("%s<br>",$0)}' > $DIRECTORY_ROOT/network_info.html
+netstat -an > $DIRECTORY_ROOT/network_connections.txt
+cat $DIRECTORY_ROOT/network_connections.txt | awk '{printf("%s<br>",$0)}' > $DIRECTORY_ROOT/network_connections.html
 echo -e "${CYAN} Done!!!"
 
 echo -e "${CYAN} ....Collecting system log Information${NC}"
 # Collect system log information
-log show --predicate 'process == "kernel"' --last 24h > $HOSTNAME/kernel_log.txt
-cat $HOSTNAME/kernel_log.txt | awk '{printf("%s<br>",$0)}' > $HOSTNAME/kernel_log.html
-log show --predicate 'process == "loginwindow"' --last 24h > $HOSTNAME/login_log.txt
-cat $HOSTNAME/login_log.txt | awk '{printf("%s<br>",$0)}' > $HOSTNAME/login_log.html
+log show --predicate 'process == "kernel"' --last 24h > $DIRECTORY_ROOT/kernel_log.txt
+cat $DIRECTORY_ROOT/kernel_log.txt | awk '{printf("%s<br>",$0)}' > $DIRECTORY_ROOT/kernel_log.html
+log show --predicate 'process == "loginwindow"' --last 24h > $DIRECTORY_ROOT/login_log.txt
+cat $DIRECTORY_ROOT/login_log.txt | awk '{printf("%s<br>",$0)}' > $DIRECTORY_ROOT/login_log.html
 echo -e "${CYAN} Done!!!"
 
 echo -e "${GREEN} All Done!!!${NC}"
@@ -135,7 +136,7 @@ echo -e "${GREEN} All Done!!!${NC}"
 # INSTALL HISTORY                        ###############################
 ########################################################################
 echo -e "${YELLOW} Getting Installation History..${NC}"
-echo "<h1>Install History</h1>" > $HOSTNAME/install_history.html
+echo "<h1>Install History</h1>" > $DIRECTORY_ROOT/install_history.html
 
 # Use plutil to parse the InstallHistory.plist file
 plist_data=$(plutil -p /Library/Receipts/InstallHistory.plist)
@@ -163,53 +164,53 @@ done <<< "$plist_data"
 echo "</table>" > /dev/null 2>&1
 
 # Save the table to an HTML file
-echo "<table>" >> $HOSTNAME/install_history.html
-echo "<tr>" >> $HOSTNAME/install_history.html
-echo "<th>Date</th>" >> $HOSTNAME/install_history.html
-echo "<th>Name</th>" >> $HOSTNAME/install_history.html
-echo "</tr>" >> $HOSTNAME/install_history.html
+echo "<table>" >> $DIRECTORY_ROOT/install_history.html
+echo "<tr>" >> $DIRECTORY_ROOT/install_history.html
+echo "<th>Date</th>" >> $DIRECTORY_ROOT/install_history.html
+echo "<th>Name</th>" >> $DIRECTORY_ROOT/install_history.html
+echo "</tr>" >> $DIRECTORY_ROOT/install_history.html
 while read -r line; do
   if [[ $line == *"date"* ]]; then
     date=$(echo $line | awk '{print $3}' | tr -d ';')
   elif [[ $line == *"displayName"* ]]; then
     name=$(echo $line | awk '{print $3}' | tr -d ';')
-    echo "<tr>" >> $HOSTNAME/install_history.html
-    echo "<td>$date</td>" >> $HOSTNAME/install_history.html
-    echo "<td>$name</td>" >> $HOSTNAME/install_history.html
-    echo "</tr>" >> $HOSTNAME/install_history.html
+    echo "<tr>" >> $DIRECTORY_ROOT/install_history.html
+    echo "<td>$date</td>" >> $DIRECTORY_ROOT/install_history.html
+    echo "<td>$name</td>" >> $DIRECTORY_ROOT/install_history.html
+    echo "</tr>" >> $DIRECTORY_ROOT/install_history.html
   fi
 done <<< "$plist_data"
-echo "</table>" >> $HOSTNAME/install_history.html
+echo "</table>" >> $DIRECTORY_ROOT/install_history.html
 
 
-echo "</table>" >> $HOSTNAME/install_history.html
+echo "</table>" >> $DIRECTORY_ROOT/install_history.html
 
 
 
 
-echo -e "${GREEN} Done!!!${NC}"	
+echo -e "${GREEN} Done!!!${NC}"
 
 ########################################################################
 ## LOCATION SERVICES  ##################################################
 ########################################################################
 echo -e "${YELLOW} Getting Location Service Requests..${NC}"
 
-echo "<h2>Location Services Clients Report</h2>" > $HOSTNAME/location.html
+echo "<h2>Location Services Clients Report</h2>" > $DIRECTORY_ROOT/location.html
 
 # Get the contents of the clients.plist file
 plist_content=$(defaults read /var/db/locationd/clients.plist)
 
 # Check if the file exists and is not empty
 if [ -z "$plist_content" ]; then
-  echo "<p>The clients.plist file is empty or doesn't exist</p>" >> $HOSTNAME/location.html
+  echo "<p>The clients.plist file is empty or doesn't exist</p>" >> $DIRECTORY_ROOT/location.html
 else
-  echo "<pre>" >> $HOSTNAME/location.html
+  echo "<pre>" >> $DIRECTORY_ROOT/location.html
   # Output the content of the file in HTML format
-  echo "$plist_content" >> $HOSTNAME/location.html
-  echo "</pre>" >> $HOSTNAME/location.html
+  echo "$plist_content" >> $DIRECTORY_ROOT/location.html
+  echo "</pre>" >> $DIRECTORY_ROOT/location.html
 fi
 
-echo -e "${GREEN} Done!!!${NC}"	
+echo -e "${GREEN} Done!!!${NC}"
 
 ########################################################################
 ## MOST RECENTLY USED ITEMS   ##########################################
@@ -217,7 +218,7 @@ echo -e "${GREEN} Done!!!${NC}"
 
 
 : '
-echo "<h1>Recently Used Items Report</h1>" > $HOSTNAME/mru.html
+echo "<h1>Recently Used Items Report</h1>" > $DIRECTORY_ROOT/mru.html
 
 # Get the list of users
 users=$(dscl . -list /Users)
@@ -227,21 +228,21 @@ for user in $users; do
   if [[ $user == "Guest" || $user == "Shared" ]]; then
     continue
   fi
-  echo "<h2>$user</h2>" >> $HOSTNAME/mru.html
+  echo "<h2>$user</h2>" >> $DIRECTORY_ROOT/mru.html
 
   # Get the most recently used items for the current user
   mru=$(sqlite3 ~/Library/Application\ Support/com.apple.LSSharedFileList.ApplicationRecentDocuments/com.apple.LSSharedFileList.ApplicationRecentDocuments.sfl* 'select * from "LSSharedFileListRecentItems";' | awk -F'|' '{print $2}' | xargs -I{} echo {} | awk '{print $NF}' | xargs -I{} echo {})
 
   # Check if any items were found
   if [ -z "$mru" ]; then
-    echo "<p>No recently used items were found for $user.</p>" >> $HOSTNAME/mru.html
+    echo "<p>No recently used items were found for $user.</p>" >> $DIRECTORY_ROOT/mru.html
   else
-    echo "<ul>" >> $HOSTNAME/mru.html
+    echo "<ul>" >> $DIRECTORY_ROOT/mru.html
     # Output the list of items in an HTML list
     for item in $mru; do
-      echo "<li>$item</li>" >> $HOSTNAME/mru.html
+      echo "<li>$item</li>" >> $DIRECTORY_ROOT/mru.html
     done
-    echo "</ul>" >> $HOSTNAME/mru.html
+    echo "</ul>" >> $DIRECTORY_ROOT/mru.html
   fi
 done
 '
@@ -254,7 +255,7 @@ done
 echo -e "${YELLOW} Getting Audit Logs..${NC}"
 
 
-echo "<h2>Audit Log Report</h2>" > $HOSTNAME/audit.html
+echo "<h2>Audit Log Report</h2>" > $DIRECTORY_ROOT/audit.html
 
 
 # Get the audit logs for the last 24 hours
@@ -262,14 +263,14 @@ logs=$(find /var/audit -type f -mtime -1 -exec praudit {} \;)
 
 # Check if any logs were found
 if [ -z "$logs" ]; then
-  echo "<p>No audit logs were found for the last 24 hours.</p>" >> $HOSTNAME/audit.html
+  echo "<p>No audit logs were found for the last 24 hours.</p>" >> $DIRECTORY_ROOT/audit.html
 else
-  echo "<pre>" >> $HOSTNAME/audit.html
+  echo "<pre>" >> $DIRECTORY_ROOT/audit.html
   # Output the logs in HTML format
-  echo "$logs" >> $HOSTNAME/audit.html
-  echo "</pre>" >> $HOSTNAME/audit.html
+  echo "$logs" >> $DIRECTORY_ROOT/audit.html
+  echo "</pre>" >> $DIRECTORY_ROOT/audit.html
 fi
-echo -e "${GREEN} Done!!!${NC}"	
+echo -e "${GREEN} Done!!!${NC}"
 
 ########################################################################
 ## USER LOGIN LOGS   ###################################################
@@ -280,23 +281,23 @@ echo -e "${YELLOW} Getting User Login Logs..${NC}"
 # Get the current date and time
 date=$(date +"%Y-%m-%d %H:%M:%S")
 
-echo "<h2>Audit Log Report</h2>" > $HOSTNAME/loginlogs.html
-echo "<p>Generated on $date</p>" >> $HOSTNAME/loginlogs.html
+echo "<h2>Audit Log Report</h2>" > $DIRECTORY_ROOT/loginlogs.html
+echo "<p>Generated on $date</p>" >> $DIRECTORY_ROOT/loginlogs.html
 
 # Get the audit logs for the last 24 hours using auditreduce
 loginlogs=$(auditreduce -c lo /var/audit/* | praudit | grep -E "^[0-9]" | awk -v d1="$(date -v-1d +"%b %e")" -v d2="$(date +"%b %e")" '$0 > d1 && $0 < d2 || $0 ~ d2' )
 
 # Check if any logs were found
 if [ -z "$loginlogs" ]; then
-  echo "<p>No audit logs were found for the last 24 hours.</p>" >> $HOSTNAME/loginlogs.html
+  echo "<p>No audit logs were found for the last 24 hours.</p>" >> $DIRECTORY_ROOT/loginlogs.html
 else
-  echo "<pre>" >> $HOSTNAME/loginlogs.html
+  echo "<pre>" >> $DIRECTORY_ROOT/loginlogs.html
   # Output the logs in HTML format
-  echo "$logs" >> $HOSTNAME/loginlogs.html
-  echo "</pre>" >> $HOSTNAME/loginlogs.html
+  echo "$logs" >> $DIRECTORY_ROOT/loginlogs.html
+  echo "</pre>" >> $DIRECTORY_ROOT/loginlogs.html
 fi
 
-echo -e "${GREEN} Done!!!${NC}"	
+echo -e "${GREEN} Done!!!${NC}"
 
 ########################################################################
 ## USER ACTIVITIES #####################################################
@@ -308,8 +309,8 @@ echo -e "${YELLOW} Getting User Activity Logs..${NC}"
 date=$(date +"%Y-%m-%d %H:%M:%S")
 
 
-echo "<h2>User Activities</h2>" > $HOSTNAME/user_activity.html
-echo "<p>Generated on $date</p>" >> $HOSTNAME/user_activity.html
+echo "<h2>User Activities</h2>" > $DIRECTORY_ROOT/user_activity.html
+echo "<p>Generated on $date</p>" >> $DIRECTORY_ROOT/user_activity.html
 
 # Get the list of users
 users=$(dscl . -list /Users)
@@ -319,23 +320,23 @@ for user in $users; do
   if [[ $user == "Guest" || $user == "Shared" ]]; then
     continue
   fi
-  echo "<h2>$user</h2>" >> $HOSTNAME/user_activity.html
+  echo "<h2>$user</h2>" >> $DIRECTORY_ROOT/user_activity.html
 
   # Get the login and logout events for the current user using auditreduce
   events=$(auditreduce -u $user /var/audit/* | praudit | grep -E "^[0-9]" | awk -v d1="$(date -v-1d +"%b %e")" -v d2="$(date +"%b %e")" '$0 > d1 && $0 < d2 || $0 ~ d2')
 
   # Check if any events were found
   if [ -z "$events" ]; then
-    echo "<p>No login and logout events were found for $user.</p>" >> $HOSTNAME/user_activity.html
+    echo "<p>No login and logout events were found for $user.</p>" >> $DIRECTORY_ROOT/user_activity.html
   else
-    echo "<pre>" >> $HOSTNAME/user_activity.html
+    echo "<pre>" >> $DIRECTORY_ROOT/user_activity.html
     # Output the events in HTML format
-    echo "$events" >> $HOSTNAME/user_activity.html
-    echo "</pre>" >> $HOSTNAME/user_activity.html
+    echo "$events" >> $DIRECTORY_ROOT/user_activity.html
+    echo "</pre>" >> $DIRECTORY_ROOT/user_activity.html
   fi
 done
 
-echo -e "${GREEN} Done!!!${NC}"	
+echo -e "${GREEN} Done!!!${NC}"
 
 ########################################################################
 ## TIME DIFFERENCE LOGS ################################################
@@ -347,8 +348,8 @@ echo -e "${YELLOW} Getting Log difference..${NC}"
 date=$(date +"%Y-%m-%d %H:%M:%S")
 
 
-echo "<h1>What happened between yesterday and Today</h1>" > $HOSTNAME/log_difference.html
-echo "<p>Generated on $date</p>" >> $HOSTNAME/log_difference.html
+echo "<h1>What happened between yesterday and Today</h1>" > $DIRECTORY_ROOT/log_difference.html
+echo "<p>Generated on $date</p>" >> $DIRECTORY_ROOT/log_difference.html
 
 # Get the audit logs for yesterday using auditreduce
 yesterday_logs=$(auditreduce /var/audit/* | praudit | grep -E "^[0-9]" | awk -v d="$(date -v-1d +"%b %e")" '$0 ~ d')
@@ -361,14 +362,14 @@ log_diff=$(echo "$yesterday_logs" | praudit | grep -Fxv - "$today_logs")
 
 # Check if any log difference were found
 if [ -z "$log_diff" ]; then
-  echo "<p>No log difference were found between yesterday and today.</p>" >> $HOSTNAME/log_difference.html
+  echo "<p>No log difference were found between yesterday and today.</p>" >> $DIRECTORY_ROOT/log_difference.html
 else
-  echo "<pre>" >> $HOSTNAME/log_difference.html
+  echo "<pre>" >> $DIRECTORY_ROOT/log_difference.html
   # Output the log difference in HTML format
-  echo "$log_diff" >> $HOSTNAME/log_difference.html
-  echo "</pre>" >> $HOSTNAME/log_difference.html
+  echo "$log_diff" >> $DIRECTORY_ROOT/log_difference.html
+  echo "</pre>" >> $DIRECTORY_ROOT/log_difference.html
 fi
-echo -e "${GREEN} Done!!!${NC}"	
+echo -e "${GREEN} Done!!!${NC}"
 
 ########################################################################
 ## BASH | ZSH HISTORY ##################################################
@@ -376,17 +377,17 @@ echo -e "${GREEN} Done!!!${NC}"
 
 echo -e "${YELLOW} Getting Shell History..${NC}"
 
-echo "<h2>Command Line History Report</h2>" > $HOSTNAME/command_history.html
+echo "<h2>Command Line History Report</h2>" > $DIRECTORY_ROOT/command_history.html
 
 # Iterate through all user directories
 for user_dir in /Users/*; do
-  echo "<h2>Command history for user $(basename "$user_dir")</h2>" >> $HOSTNAME/command_history.html
+  echo "<h2>Command history for user $(basename "$user_dir")</h2>" >> $DIRECTORY_ROOT/command_history.html
   # Get the command history for Bash
-  echo "<h3>Bash Command History</h3>" >> $HOSTNAME/command_history.html
-  cat "$user_dir/.bash_history" >> $HOSTNAME/command_history.html
+  echo "<h3>Bash Command History</h3>" >> $DIRECTORY_ROOT/command_history.html
+  cat "$user_dir/.bash_history" >> $DIRECTORY_ROOT/command_history.html
   # Get the command history for Zsh
-  echo "<h3>Zsh Command History</h3>" >> $HOSTNAME/command_history.html
-  cat "$user_dir/.zsh_history" >> $HOSTNAME/command_history.html
+  echo "<h3>Zsh Command History</h3>" >> $DIRECTORY_ROOT/command_history.html
+  cat "$user_dir/.zsh_history" >> $DIRECTORY_ROOT/command_history.html
 done
 
 echo -e "${GREEN} Done!!!"
@@ -398,7 +399,7 @@ echo -e "${GREEN} Done!!!"
 echo -e "${YELLOW} Getting Admin Users..${NC}"
 
 
-echo "<h2>Admin Group Users Report</h2>" > $HOSTNAME/admin_users.html
+echo "<h2>Admin Group Users Report</h2>" > $DIRECTORY_ROOT/admin_users.html
 
 
 # Get the list of users in the admin group
@@ -406,15 +407,15 @@ admin_users=$(plutil -convert json -o - /private/var/db/dslocal/nodes/Default/gr
 
 # Check if any users were found
 if [ -z "$admin_users" ]; then
-  echo "<p>No users were found in the admin group.</p>" >> $HOSTNAME/admin_users.html
+  echo "<p>No users were found in the admin group.</p>" >> $DIRECTORY_ROOT/admin_users.html
 else
   # Output the list of users in HTML table format
-  echo "<table>" >> $HOSTNAME/admin_users.html
-  echo "<tr><th>Username</th></tr>" >> $HOSTNAME/admin_users.html
+  echo "<table>" >> $DIRECTORY_ROOT/admin_users.html
+  echo "<tr><th>Username</th></tr>" >> $DIRECTORY_ROOT/admin_users.html
   for user in $admin_users; do
-    echo "<tr><td>$user</td></tr>" >> $HOSTNAME/admin_users.html
+    echo "<tr><td>$user</td></tr>" >> $DIRECTORY_ROOT/admin_users.html
   done
-  echo "</table>" >> $HOSTNAME/admin_users.html
+  echo "</table>" >> $DIRECTORY_ROOT/admin_users.html
 fi
 
 echo -e "${GREEN} Done!!!"
@@ -425,29 +426,29 @@ echo -e "${GREEN} Done!!!"
 
 echo -e "${YELLOW} Checking for Persistence..${NC}"
 
-echo "<h2>Application Persistence Report</h2>" > $HOSTNAME/persistence.html
+echo "<h2>Application Persistence Report</h2>" > $DIRECTORY_ROOT/persistence.html
 
 
 # Search for launch agents and daemons
-echo "<h2>Launch Agents and Daemons</h2>" >> $HOSTNAME/persistence.html
-echo "<pre>" >> $HOSTNAME/persistence.html
+echo "<h2>Launch Agents and Daemons</h2>" >> $DIRECTORY_ROOT/persistence.html
+echo "<pre>" >> $DIRECTORY_ROOT/persistence.html
 launch_agents=$(find /Library/LaunchAgents /Library/LaunchDaemons -name "*.plist" -exec ls -l {} \;)
-echo "$launch_agents" >> $HOSTNAME/persistence.html
-echo "</pre>" >> $HOSTNAME/persistence.html
+echo "$launch_agents" >> $DIRECTORY_ROOT/persistence.html
+echo "</pre>" >> $DIRECTORY_ROOT/persistence.html
 
 # Search for login items
-echo "<h2>Login Items</h2>" >> $HOSTNAME/persistence.html
-echo "<pre>" >> $HOSTNAME/persistence.html
+echo "<h2>Login Items</h2>" >> $DIRECTORY_ROOT/persistence.html
+echo "<pre>" >> $DIRECTORY_ROOT/persistence.html
 login_items=$(find ~/Library/Preferences -name "com.apple.loginitems.plist" -exec ls -l {} \;)
-echo "$login_items" >> $HOSTNAME/persistence.html
-echo "</pre>" >> $HOSTNAME/persistence.html
+echo "$login_items" >> $DIRECTORY_ROOT/persistence.html
+echo "</pre>" >> $DIRECTORY_ROOT/persistence.html
 
 # Search for kernel extensions
-echo "<h2>Kernel Extensions</h2>" >> $HOSTNAME/persistence.html
-echo "<pre>" >> $HOSTNAME/persistence.html
+echo "<h2>Kernel Extensions</h2>" >> $DIRECTORY_ROOT/persistence.html
+echo "<pre>" >> $DIRECTORY_ROOT/persistence.html
 kernel_extensions=$(find /Library/Extensions -name "*.kext" -exec ls -l {} \;)
-echo "$kernel_extensions" >> $HOSTNAME/persistence.html
-echo "</pre>" >> $HOSTNAME/persistence.html
+echo "$kernel_extensions" >> $DIRECTORY_ROOT/persistence.html
+echo "</pre>" >> $DIRECTORY_ROOT/persistence.html
 
 echo -e "${GREEN} Done!!!"
 
@@ -457,14 +458,14 @@ echo -e "${GREEN} Done!!!"
 
 echo -e "${YELLOW} Getting TCC details..${NC}"
 
-echo "<h2>Transparency, Consent, and Control Report</h2>" > $HOSTNAME/tcc.html
-echo "<p>Generated on $date</p>" >> $HOSTNAME/tcc.html
+echo "<h2>Transparency, Consent, and Control Report</h2>" > $DIRECTORY_ROOT/tcc.html
+echo "<p>Generated on $date</p>" >> $DIRECTORY_ROOT/tcc.html
 
 # Iterate through all user directories
 for user_dir in /Users/*; do
-  echo "<h2>TCC.db Result for user $(basename "$user_dir")</h2>" >> $HOSTNAME/tcc.html
+  echo "<h2>TCC.db Result for user $(basename "$user_dir")</h2>" >> $DIRECTORY_ROOT/tcc.html
   # Read the TCC.db file
-  sqlite3 "$user_dir/Library/Application Support/com.apple.TCC/TCC.db" "SELECT * FROM access;" >> $HOSTNAME/tcc.html
+  sqlite3 "$user_dir/Library/Application Support/com.apple.TCC/TCC.db" "SELECT * FROM access;" >> $DIRECTORY_ROOT/tcc.html
 done
 
 echo -e "${GREEN} Done!!!"
@@ -475,10 +476,10 @@ echo -e "${GREEN} Done!!!"
 
 echo -e "${YELLOW} Checking Inbuilt Security..${NC}"
 
-echo "<h1>Security Tool Status</h1>" > $HOSTNAME/security.html
+echo "<h1>Security Tool Status</h1>" > $DIRECTORY_ROOT/security.html
 
 # # Airdrop
-Airdrop=$(ifconfig awdl0 | awk '/status/{print $2}') 
+Airdrop=$(ifconfig awdl0 | awk '/status/{print $2}')
 
 # Filevault
 filevault=$(fdesetup status)
@@ -503,29 +504,29 @@ sip=$(csrutil status)
 
 
   # Output the list of users in HTML table format
-echo "<table>" >> $HOSTNAME/security.html
+echo "<table>" >> $DIRECTORY_ROOT/security.html
 
-echo "<tr><th>Airdrop</th></tr>" >> $HOSTNAME/security.html
-echo "<tr><td>$Airdrop</td></tr>" >> $HOSTNAME/security.html
+echo "<tr><th>Airdrop</th></tr>" >> $DIRECTORY_ROOT/security.html
+echo "<tr><td>$Airdrop</td></tr>" >> $DIRECTORY_ROOT/security.html
 
-echo "<tr><th>Filevault</th></tr>" >> $HOSTNAME/security.html
-echo "<tr><td>$filevault</td></tr>" >> $HOSTNAME/security.html
+echo "<tr><th>Filevault</th></tr>" >> $DIRECTORY_ROOT/security.html
+echo "<tr><td>$filevault</td></tr>" >> $DIRECTORY_ROOT/security.html
 
-echo "<tr><th>Firewall</th></tr>" >> $HOSTNAME/security.html
-echo "<tr><td>$firewall</td></tr>" >> $HOSTNAME/security.html
+echo "<tr><th>Firewall</th></tr>" >> $DIRECTORY_ROOT/security.html
+echo "<tr><td>$firewall</td></tr>" >> $DIRECTORY_ROOT/security.html
 
-echo "<tr><th>Gatekeeper</th></tr>" >> $HOSTNAME/security.html
-echo "<tr><td>$gatekeeper</td></tr>" >> $HOSTNAME/security.html
+echo "<tr><th>Gatekeeper</th></tr>" >> $DIRECTORY_ROOT/security.html
+echo "<tr><td>$gatekeeper</td></tr>" >> $DIRECTORY_ROOT/security.html
 
-echo "<tr><th>Network Fileshare</th></tr>" >> $HOSTNAME/security.html
-echo "<tr><td>$nfileshare</td></tr>" >> $HOSTNAME/security.html
+echo "<tr><th>Network Fileshare</th></tr>" >> $DIRECTORY_ROOT/security.html
+echo "<tr><td>$nfileshare</td></tr>" >> $DIRECTORY_ROOT/security.html
 
-echo "<tr><th>Remote Login</th></tr>" >> $HOSTNAME/security.html
-echo "<tr><td>$remotel</td></tr>" >> $HOSTNAME/security.html
+echo "<tr><th>Remote Login</th></tr>" >> $DIRECTORY_ROOT/security.html
+echo "<tr><td>$remotel</td></tr>" >> $DIRECTORY_ROOT/security.html
 
-echo "<tr><th>SIP</th></tr>" >> $HOSTNAME/security.html
-echo "<tr><td>$sip</td></tr>" >> $HOSTNAME/security.html
-echo "</table>" >> $HOSTNAME/security.html
+echo "<tr><th>SIP</th></tr>" >> $DIRECTORY_ROOT/security.html
+echo "<tr><td>$sip</td></tr>" >> $DIRECTORY_ROOT/security.html
+echo "</table>" >> $DIRECTORY_ROOT/security.html
 
 
 echo -e "${GREEN} Done!!!"
@@ -539,13 +540,13 @@ echo -e "${GREEN} Done!!!"
 # Get the current date and time
 date=$(date +"%Y-%m-%d %H:%M:%S")
 
-echo "<!DOCTYPE html>" > $HOSTNAME/index.html
-echo "<html>" >> $HOSTNAME/index.html
-echo "<head>" >> $HOSTNAME/index.html
-echo "<title>Live Forensicator Report</title>" >> $HOSTNAME/index.html
+echo "<!DOCTYPE html>" > $DIRECTORY_ROOT/index.html
+echo "<html>" >> $DIRECTORY_ROOT/index.html
+echo "<head>" >> $DIRECTORY_ROOT/index.html
+echo "<title>Live Forensicator Report</title>" >> $DIRECTORY_ROOT/index.html
 
 
-echo = "
+echo "
 <style>
 @import url(\"https://fonts.googleapis.com/css?family=Bangers|Cinzel:400,700,900|Lato:100,300,400,700,900|Lobster|Lora:400,700|Mansalva|Muli:200,300,400,600,700,800,900|Open+Sans:300,400,600,700,800|Oswald:200,300,400,500,600,700|Roboto:100,300,400,500,700,900&display=swap\");
 /* Used Google Fonts */
@@ -589,7 +590,7 @@ h1, h2, h3, h4, h5, h6, p{
     margin: 10px;
     float: left;
     padding:20px;
-    box-shadow: 0px 5px 10px rgba(0, 0, 0, 0.25);    
+    box-shadow: 0px 5px 10px rgba(0, 0, 0, 0.25);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -618,17 +619,18 @@ h1, h2, h3, h4, h5, h6, p{
     color: #fff;
     padding-left: 5px;
 }
-</style>" >> $HOSTNAME/index.html
+</style>" >> $DIRECTORY_ROOT/index.html
 echo  "<script>
-     function loadContent(page) { 
-     document.getElementById("content").src = page; 
-  } 
- </script> " >> $HOSTNAME/index.html
+  function loadContent(page) {
+    contentElement = document.getElementById('content');
+    if (contentElement) contentElement.src = page;
+  }
+ </script> " >> $DIRECTORY_ROOT/index.html
 #echo "$BlackWidowStyle" >> index.html
-echo "</head>" >> $HOSTNAME/index.html
-echo "<body>" >> $HOSTNAME/index.html
+echo "</head>" >> $DIRECTORY_ROOT/index.html
+echo "<body>" >> $DIRECTORY_ROOT/index.html
 
-echo ="
+echo "
 <div class=\"logo-container\" align=\"center\">
   <ul>
     <li>
@@ -639,67 +641,64 @@ echo ="
         </a>
       </div>
     </li>
-    
+
   </ul>
-</div>" >> $HOSTNAME/index.html
+</div>" >> $DIRECTORY_ROOT/index.html
 
-echo "<br>" >> $HOSTNAME/index.html
+echo "<br>" >> $DIRECTORY_ROOT/index.html
 
-echo "<center><h1>Live Forensicator Report for $HOSTNAME</h1></center>" >> $HOSTNAME/index.html
-echo "<center><p>Generated on $date</p></center>" >> $HOSTNAME/index.html
+echo "<center><h1>Live Forensicator Report for $DIRECTORY_ROOT</h1></center>" >> $DIRECTORY_ROOT/index.html
+echo "<center><p>Generated on $date</p></center>" >> $DIRECTORY_ROOT/index.html
 
-echo "<div style='float: left; width: 20%;'>" >> $HOSTNAME/index.html
-echo "<ul>" >> $HOSTNAME/index.html
+echo "<div style='float: left; width: 20%;'>" >> $DIRECTORY_ROOT/index.html
+echo "<ul>" >> $DIRECTORY_ROOT/index.html
 
-echo "<br>" >> $HOSTNAME/index.html
-echo "SYSTEM INFORMATION" >> $HOSTNAME/index.html
-echo "<li><a href='#' onclick='loadContent(\"$HOSTNAME/system_profiler.html\")'>System Information</a></li>" >> $HOSTNAME/index.html
-echo "<li><a href='#' onclick='loadContent(\"$HOSTNAME/installed_applications.html\")'>Installed Applications</a></li>" >> $HOSTNAME/index.html
-echo "<li><a href='#' onclick='loadContent(\"$HOSTNAME/user_accounts.html\")'>User Accounts</a></li>" >> $HOSTNAME/index.html
-echo "<li><a href='#' onclick='loadContent(\"$HOSTNAME/admin_users.html\")'>Admin Users</a></li>" >> $HOSTNAME/index.html 
-echo "<li><a href='#' onclick='loadContent(\"$HOSTNAME/security.html\")'>Security Tool Status</a></li>" >> $HOSTNAME/index.html
+echo "<br>" >> $DIRECTORY_ROOT/index.html
+echo "SYSTEM INFORMATION" >> $DIRECTORY_ROOT/index.html
+echo "<li><a href='#' onclick='loadContent(\"system_profiler.html\")'>System Information</a></li>" >> $DIRECTORY_ROOT/index.html
+echo "<li><a href='#' onclick='loadContent(\"installed_applications.html\")'>Installed Applications</a></li>" >> $DIRECTORY_ROOT/index.html
+echo "<li><a href='#' onclick='loadContent(\"user_accounts.html\")'>User Accounts</a></li>" >> $DIRECTORY_ROOT/index.html
+echo "<li><a href='#' onclick='loadContent(\"admin_users.html\")'>Admin Users</a></li>" >> $DIRECTORY_ROOT/index.html
+echo "<li><a href='#' onclick='loadContent(\"security.html\")'>Security Tool Status</a></li>" >> $DIRECTORY_ROOT/index.html
 
-echo "<br>" >> $HOSTNAME/index.html
-echo "AUTO STARTS" >> $HOSTNAME/index.html
-echo "<li><a href='#' onclick='loadContent(\"$HOSTNAME/launch_agents.html\")'>Launch Agents</a></li>" >> $HOSTNAME/index.html
-echo "<li><a href='#' onclick='loadContent(\"$HOSTNAME/launch_daemons.html\")'>Daemons</a></li>" >> $HOSTNAME/index.html
-echo "<li><a href='#' onclick='loadContent(\"$HOSTNAME/cron_jobs.html\")'>Cron Jobs</a></li>" >> $HOSTNAME/index.html
+echo "<br>" >> $DIRECTORY_ROOT/index.html
+echo "AUTO STARTS" >> $DIRECTORY_ROOT/index.html
+echo "<li><a href='#' onclick='loadContent(\"launch_agents.html\")'>Launch Agents</a></li>" >> $DIRECTORY_ROOT/index.html
+echo "<li><a href='#' onclick='loadContent(\"launch_daemons.html\")'>Daemons</a></li>" >> $DIRECTORY_ROOT/index.html
+echo "<li><a href='#' onclick='loadContent(\"cron_jobs.html\")'>Cron Jobs</a></li>" >> $DIRECTORY_ROOT/index.html
 
-echo "<br>" >> $HOSTNAME/index.html
-echo "NETWORKS" >> $HOSTNAME/index.html
-echo "<li><a href='#' onclick='loadContent(\"$HOSTNAME/network_info.html\")'>Network Information</a></li>" >> $HOSTNAME/index.html
-echo "<li><a href='#' onclick='loadContent(\"$HOSTNAME/network_connections.html\")'>Network Connections</a></li>" >> $HOSTNAME/index.html
+echo "<br>" >> $DIRECTORY_ROOT/index.html
+echo "NETWORKS" >> $DIRECTORY_ROOT/index.html
+echo "<li><a href='#' onclick='loadContent(\"network_info.html\")'>Network Information</a></li>" >> $DIRECTORY_ROOT/index.html
+echo "<li><a href='#' onclick='loadContent(\"network_connections.html\")'>Network Connections</a></li>" >> $DIRECTORY_ROOT/index.html
 
-echo "<br>" >> $HOSTNAME/index.html
-echo "SYSTEM LOGS" >> $HOSTNAME/index.html
-echo "<li><a href='#' onclick='loadContent(\"$HOSTNAME/login_log.html\")'>Login Window</a></li>" >> $HOSTNAME/index.html
-echo "<li><a href='#' onclick='loadContent(\"$HOSTNAME/kernel_log.html\")'>Kernel Logs</a></li>" >> $HOSTNAME/index.html
-echo "<li><a href='#' onclick='loadContent(\"$HOSTNAME/audit.html\")'>Audit Logs</a></li>" >> $HOSTNAME/index.html
-echo "<li><a href='#' onclick='loadContent(\"$HOSTNAME/loginlogs.html\")'>User Login Logs</a></li>" >> $HOSTNAME/index.html 
-echo "<li><a href='#' onclick='loadContent(\"$HOSTNAME/user_activity.html\")'>User Activity Logs</a></li>" >> $HOSTNAME/index.html
-echo "<li><a href='#' onclick='loadContent(\"$HOSTNAME/log_difference.html\")'>Log Difference</a></li>" >> $HOSTNAME/index.html
+echo "<br>" >> $DIRECTORY_ROOT/index.html
+echo "SYSTEM LOGS" >> $DIRECTORY_ROOT/index.html
+echo "<li><a href='#' onclick='loadContent(\"login_log.html\")'>Login Window</a></li>" >> $DIRECTORY_ROOT/index.html
+echo "<li><a href='#' onclick='loadContent(\"kernel_log.html\")'>Kernel Logs</a></li>" >> $DIRECTORY_ROOT/index.html
+echo "<li><a href='#' onclick='loadContent(\"audit.html\")'>Audit Logs</a></li>" >> $DIRECTORY_ROOT/index.html
+echo "<li><a href='#' onclick='loadContent(\"loginlogs.html\")'>User Login Logs</a></li>" >> $DIRECTORY_ROOT/index.html
+echo "<li><a href='#' onclick='loadContent(\"user_activity.html\")'>User Activity Logs</a></li>" >> $DIRECTORY_ROOT/index.html
+echo "<li><a href='#' onclick='loadContent(\"log_difference.html\")'>Log Difference</a></li>" >> $DIRECTORY_ROOT/index.html
 
-echo "<br>" >> $HOSTNAME/index.html
-echo "USER ACTIVITIES" >> $HOSTNAME/index.html
-echo "<li><a href='#' onclick='loadContent(\"$HOSTNAME/downloads.html\")'>User Downloads</a></li>" >> $HOSTNAME/index.html
+echo "<br>" >> $DIRECTORY_ROOT/index.html
+echo "USER ACTIVITIES" >> $DIRECTORY_ROOT/index.html
+echo "<li><a href='#' onclick='loadContent(\"downloads.html\")'>User Downloads</a></li>" >> $DIRECTORY_ROOT/index.html
 
-echo "<br>" >> $HOSTNAME/index.html
-echo "HISTORIES" >> $HOSTNAME/index.html
-echo "<li><a href='#' onclick='loadContent(\"$HOSTNAME/install_history.html\")'>Install History</a></li>" >> $HOSTNAME/index.html
-echo "<li><a href='#' onclick='loadContent(\"$HOSTNAME/location.html\")'>Location Requests</a></li>" >> $HOSTNAME/index.html
-echo "<li><a href='#' onclick='loadContent(\"$HOSTNAME/command_history.html\")'>Command History</a></li>" >> $HOSTNAME/index.html 
-echo "<li><a href='#' onclick='loadContent(\"$HOSTNAME/tcc.html\")'>TCC</a></li>" >> $HOSTNAME/index.html
-echo "</ul>" >> $HOSTNAME/index.html
-echo "</div>" >> $HOSTNAME/index.html
+echo "<br>" >> $DIRECTORY_ROOT/index.html
+echo "HISTORIES" >> $DIRECTORY_ROOT/index.html
+echo "<li><a href='#' onclick='loadContent(\"install_history.html\")'>Install History</a></li>" >> $DIRECTORY_ROOT/index.html
+echo "<li><a href='#' onclick='loadContent(\"location.html\")'>Location Requests</a></li>" >> $DIRECTORY_ROOT/index.html
+echo "<li><a href='#' onclick='loadContent(\"command_history.html\")'>Command History</a></li>" >> $DIRECTORY_ROOT/index.html
+echo "<li><a href='#' onclick='loadContent(\"tcc.html\")'>TCC</a></li>" >> $DIRECTORY_ROOT/index.html
+echo "</ul>" >> $DIRECTORY_ROOT/index.html
+echo "</div>" >> $DIRECTORY_ROOT/index.html
 
-#echo "<div id='content' style='float: left; width: 80%;'>" >> $HOSTNAME/index.html
+#echo "<div id='content' style='float: left; width: 80%;'>" >> $DIRECTORY_ROOT/index.html
 
-echo "<div style='float: left; width: 80%; margin: 0 auto;padding-bottom: 56.25%;padding-top: 25px;height: 0;'>" >> $HOSTNAME/index.html
-echo "<iframe id="content" src="persistence.html" style=" width: 100%; height: 100%; position: absolute;"></iframe>" >> $HOSTNAME/index.html
-echo "</div>" >> $HOSTNAME/index.html
+echo "<div style='float: left; width: 80%; margin: 0 auto;padding-bottom: 56.25%;padding-top: 25px;height: 0;'>" >> $DIRECTORY_ROOT/index.html
+echo "<iframe id='content' src='persistence.html' style='width: 100%; height: 100%; position: absolute;'></iframe>" >> $DIRECTORY_ROOT/index.html
+echo "</div>" >> $DIRECTORY_ROOT/index.html
 
-
-
-
-echo "</body>" >> $HOSTNAME/index.html
-echo "</html>" >> $HOSTNAME/index.html
+echo "</body>" >> $DIRECTORY_ROOT/index.html
+echo "</html>" >> $DIRECTORY_ROOT/index.html
