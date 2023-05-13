@@ -253,6 +253,11 @@ Want to check out other Black Widow Tools?
 
 ## ✨ ChangeLog
 ```bash
+v3.3.2 13/05/2023
+Fixed Windows Defender warning while running Forensicator.
+Added config.yml to handle malicious file names, executable names and powershell commands.
+      In the future config.yml may hold more configuration information.
+
 v3.3.1 22/02/2023
 Updated The UI
 Added Eventlog Analysis for {Logon Events, Object Access, Process Execution & Suspicious Activities}
