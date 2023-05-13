@@ -38,7 +38,7 @@ Write-Host -Fore DarkCyan "[!] Starting... "
 ##################################################
 #region        Auto Check Update                 #
 ##################################################
-
+<#
 # GitHub repository information
 $repoOwner = "johnng007"
 $repoName = "Live-Forensicator"
@@ -64,7 +64,7 @@ if ($localCommitHash -ne $latestCommitHash) {
    # Write-Host -Fore Cyan "[!] We think "
 }
 
-
+#>
 
 ##################################################
 #region        Versioning & Update               #
@@ -258,14 +258,36 @@ $Folder = 'Forensicator-Share'
 if (Test-Path -Path $Folder) {
     #Write-Host -Fore Cyan "[!] You have the share folder moving on.."
 } else {
-    Write-Host -Fore Cyan "[!] Forensicator-Share folder not found, some flags will not work, use the -UPDATE flag to import the complete Arsenal.."
+    Write-Host -Fore Cyan "[!] Forensicator-Share folder not found, some flags and functions will not work! use the -UPDATE flag to import the complete Arsenal.."
 	Write-Host -Fore Cyan "[!] Moving on...."
 }
-
 
 ##################################################
 #endregion   Check if the share folder exists    #
 ##################################################
+
+##################################################
+#region      Reading the config file             #
+##################################################
+Write-Host -Fore DarkCyan "[*] Reading the config file...."
+
+$Folder = '.\Forensicator-Share\powershell-yaml.psm1'
+
+if (Test-Path -Path $Folder) {
+    Write-Host ''
+    # Import yaml reader module
+    Import-Module "$PSScriptRoot\Forensicator-Share\powershell-yaml.psm1"
+    Write-Host -Fore Cyan "[!] Done"
+
+} else {
+    Write-Host -Fore Cyan "[!] Forensicator-Share folder not found! Failed to read config file. "
+	Write-Host -Fore Cyan "[!] use the -UPDATE flag to import the complete Arsenal! Moving on...."
+}
+
+##################################################
+#endregion   Reading the config file             #
+##################################################
+
 
 Write-Host ''
 Write-Host ''
@@ -1982,63 +2004,13 @@ $severityLevels = @{ 16 = "Critical"; 8 = "Error"; 4 = "Warning"; 2 = "Informati
 # Get the event log entries
 $entries = Get-EventLog -LogName $logName -Newest 5000 | Where-Object { $_.EntryType -ge 2 }
 
-#$malicious = "lsass", "password"
 
-$suspicious_executables = "%comspec%", "wscript.exe", "regsvr32.exe", "mshta.exe", "\\csc.exe", "whoami.exe", "\\pl.exe",
-                          "\\nc.exe", "nmap.exe", "psexec.exe", "psexesvc.exe", "plink.exe", "kali", "mimikatz", "procdump.exe",
-                          "dcom.exe", "Inveigh.exe", "LockLess.exe", "Logger.exe", "PBind.exe", "PS.exe", "Rubeus.exe",
-                          "RunasCs.exe", "RunAs.exe", "SafetyDump.exe", "SafetyKatz.exe", "Seatbelt.exe", "SExec.exe",
-                          "SharpApplocker.exe", "SharpChrome.exe", " SharpCOM.exe", "SharpDPAPI.exe", "SharpDump.exe",
-                          "SharpEdge.exe", "SharpEDRChecker.exe", " SharPersist.exe", "SharpHound.exe", "SharpLogger.exe",
-                          "SharpPrinter.exe", "SharpRoast.exe", "SharpSC.exe", "SharpSniper.exe", "SharpSocks.exe", "SharpSSDP.exe", "SharpTask.exe", "SharpUp.exe", "SharpView.exe", "SharpWeb.exe",
-                          "SharpWMI.exe", "Shhmon.exe", "SweetPotato.exe", "Watson.exe", "WExec.exe", "7zip.exe"
+#Getting getting suspicious executable names from yaml file
 
+$yaml = Get-Content -Raw -Path ".\config.yml" | ConvertFrom-Yaml
+$suspicious_executables = $yaml.suspicious_executables
 
-
-$suspicious_PS_commands = "FromBase64String", "DomainPasswordSpray", "PasswordSpray", "Password", "lsass",
-                          "Get-WMIObject", "Get-GPPPassword", "Get-Keystrokes", "Get-TimedScreenshot",
-                          "Get-VaultCredential", "Get-ServiceUnquoted", "Get-ServiceEXEPerms",
-                          "Get-ServicePerms", "Get-RegAlwaysInstallElevated", "Get-RegAutoLogon",
-                          "Get-UnattendedInstallFiles", "Get-Webconfig", "Get-ApplicationHost",
-                          "Get-PassHashes", "Get-LsaSecret", "Get-Information", "Get-PSADForestInfo",
-                          "Get-KerberosPolicy", "Get-PSADForestKRBTGTInfo", "Get-PSADForestInfo",
-                          "Get-KerberosPolicy", "Invoke-Command", "Invoke-Expression", "iex",
-                          "Invoke-Shellcode", "Invoke--Shellcode", "Invoke-ShellcodeMSIL",
-                          "Invoke-MimikatzWDigestDowngrade", "Invoke-NinjaCopy", "Invoke-CredentialInjection",
-                          "Invoke-TokenManipulation", "Invoke-CallbackIEX", "Invoke-PSInject",
-                          "Invoke-DllEncode", "Invoke-ServiceUserAdd", "Invoke-ServiceCMD",
-                          "Invoke-ServiceStart", "Invoke-ServiceStop", "Invoke-ServiceEnable",
-                          "Invoke-ServiceDisable", "Invoke-FindDLLHijack", "Invoke-FindPathHijack",
-                          "Invoke-AllChecks", "Invoke-MassCommand", "Invoke-MassMimikatz", "Invoke-MassSearch",
-                          "Invoke-MassTemplate", "Invoke-MassTokens", "Invoke-ADSBackdoor",
-                          "Invoke-CredentialsPhish", "Invoke-BruteForce", "Invoke-PowerShellIcmp",
-                          "Invoke-PowerShellUdp", "Invoke-PsGcatAgent", "Invoke-PoshRatHttps",
-                          "Invoke-PowerShellTcp", "Invoke-PoshRatHttp", "Invoke-PowerShellWmi", "Invoke-PSGcat",
-                          "Invoke-Encode", "Invoke-Decode", "Invoke-CreateCertificate", "Invoke-NetworkRelay",
-                          "EncodedCommand", "New-ElevatedPersistenceOption", "wsman", "Enter-PSSession",
-                          "DownloadString", "DownloadFile", "Out-Word", "Out-Excel", "Out-Java", "Out-Shortcut",
-                          "Out-CHM", "Out-HTA", "Out-Minidump", "HTTP-Backdoor", "Find-AVSignature",
-                          "DllInjection", "ReflectivePEInjection", "Base64", "System.Reflection",
-                          "System.Management", "Restore-ServiceEXE", "Add-ScrnSaveBackdoor", "Gupt-Backdoor",
-                          "Execute-OnTime", "DNS_TXT_Pwnage", "Write-UserAddServiceBinary",
-                          "Write-CMDServiceBinary", "Write-UserAddMSI", "Write-ServiceEXE",
-                          "Write-ServiceEXECMD", "Enable-DuplicateToken", "Remove-Update",
-                          "Execute-DNSTXT-Code", "Download-Execute-PS", "Execute-Command-MSSQL",
-                          "Download_Execute", "Copy-VSS", "Check-VM", "Create-MultipleSessions",
-                          "Run-EXEonRemote", "Port-Scan", "Remove-PoshRat", "TexttoEXE", "Base64ToString",
-                          "StringtoBase64", "Do-Exfiltration", "Parse_Keys", "Add-Exfiltration",
-                          "Add-Persistence", "Remove-Persistence", "Find-PSServiceAccounts",
-                          "Discover-PSMSSQLServers", "Discover-PSMSExchangeServers",
-                          "Discover-PSInterestingServices", "Discover-PSMSExchangeServers",
-                          "Discover-PSInterestingServices", "Mimikatz", "powercat", "powersploit",
-                          "PowershellEmpire", "GetProcAddress", "ICM", ".invoke", " -e ", "hidden", "-w hidden",
-                          "Invoke-Obfuscation-master", "Out-EncodedWhitespaceCommand", "Out-Encoded",
-                          "-EncodedCommand", "-enc", "-w hidden", "[Convert]::FromBase64String", "iex(",
-                          "New-Object", "Net.WebClient", "-windowstyle hidden", "DownloadFile",
-                          "DownloadString", "Invoke-Expression", "Net.WebClient", "-Exec bypass",
-                          "-ExecutionPolicy bypass", "Execute-Command-MSSQL","Execute-DNSTXT-Code","Execute-OnTime","ExetoText","exfill","ExfilOption","Exploit-Jboss","Export-PfxCertificate","Export-PowerViewCSV","Failed to update Help for the module","FakeDC","-FeatureName","-FilePath ","filesystem","-Filter"," -Filter Bookmarks",".findall()","Find-DomainLocalGroupMember","Find-DomainObjectPropertyOutlier","Find-DomainProcess","Find-DomainShare","Find-DomainUserEvent","Find-DomainUserLocation","Find-ForeignGroup","Find-ForeignUser","Find-Fruit","Find-GPOComputerAdmin","Find-GPOLocation","Find-InterestingDomainAcl","Find-InterestingDomainShareFile","Find-InterestingFile","Find-LocalAdminAccess","Find-ManagedSecurityGroups","Find-TrustedDocuments","FireBuster","FireListener"," -Force","foreach","format-table","FreeHGlobal","FreeLibrary","Function Get-ADRExcelComOb","gci"," gen_cli ","get-acl","Get-AdComputer ","Get-AdDefaultDomainPasswordPolicy","Get-AdGroup ","Get-ADObject","get-ADPrincipalGroupMembership","Get-ADRDomainController","Get-ADReplAccount","Get-ADRGPO","get-aduser","Get-ADUser","Get-ApplicationHost","Get-CachedRDPConnection","Get-ChromeDump","Get-ClipboardContents","Get-CredManCreds","GetDelegateForFunctionPointer","Get-DFSshare","Get-DNSRecord","Get-DNSZone","Get-Domain","Get-DomainComputer","Get-DomainController","Get-DomainDFSShare","Get-DomainDNSRecord","Get-DomainDNSZone","Get-DomainFileServer","Get-DomainForeignGroupMember","Get-DomainForeignUser","Get-DomainGPO","Get-DomainGPOComputerLocalGroupMapping","Get-DomainGPOLocalGroup","Get-DomainGPOUserLocalGroupMapping","Get-DomainGroup","Get-DomainGroupMember","Get-DomainManagedSecurityGroup","Get-DomainObject","Get-DomainObjectAcl","Get-DomainOU","Get-DomainPolicy","Get-DomainSID","Get-DomainSite","Get-DomainSPNTicket","Get-DomainSubnet","Get-DomainTrust","Get-DomainTrustMapping","Get-DomainUser","Get-DomainUserEvent","Get-Forest","Get-ForestDomain","Get-ForestGlobalCatalog","Get-ForestTrust","Get-FoxDump","Get-GPO","Get-GPPPassword","Get-Inbox.ps1","Get-IndexedItem","Get-Information","Get-IPAddress","Get-Keystrokes","Get-LastLoggedOn","get-localgroup","Get-LocalGroupMember","Get-LocalUser","Get-LoggedOnLocal","GetLogonSessionData","Get-LSASecret","GetModuleHandle","Get-NetComputer","Get-NetComputerSiteName","Get-NetDomain","Get-NetDomainController","Get-NetDomainTrust","Get-NetFileServer","Get-NetForest","Get-NetForestCatalog","Get-NetForestDomain","Get-NetForestTrust","Get-NetGPO","Get-NetGPOGroup","Get-NetGroup","Get-NetGroupMember","Get-NetLocalGroup","Get-NetLocalGroupMember","Get-NetLoggedon","Get-NetOU","Get-NetProcess","Get-NetRDPSession","Get-NetSession","Get-NetShare","Get-NetSite","Get-NetSubnet","Get-NetUser","Get-ObjectAcl","Get-PassHashes","Get-PassHints","Get-PasswordVaultCredentials","Get-PathAcl","GetProcAddress","Get-ProcAddress user32.dll GetAsyncKeyState","Get-ProcAddress user32.dll GetForegroundWindow","get-process","Get-Process ","Get-Process","GetProcessHandle","Get-Process lsass","Get-Proxy","(Get-PSReadlineOption).HistorySavePath","Get-RegAlwaysInstallElevated","Get-RegAutoLogon","Get-RegistryMountedDrive","Get-RegLoggedOn","Get-RickAstley","Get-Screenshot","Get-SecurityPackages","Get-Service ","Get-ServiceFilePermission","Get-ServicePermission","Get-ServiceUnquoted","Get-SiteListPassword","Get-SiteName","get-smbshare","Get-StorageDiagnosticInfo","Get-System","Get-SystemDriveInfo","Get-TimedScreenshot","GetTokenInformation","::GetTypeFromCLSID(","Get-UnattendedInstallFile","Get-Unconstrained","Get-USBKeystrokes","Get-UserEvent","Get-VaultCredential","Get-Volume","Get-VulnAutoRun","Get-VulnSchTask","Get-Web-Credentials","Get-WLAN-Keys","Get-WMIProcess","Get-WMIRegCachedRDPConnection","Get-WMIRegLastLoggedOn","Get-WMIRegMountedDrive","Get-WMIRegProxy","\Google\\Chrome\\User Data\\Default\\Login Data","\\Google\\Chrome\\User Data\Default\Login Data For Account","GroupPolicyRefreshTime","GroupPolicyRefreshTimeDC","GroupPolicyRefreshTimeOffset","GroupPolicyRefreshTimeOffsetDC","Gupt-Backdoor","gwmi","harmj0y","HighThreatDefaultAction","-HistorySaveStyle","HKCU:\\","HKCU\\software\\microsoft\\windows\\currentversion\\run","HKEY_CURRENT_USER\Control Panel\Desktop\\","HKLM:\\","HotFixID","http://127.0.0.1","HTTP-Backdoor","HTTP-Login","-Identity ","IMAGE_NT_OPTIONAL_HDR64_MAGIC","-ImagePath ","ImpersonateLoggedOnUser","Import-Certificate","Import-Module","$Env:Temp\\","Import-Module ""$Env:Temp\\","Import-Module C:\\Users\\Public\\"," -Include ","-IncludeLiveDump","Install-ServiceBinary","Install-SSP","Internet-Explorer-Optional-amd64","invoke","Invoke-ACLScanner","Invoke-ADSBackdoor","Invoke-AllChecks","Invoke-AmsiBypass","Invoke-ARPScan","Invoke-AzureHound","Invoke-BackdoorLNK","Invoke-BadPotato","Invoke-BetterSafetyKatz","Invoke-BruteForce","Invoke-BypassUAC","Invoke-Carbuncle","Invoke-Certify","Invoke-CheckLocalAdminAccess","Invoke-CimMethod ","Invoke-CimMethod","invoke-command ","Invoke-CredentialInjection","Invoke-CredentialsPhish","Invoke-DAFT","Invoke-DCSync","Invoke-Decode","Invoke-DinvokeKatz","Invoke-DllInjection","Invoke-DNSExfiltrator","Invoke-DowngradeAccount","Invoke-EgressCheck","Invoke-Encode","Invoke-EnumerateLocalAdmin","Invoke-EventHunter","Invoke-Eyewitness","Invoke-FakeLogonScreen","Invoke-Farmer","Invoke-FileFinder","Invoke-Get-RBCD-Threaded","Invoke-Gopher","Invoke-GPOLinks","Invoke-Grouper2","Invoke-HandleKatz","Invoke-Interceptor","Invoke-Internalmonologue","Invoke-Inveigh","Invoke-InveighRelay","invoke-item ","Invoke-JSRatRegsvr","Invoke-JSRatRundll","Invoke-Kerberoast","Invoke-KrbRelayUp","Invoke-LdapSignCheck","Invoke-Lockless","Invoke-MapDomainTrust","Invoke-Mimikatz","Invoke-MimikatzWDigestDowngrade","Invoke-Mimikittenz","Invoke-MITM6","Invoke-NanoDump","Invoke-NetRipper","Invoke-NetworkRelay","Invoke-Nightmare","Invoke-NinjaCopy","Invoke-OxidResolver","Invoke-P0wnedshell","Invoke-Paranoia","Invoke-PortScan","Invoke-PoshRatHttp","Invoke-PoshRatHttps","Invoke-PostExfil","Invoke-Potato","Invoke-PowerDump","Invoke-PowerShellIcmp","Invoke-PowerShellTCP","Invoke-PowerShellUdp","Invoke-PowerShellWMI","Invoke-PPLDump","Invoke-Prasadhak","Invoke-ProcessHunter","Invoke-PsExec","Invoke-PSGcat","Invoke-PsGcatAgent","Invoke-PSInject","Invoke-PsUaCme","Invoke-ReflectivePEInjection","Invoke-ReverseDNSLookup","Invoke-RevertToSelf","Invoke-Rubeus","Invoke-RunAs","Invoke-SafetyKatz","Invoke-SauronEye","Invoke-SCShell","Invoke-Seatbelt","Invoke-ServiceAbuse","Invoke-SessionGopher","Invoke-ShareFinder","Invoke-SharpAllowedToAct","Invoke-SharpBlock","Invoke-SharpBypassUAC","Invoke-SharpChromium","Invoke-SharpClipboard","Invoke-SharpCloud","Invoke-SharpDPAPI","Invoke-SharpDump","Invoke-SharPersist","Invoke-SharpGPOAbuse","Invoke-SharpGPO-RemoteAccessPolicies","Invoke-SharpHandler","Invoke-SharpHide","Invoke-Sharphound2","Invoke-Sharphound3","Invoke-SharpHound4","Invoke-SharpImpersonation","Invoke-SharpImpersonationNoSpace","Invoke-SharpKatz","Invoke-SharpLdapRelayScan","Invoke-Sharplocker","Invoke-SharpLoginPrompt","Invoke-SharpMove","Invoke-SharpPrinter","Invoke-SharpPrintNightmare","Invoke-SharpRDP","Invoke-SharpSecDump","Invoke-Sharpshares","Invoke-SharpSniper","Invoke-SharpSploit","Invoke-SharpSpray","Invoke-SharpSSDP","Invoke-SharpStay","Invoke-SharpUp","Invoke-Sharpview","Invoke-SharpWatson","Invoke-Sharpweb","Invoke-Shellcode","Invoke-SMBAutoBrute","Invoke-SMBScanner","Invoke-Snaffler","Invoke-Spoolsample","Invoke-SSHCommand","Invoke-SSIDExfil","Invoke-StandIn","Invoke-StickyNotesExtract","Invoke-Tater","Invoke-Thunderfox","Invoke-ThunderStruck","Invoke-TokenManipulation","Invoke-Tokenvator","Invoke-TroubleshootingPack","Invoke-UrbanBishop","Invoke-UserHunter","Invoke-UserImpersonation","Invoke-VoiceTroll","Invoke-WebRequest","Invoke-Whisker","Invoke-WinEnum","Invoke-winPEAS","Invoke-WireTap","Invoke-WmiCommand","Invoke-WMIMethod","Invoke-WScriptBypassUAC","Invoke-Zerologon","TOKEN_ADJUST_PRIVILEGES","TOKEN_ALL_ACCESS","Metasploit","TOKEN_ASSIGN_PRIMARY","TOKEN_DUPLICATE","TOKEN_ELEVATION","TOKEN_IMPERSONATE","TOKEN_INFORMATION_CLASS","TOKEN_PRIVILEGES","TOKEN_QUERY","DumpCerts","DumpCreds","DuplicateTokenEx","RastaMouse","Port-Scan","-Post ","PowerBreach","powercat ","powercat.ps1","[System.Environment]::UserName","System.IdentityModel.Tokens.KerberosRequestorSecurityToken","system.io.compression.deflatestream","system.io.streamreader","Set-MacAttribute","Set-MpPreference","Set-NetFirewallProfile","Set-PSReadlineOption","Set-RemotePSRemoting","Set-RemoteWMI","SetThreadToken","Set-VMFirmware","Set-Wallpaper","shell32.dll","Shellcode32","Shellcode64","shellexec_rundll",".ShellExecute(","ShellSmartScreenLevel","Show-TargetScreen","SMB1Protocol","\software\\","\\SOFTWARE\\Policies\\Microsoft\\Windows\\System","Start-BitsTransfer","Start-CaptureServer","Start-Dnscat2","Start-VM","Start-WebcamRecorder","-stream","StringtoBase64","SuspendThread","SyncAppvPublishingServer.exe","SyncInvoke","System.CodeDom.Compiler.CompilerParameters","System.DirectoryServices.AccountManagement","System.DirectoryServices.DirectorySearcher","System.DirectoryServices.Protocols.LdapConnection","System.DirectoryServices.Protocols.LdapDirectoryIdentifier","[System.Net.HttpWebRequest]",".DownloadFile(",".DownloadString(","Microsoft.Win32.UnsafeNativeMethods","Mimikatz","MiniDumpWriteDump","ModerateThreatDefaultAction","-ModuleName ","Send-MailMessage","SE_PRIVILEGE_ENABLED","-Server "," service_mod ","Set-ADObject","set-content","Set-DCShadowPermissions","-UserAgent "," vacant_system ","-Value","vaultcmd","vbscript:createobject","VirtualAlloc","VirtualFree","VirtualProtect","virus","VolumeShadowCopyTools","WaitForSingleObject","Web Credentials","wget ","Win32_ComputerSystem","Win32_Group","Win32_PnPEntity","Win32_Product ","Win32_QuickFixEngineering","win32_shadowcopy","Win32_Shadowcopy","New-DomainGroup","New-DomainUser","New-HoneyHash","New-Item","New-LocalUser","new-object","0xdeadbeef","AAAAYInlM","AcceptTcpClient"," active_users ","Add-ConstrainedDelegationBackdoor","add-content","Add-Content","Add-DnsClientNrptRule","Add-DomainGroupMember","Add-DomainObjectAcl","Add-Exfiltration","Add-ObjectAcl","Add-Persistence","Add-RegBackdoor","Add-RemoteConnection","Add-ScrnSaveBackdoor","AddSecurityPackage","AdjustTokenPrivileges","ADRecon-Report.xlsx","ReadProcessMemory.Invoke","readtoend","-recurse","[Reflection.Assembly]::Load($","Reflection.Emit.AssemblyBuilderAccess","Register-ScheduledTask",".RegisterXLL","Registry::","REGISTRY::HKLM\\SYSTEM\\CurrentControlSet\\Services\\"," registry_mod ","-RemoteFXvGPUDisablementFilePath"," remote_posh ","RemoteSigned","Remove-ADGroupMember","Remove-EtwTraceProvider ","Remove-EventLog ","Remove-FileShare","Remove-LocalUser","Remove-Module","Remove-MpPreference","Remove-Persistence","Remove-PoshRat","Remove-RemoteConnection","Remove-SmbShare","Remove-Update","Remove-WmiObject","Rename-LocalUser","Request-SPNTicket","Resolve-IPAddress","RevertToSelf","-root ","Root\\\Microsoft\\\Windows\\\TaskScheduler",".rtf","RtlCreateUserThread","runAfterCancelProcess","rundll32","rundll32.exe","Run-EXEonRemote","Runtime.InteropServices.DllImportAttribute","SaveNothing"," sched_job ","-ScriptBlock ","secur32","SECURITY_DELEGATION",".Send(","Set-DomainObject","Set-DomainUserPassword","Set-EtwTraceProvider ","Set-LocalUser","System.Net.NetworkCredential","System.Net.NetworkInformation.Ping","System.Net.Security.SslStream","System.Net.Sockets.TcpListener","system.net.webclient","System.Net.WebClient","SystemParametersInfo(20,0,,3)","[System.Reflection.Assembly]::Load($","System.Reflection.Assembly.Load($","System.Reflection.AssemblyName","[System.Runtime.InteropServices.RuntimeEnvironment]::GetRuntimeDirectory())","[System.Security.Principal.WindowsIdentity]::GetCurrent()","System.Xml.XmlDocument","TelnetServer","Test-AdminAccess","Test-NetConnection","text.encoding]::ascii","TexttoExe","TFTP","tifkin_","-Exec bypass",".txt","2013HistorySaveStyle","-Unattended","Unblock-File ","Unrestricted","Update-Help","useraccountcontrol"," -window hidden ","Windows Credentials","Windows-Defender","Windows-Defender-ApplicationGuard","Windows-Defender-Features","import-module ActiveDirectory","Windows-Defender-Gui","Windows.Security.Credentials.PasswordVault","WMImplant","Write-ChocolateyWarning","Write-EventLog","WriteInt32","WriteProcessMemory","ZeroFreeGlobalAllocUnicode","UploadData","Net.ServicePointManagers","CommandInvocation","[IO.File]::SetLastAccessTime","[IO.File]::SetLastWriteTime","IO.FileStream","ipmo","$Env:Appdata\\","ipmo $Env:Appdata\\","$Env:Temp\\","ipmo $Env:Temp\\","ipmo C:\\Users\\Public\\","iwr ","join",".kdb",".kdbx","kernel32","Keylogger",".LastAccessTime =",".LastWriteTime =","-like","Limit-EventLog ","/listcreds:",".Load","LoadLibrary","LoggedKeys"," logon_events ","LowThreatDefaultAction","LSA_UNICODE_STRING","MailRaider","mattifestation","-Members ","memcpy","-Method ","-MethodName ","Microsoft.CSharp.CSharpCodeProvider","\Microsoft\\Edge\\User Data\Default","Microsoft.Office.Interop.Outlook","Microsoft.Office.Interop.Outlook.olDefaultFolders","-ModulePath ","Mount-DiskImage ","\Mozilla\Firefox\Profiles","MSAcpi_ThermalZoneTemperature","mshta",".msi","msvcrt","MsXml2.","-NameSe","-Namesp","-NameSpace","-Namespace root/subscription ","Net.Security.RemoteCertificateValidationCallback","Net.WebClient","New-CimInstance ","New-PSDrive","New-PSSession","New-ScheduledTask","New-ScheduledTaskAction","New-ScheduledTaskPrincipal","New-ScheduledTaskSettingsSet","New-ScheduledTaskTrigger","New-VM","Nishang"," -noni ","-noni"," -noninteractive ","-nop","-noprofile","NotAllNameSpaces","ntdll","OiCAAAAYInlM","OiJAAAAYInlM","-Online","OpenDesktop","OpenProcess","OpenProcessToken","OpenThreadToken","OpenWindowStation","\Opera Software\\Opera Stable\\Login Data","Out-CHM","OUT-DNSTXT","Out-File ","Out-HTA","Out-Minidump","Out-RundllCommand","Out-SCF","Out-SCT","Out-Shortcut","Out-WebQuery","Out-Word"," -p ","PAGE_EXECUTE_READ","Parse_Keys",".pass","-PassThru ","Password-List","-Pattern ",".pdf","-port "," power_off ","Powerpreter","PowerUp","PowerView",".ppt",".pptx"," process_kill ","-Profile","PromptForCredential","Properties.name",".PropertiesToLoad.Add","PS ATTACK!!!","-psprovider ","psreadline","PS_ScheduledTask","PtrToString"," Put ","QueueUserApc","_RastaMouse","-RawData ","ReadProcessMemory"
-
-
+$suspicious_PS_commands = $yaml.suspicious_PS_commands
 
 $searchRegex = ($suspicious_executables -join "|" -replace '[[+*?()\\}}]','\$&')
 $searchRegex1 = ($suspicious_PS_commands -join "|" -replace '[[+*?()\\}}]','\$&')
