@@ -246,10 +246,6 @@ NOTE: You can just double click the exe to run the default checks
 Want to check out other Black Widow Tools?
 1. Anteater - A python based web reconnaisence tool. https://github.com/Johnng007/Anteater
 
-```bash
-.
-```
-
 
 ## ✨ ChangeLog
 ```bash
