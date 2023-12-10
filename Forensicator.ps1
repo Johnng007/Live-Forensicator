@@ -66,6 +66,36 @@ if ($localCommitHash -ne $latestCommitHash) {
 
 #>
 
+$localVersion = Get-Content -Path .\version.txt
+
+# GitHub repository details
+$repoOwner = "johnng007"
+$repoName = "Live-Forensicator"
+$branch = "main"
+$versionFile = "version.txt"
+$rawUrl = "https://raw.githubusercontent.com/$repoOwner/$repoName/$branch/$versionFile"
+
+# Function to check for updates
+function CheckForUpdates {
+    try {
+        # Fetch the version from GitHub
+        $remoteVersion = (Invoke-RestMethod -Uri $rawUrl).Trim() -replace '\s+'
+
+        # Compare local and remote versions
+        if ($localVersion -lt $remoteVersion) {
+            Write-Host -Fore Cyan "[!] A new version $remoteVersion is available on Github. Please upgrade your copy of Forensicator."
+        } else {
+            Write-Host -Fore Cyan "[!] You are using the latest version $localVersion No updates available."
+        }
+    } catch {
+        Write-Host "Failed to check for updates. You probably dont have internet connection."
+        Write-Host "Error: $_"
+    }
+}
+
+# Call the function to check for updates
+CheckForUpdates
+
 ##################################################
 #region        Versioning & Update               #
 ##################################################
