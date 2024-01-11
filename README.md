@@ -245,7 +245,7 @@ NOTE: You can just double click the exe to run the default checks
 ## 🤔 MORE TOOLS
 Want to check out other Black Widow Tools?
 1. Anteater - A python based web reconnaisence tool. https://github.com/Johnng007/Anteater
-2. Nessus Pro API - A powershell Script to Export and Download Nessus Scan Results via Nessus API. https://github.com/Johnng007/Nessus-Pro-API
+2. Nessus Pro API - A powershell Script to Export and Download Nessus Scan Results via Nessus API. https://github.com/Johnng007/PowershellNessus
 
 ## ✨ ChangeLog
 ```bash
