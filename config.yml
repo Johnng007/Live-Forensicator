@@ -63,6 +63,14 @@ suspicious_executables:
   - Watson.exe
   - WExec.exe
   - 7zip.exe
+  - hydra.exe
+  - john.exe
+  - winexe.exe
+  - responder.exe
+  - bloodHound.exe
+  - empire.exe
+  - metasploit.exe
+  - cain.exe
 
 suspicious_PS_commands:
   - FromBase64String
