@@ -306,9 +306,11 @@ Initial Release
 ```
 
 ## Screenshot
-<img src="https://john.ng/wp-content/uploads/2022/04/NEW_FORENSICATOR_IMAGE.png" alt="Forensicator"  /> <br>
+<img src="https://github.com/Johnng007/Live-Forensicator/blob/main/styles/vendors/images/Forensicator_Output.png?raw=true" alt="Forensicator"  /> <br>
 ## HTML Output
-<img src="https://john.ng/wp-content/uploads/2022/04/HTML-VIEW-FORENSICATOR.png" alt="Forensicator"  /> <br>
+<img src="https://github.com/Johnng007/Live-Forensicator/blob/main/styles/vendors/images/Forensicator_HTML1.png?raw=true" alt="Forensicator"  /> <br>
+<img src="https://github.com/Johnng007/Live-Forensicator/blob/main/styles/vendors/images/Forensicator_HTML2.png?raw=true" alt="Forensicator"  /> <br>
+<img src="https://github.com/Johnng007/Live-Forensicator/blob/main/styles/vendors/images/Forensicator_HTML3.png?raw=true" alt="Forensicator"  /> <br>
 <br></br>
 
 ## Contributing
