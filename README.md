@@ -11,7 +11,7 @@ ___________                                .__               __
  \___  / \____/|__|    \___  >___|  /____  >__|\___  >____  /__|  \____/|__|   
      \/                    \/     \/     \/        \/     \/                    
 
-                                                                          v3.3.1
+                                                                          v4.0
 
 
 
@@ -132,7 +132,7 @@ NOTE: You can just double click the exe to run the default checks
 * <p>Sometimes it may be paramount to maintain the integrity of the Artifacts, where lawyers may argue that it might have been compromised on transit to your lab.
   Forensicator can now encrypt the Artifact with a unique randomely generated key using AES algorithm, you can specify this by using the -ENCRYPTED parameter. You can   decrypt it at will anywhere anytime even with another copy of Forensicator, just keep your key safe. This task is performed by the FileCryptography.psm1 file</p>
 
-* <p>Forensictor looks out for suspicious activities within the Event Log, it has a long list of malicious executables, and powershell commands which it queries the event log against. CREDITS TO: https://github.com/ahmedkhlief/APT-Hunter</p>
+* <p>Forensictor looks out for suspicious activities within the Event Log, it has a long list of malicious executables, and powershell commands which it queries the event log against.</p>
 
 ## 🔥 What Forensicator Grabs
 ```bash
@@ -175,6 +175,8 @@ NOTE: You can just double click the exe to run the default checks
      11. IP ROUTES TO NON LOCAL DESTINATIONS
      12. NETWORK ADAPTERS WITH IP ROUTES TO NON LOCAL DESTINATIONS
      13. IP ROUTES WITH INFINITE VALID LIFETIME
+     14. All RDP Connections
+     15. All Outgoing RDP Connection History
 
    ========================================
      PROCESSES | SCHEDULED TASK | REGISTRY
@@ -225,7 +227,7 @@ NOTE: You can just double click the exe to run the default checks
     13. EXECUTABLES IN THE DOCUMENTS FOLDER
 
    =========================================
-      ORTHER REPORTS IN THE HTML INDEX FILE
+      ORTHER FORENSICATOR EXTRA CHECKS
    =========================================
     1.  GROUP POLICY REPORT
     2.  WINPMEM RAM CAPTURE
@@ -249,6 +251,15 @@ Want to check out other Black Widow Tools?
 
 ## ✨ ChangeLog
 ```bash
+V4.0 13/02/2024 - Big Update
+1. General Code Improvement and Standardization.
+2. Output HTML File has been improved greatly.
+3. Ability to search individual checks in a table from the html output.
+4. Ability to export each check to excel, pdf or print. from the html output.
+5. A new visually stunning HTML output.
+6. Added RDP logon History (Outgoing & Incoming)
+7. changed the config file from config.yml to config.json so the script can use default powershell json manipulation.
+
 v3.3.2 13/05/2023
 Fixed Windows Defender warning while running Forensicator.
 Added config.yml to handle malicious file names, executable names and powershell commands.
