@@ -26,7 +26,7 @@ Live Forensicator is part of the Black Widow Toolbox, its aim is to assist Foren
 <p>It is paramount to note that this script has no inbuilt intelligence its left for the investigator to analyse the output and decide on a conclusion or decide on carrying out more deeper investigation.</p>
 
  
-## 🥊 NOTE: THERE IS A MacOS VERSION AVAILABLE 
+### 🥊 NOTE: THERE IS A MacOS VERSION AVAILABLE 
 YOU CAN CHECK IT OUT HERE: https://github.com/Johnng007/Live-Forensicator/tree/main/MacOS
 
 ```
@@ -34,8 +34,8 @@ YOU CAN CHECK IT OUT HERE: https://github.com/Johnng007/Live-Forensicator/tree/m
 ## 🎫 Optional Dependencies
 
 This script is written in powershell for use on windows PCs and Servers. 
-<p>For additional features it depends on external binaries, they are in the Forensicator-Share folder.</p>
-<p>But Forensicator can work without these dependencies, they just help with additional features</p>
+For additional features it depends on external binaries, they are in the Forensicator-Share folder.
+But Forensicator can work without these dependencies, they just help with additional features
 
 ```bash
 winpmem_mini_x64_rc2.exe   For taking RAM capture (https://github.com/Velocidex/WinPmem)
