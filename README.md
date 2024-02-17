@@ -36,18 +36,17 @@ Live Forensicator is part of the Black Widow Toolbox, its aim is to assist Foren
 This script is written in powershell for use on windows PCs and Servers. 
 For additional features it depends on external binaries, they are in the Forensicator-Share folder.
 But Forensicator can work without these dependencies, they just help with additional features
-
+```
 ```bash
 winpmem_mini_x64_rc2.exe   For taking RAM capture (https://github.com/Velocidex/WinPmem)
 BrowsingHistoryView64.exe  For a more robust Browsing History View (http://www.nirsoft.net/utils/browsing_history_view.html)
 etl2pcapng64.exe           For converting network trace to pcap
 FileCryptography.psm1      For Encrypting the Artifacts
 ```
-```
 
 ## 🔨 Usage
 
-```
+```bash
 # copy the files to the computer
 git clone https://github.com/Johnng007/Live-Forensicator.git
 
