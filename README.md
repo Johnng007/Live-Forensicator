@@ -29,7 +29,7 @@ Live Forensicator is part of the Black Widow Toolbox, its aim is to assist Foren
 ### 🥊 NOTE: THERE IS A MacOS VERSION AVAILABLE 
 <p>YOU CAN CHECK IT OUT HERE: https://github.com/Johnng007/Live-Forensicator/tree/main/MacOS </p>
 
-```
+```bash
 
 ## 🎫 Optional Dependencies
 
@@ -60,7 +60,7 @@ git clone https://github.com/Johnng007/Live-Forensicator.git
 NOTE: You can just double click the exe to run the default checks
       The Forensicator-Share is parked into the EXE which will self extract on run.
 
-```
+``
 
 ## 🥊 Examples
 
