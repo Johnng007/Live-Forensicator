@@ -27,7 +27,7 @@ Live Forensicator is part of the Black Widow Toolbox, its aim is to assist Foren
 
  
 ### 🥊 NOTE: THERE IS A MacOS VERSION AVAILABLE 
-YOU CAN CHECK IT OUT HERE: https://github.com/Johnng007/Live-Forensicator/tree/main/MacOS
+<p>YOU CAN CHECK IT OUT HERE: https://github.com/Johnng007/Live-Forensicator/tree/main/MacOS </p>
 
 ```
 
@@ -42,6 +42,7 @@ winpmem_mini_x64_rc2.exe   For taking RAM capture (https://github.com/Velocidex/
 BrowsingHistoryView64.exe  For a more robust Browsing History View (http://www.nirsoft.net/utils/browsing_history_view.html)
 etl2pcapng64.exe           For converting network trace to pcap
 FileCryptography.psm1      For Encrypting the Artifacts
+```
 ```
 
 ## 🔨 Usage
