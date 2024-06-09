@@ -1,5 +1,6 @@
 <h1 align="center">📝 Forensicator 📝</h1>
-<h3 align="center">WINDOWS(PowerShell) | LINUX(Bash) | MacOS(Bash) SCRIPTS TO AID LIVE FORENSICS & INCIDENCE RESPONSE</h3>
+<h3 align="center"><p><br>WINDOWS(PowerShell) | LINUX(Bash) | MacOS(Bash) </p><br>
+  <p>SCRIPTS TO AID LIVE FORENSICS & INCIDENCE RESPONSE </p></h3>
                                                
 ```bash
 
@@ -23,26 +24,26 @@ Live Forensicator is part of the Black Widow Toolbox, its aim is to assist Foren
 <p>It achieves this by gathering different system information for further review for anomalous behaviour or unexpected data entry, it also looks out for unusual files or activities and points it out to the investigator.</p>
 <p>It is paramount to note that these scripts have no inbuilt intelligence its left for the investigator to analyse the output and decide on a conclusion or decide on carrying out more deeper investigation.</p>
 
-# 🖳 WINDOWS
+# 🖳 Forensicator For WINDOWS
 <p>The windows version of Forensicator is written in Powershell.</p>
-<p> Forensicator analysis Event Logs, it querries the event logs for certain log IDs that might point to an unusual activity or compromise. </p>
-[View More On The Windows Tree](https://github.com/Johnng007/Live-Forensicator/tree/main/Windows)
+<p> Forensicator for Windows has added ability to analysis Event Logs, it querries the event logs for certain log IDs that might point to an unusual activity or compromise. </p>
+[Check out Forensicator for Windows](https://github.com/Johnng007/Live-Forensicator/tree/main/Windows)
 
 
-# 👨‍💻 MacOS
-The MacOS version is written in Bash.
-[View More On The MacOS Tree](https://github.com/Johnng007/Live-Forensicator/tree/main/MacOS)
+# 👨‍💻 Forensicator For MacOS
+<p>The MacOS version is a shell script.</p>
+[Check out Forensicator for MacOS](https://github.com/Johnng007/Live-Forensicator/tree/main/MacOS)
 
 
-# 👩‍💻 LINUX
-The Linux version is written in Bash.
-[View More On The MacOS Tree](https://github.com/Johnng007/Live-Forensicator/tree/main/Linux)
+# 👩‍💻 Forensicator For LINUX
+<p>The Linux version is written in Bash.</p>
+[Check out Forensicator for Linux](https://github.com/Johnng007/Live-Forensicator/tree/main/Linux)
 > #### NOTE: 
-> The Bash codes were written for cross compatibility so therefore efforts were made to use factory shipped commands and avoid secoundary utitlities like `net-tools`.
+> The Bash codes were written for cross compatibility accross linux distros so therefore efforts were made to use OS native commands avoid secoundary utitlities like `net-tools`.
 
 
 
-## ✍ Notes
+## ✍ General Notes
 * Run the scripts as a priviledged user to get value.<br>
 
 * Forensicator Activities may be flagged by IDS or IPS Solutions so take note.<br>
@@ -52,10 +53,10 @@ The Linux version is written in Bash.
 
 * <p>Forensicator Has the ability to Search through all the folders within a system looking for files with similar extensions as well known Ransomwares, Albeit this     search takes long but its helpful if the Alert you recieved is related to a Ransomware attack</p>
 
-* <p>Forensictor can capture network traffic using netsh trace, this is useful when your investigation has to do with asset communicating with known malicious IPs,       this way you can parse the pcapng file to wireshark and examine for C&C servers. By Defult i set the capture to take 120secs</p>
+* <p>Forensicator can capture network traffic, this is useful when your investigation has to do with asset communicating with known malicious IPs,       this way you can parse the pcapng file to wireshark and examine for C&C servers.</p>
 
 * <p>Sometimes it may be paramount to maintain the integrity of the Artifacts, where lawyers may argue that it might have been compromised on transit to your lab.
-  Forensicator can now encrypt the Artifact with a unique randomely generated key using AES algorithm, you can specify this by using the -ENCRYPTED parameter. You can   decrypt it at will anywhere anytime even with another copy of Forensicator, just keep your key safe. This task is performed by the FileCryptography.psm1 file
+  Forensicator can encrypt the Artifact with a unique randomely generated key using AES algorithm, you can specify this by using the -ENCRYPTED parameter. You can   decrypt it at will anywhere anytime even with another copy of Forensicator, just keep your key safe. This task is performed by the FileCryptography.psm1 file
 > #### NOTE: 
 > This feature is only currently available in the Windows Module..
 </p>
@@ -74,6 +75,9 @@ Want to check out other Black Widow Tools?
 Linux: v1.0 09/06/2024
 1. Created Forensicator for Linux machines.
 2. Re-arranged the Directory to show that Forensicator has moved from just a powershell tool to a suite of tools.
+
+Windows: v4.0.1 09/06/2024
+1. Adjusted Static file references to adapt to the new Forensicator Github structure.
 
 V4.0 13/02/2024 - Big Update
 1. General Code Improvement and Standardization.
