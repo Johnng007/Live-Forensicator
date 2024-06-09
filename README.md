@@ -39,7 +39,7 @@ The Linux version is written in Bash.
 [View More On The MacOS Tree](https://github.com/Johnng007/Live-Forensicator/tree/main/Linux)
 > #### NOTE: 
 > The Bash codes were written for cross compatibility so therefore efforts were made to use factory shipped commands and avoid secoundary utitlities like `net-tools`.
-```bash
+
 
 
 ## ✍ Notes
@@ -61,7 +61,7 @@ The Linux version is written in Bash.
 </p>
 
 * <p>In the Windows module Forensictor looks out for suspicious activities within the Event Log, it has a long list of malicious executables, and powershell commands which it queries the event log against.</p>
-```
+
 
 
 ## 🤔 MORE TOOLS
