@@ -32,7 +32,7 @@ Live Forensicator is part of the Black Widow Toolbox, its aim is to assist Foren
 # 👨‍💻 MacOS
 The MacOS version is written in Bash.
 [View More On The MacOS Tree](https://github.com/Johnng007/Live-Forensicator/tree/main/MacOS)
-<p>YOU CAN CHECK IT OUT HERE: https://github.com/Johnng007/Live-Forensicator/tree/main/MacOS </p>
+
 
 # 👩‍💻 LINUX
 The Linux version is written in Bash.
@@ -61,7 +61,7 @@ The Linux version is written in Bash.
 </p>
 
 * <p>In the Windows module Forensictor looks out for suspicious activities within the Event Log, it has a long list of malicious executables, and powershell commands which it queries the event log against.</p>
-
+```
 
 
 ## 🤔 MORE TOOLS
