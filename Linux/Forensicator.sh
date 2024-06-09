@@ -219,7 +219,7 @@ repoOwner="johnng007"
 repoName="Live-Forensicator"
 branch="main"
 versionFile="version.txt"
-rawUrl="https://raw.githubusercontent.com/$repoOwner/$repoName/$branch/$versionFile"
+rawUrl="https://raw.githubusercontent.com/$repoOwner/$repoName/$branch/Linux/$versionFile"
 
 # Function to check for updates
 CheckForUpdates() {
@@ -227,7 +227,7 @@ CheckForUpdates() {
     remoteVersion=$(curl -s $rawUrl | tr -d '[:space:]')
 
     # Compare local and remote versions
-    if [[ $localVersion < $remoteVersion ]]; then
+    if [[ $MyVersion < $remoteVersion ]]; then
         cyan "[!] A new version $remoteVersion is available on GitHub. Please upgrade your copy of Forensicator."
     else
         green "[!] You are using the latest version $localVersion. No updates available."
@@ -596,19 +596,19 @@ rel="stylesheet" />
 <!-- CSS -->
 <link rel="stylesheet" type="text/css"
 href="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/styles/core.css"
-onerror="this.onerror=null;this.href='../styles/vendors/styles/core.css';" />
+onerror="this.onerror=null;this.href='../../styles/vendors/styles/core.css';" />
 <link rel="stylesheet" type="text/css"
 href="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/styles/icon-font.min.css"
-onerror="this.onerror=null;this.href='../styles/vendors/styles/icon-font.min.css';" />
+onerror="this.onerror=null;this.href='../../styles/vendors/styles/icon-font.min.css';" />
 <link rel="stylesheet" type="text/css"
 href="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/css/dataTables.bootstrap4.min.css"
-onerror="this.onerror=null;this.href='../styles/src/plugins/datatables/css/dataTables.bootstrap4.min.css';" />
+onerror="this.onerror=null;this.href='../../styles/src/plugins/datatables/css/dataTables.bootstrap4.min.css';" />
 <link rel="stylesheet" type="text/css"
 href="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/css/responsive.bootstrap4.min.css"
-onerror="this.onerror=null;this.href='../styles/src/plugins/datatables/css/responsive.bootstrap4.min.css';" />
+onerror="this.onerror=null;this.href='../../styles/src/plugins/datatables/css/responsive.bootstrap4.min.css';" />
 <link rel="stylesheet" type="text/css"
 href="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/styles/style.css"
-onerror="this.onerror=null;this.href='../styles/vendors/styles/style.css';" />
+onerror="this.onerror=null;this.href='../../styles/vendors/styles/style.css';" />
 </head>
 <body>
 <div class="pre-loader">
@@ -887,54 +887,54 @@ Live Forensicator - Coded By
 <!-- js -->
 <script type="text/javascript"
 src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/scripts/core.js"></script>
-<script>window.jQuery || document.write('<script src="../styles/vendors/scripts/core.js"><\/script>')</script>
+<script>window.jQuery || document.write('<script src="../../styles/vendors/scripts/core.js"><\/script>')</script>
 <script type="text/javascript"
 src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/scripts/script.js"></script>
-<script>window.jQuery || document.write('<script src="../styles/vendors/scripts/script.js"><\/script>')</script>
+<script>window.jQuery || document.write('<script src="../../styles/vendors/scripts/script.js"><\/script>')</script>
 <script type="text/javascript"
 src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/scripts/process.js"></script>
-<script>window.jQuery || document.write('<script src="../styles/vendors/scripts/process.js"><\/script>')</script>
+<script>window.jQuery || document.write('<script src="../../styles/vendors/scripts/process.js"><\/script>')</script>
 <script type="text/javascript"
 src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/scripts/layout-settings.js"></script>
-<script>window.jQuery || document.write('<script src="../styles/vendors/scripts/layout-settings.js"><\/script>')</script>
+<script>window.jQuery || document.write('<script src="../../styles/vendors/scripts/layout-settings.js"><\/script>')</script>
 <script type="text/javascript"
 src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/jquery.dataTables.min.js"></script>
-<script>window.jQuery || document.write('<script src="../styles/src/plugins/datatables/js/jquery.dataTables.min.js"><\/script>')</script>
+<script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatables/js/jquery.dataTables.min.js"><\/script>')</script>
 <script
 src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/dataTables.bootstrap4.min.js"></script>
-<script>window.jQuery || document.write('<script src="../styles/src/plugins/datatables/js/dataTables.bootstrap4.min.js"><\/script>')</script>
+<script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatables/js/dataTables.bootstrap4.min.js"><\/script>')</script>
 <script
 src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/dataTables.responsive.min.js"></script>
-<script>window.jQuery || document.write('<script src="../styles/src/plugins/datatables/js/dataTables.responsive.min.js"><\/script>')</script>
+<script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatables/js/dataTables.responsive.min.js"><\/script>')</script>
 <script
 src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/responsive.bootstrap4.min.js"></script>
-<script>window.jQuery || document.write('<script src="../styles/src/plugins/datatables/js/responsive.bootstrap4.min.js"><\/script>')</script>
+<script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatables/js/responsive.bootstrap4.min.js"><\/script>')</script>
 <!-- buttons for Export datatable -->
 <script
 src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/dataTables.buttons.min.js"></script>
-<script>window.jQuery || document.write('<script src="../styles/src/plugins/datatablges/js/dataTables.buttons.min.js"><\/script>')</script>
+<script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatablges/js/dataTables.buttons.min.js"><\/script>')</script>
 <script
 src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/buttons.bootstrap4.min.js"></script>
-<script>window.jQuery || document.write('<script src="../styles/src/plugins/datatabgles/js/buttons.bootstrap4.min.js"><\/script>')</script>
+<script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatabgles/js/buttons.bootstrap4.min.js"><\/script>')</script>
 <script
 src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/buttons.print.min.js"></script>
-<script>window.jQuery || document.write('<script src="../styles/src/plugins/datatabgles/js/buttons.print.min.js"><\/script>')</script>
+<script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatabgles/js/buttons.print.min.js"><\/script>')</script>
 <script
 src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/buttons.html5.min.js"></script>
-<script>window.jQuery || document.write('<script src="../styles/src/plugins/datatabgles/js/buttons.html5.min.js"><\/script>')</script>
+<script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatabgles/js/buttons.html5.min.js"><\/script>')</script>
 <script
 src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/buttons.flash.min.js"></script>
-<script>window.jQuery || document.write('<script src="../styles/src/plugins/datatabgles/js/buttons.flash.min.js"><\/script>')</script>
+<script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatabgles/js/buttons.flash.min.js"><\/script>')</script>
 <script
 src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/pdfmake.min.js"></script>
-<script>window.jQuery || document.write('<script src="../styles/src/plugins/datatabgles/js/pdfmake.min.js"><\/script>')</script>
+<script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatabgles/js/pdfmake.min.js"><\/script>')</script>
 <script
 src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/vfs_fonts.js"></script>
-<script>window.jQuery || document.write('<script src="../styles/src/plugins/datatabgles/js/vfs_fonts.js"><\/script>')</script>
+<script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatabgles/js/vfs_fonts.js"><\/script>')</script>
 <!-- Datatable Setting js -->
 <script
 src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/scripts/datatable-setting.js"></script>
-<script>window.jQuery || document.write('<script src="../styles/vendors/scripts/datatable-setting.js"><\/script>')</script>
+<script>window.jQuery || document.write('<script src="../../styles/vendors/scripts/datatable-setting.js"><\/script>')</script>
 </body>
 </html>
 
@@ -957,19 +957,19 @@ cat <<EOL >$NetworkFile
   <!-- CSS -->
   <link rel="stylesheet" type="text/css"
     href="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/styles/core.css"
-    onerror="this.onerror=null;this.href='../styles/vendors/styles/core.css';" />
+    onerror="this.onerror=null;this.href='../../styles/vendors/styles/core.css';" />
   <link rel="stylesheet" type="text/css"
     href="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/styles/icon-font.min.css"
-    onerror="this.onerror=null;this.href='../styles/vendors/styles/icon-font.min.css';" />
+    onerror="this.onerror=null;this.href='../../styles/vendors/styles/icon-font.min.css';" />
   <link rel="stylesheet" type="text/css"
     href="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/css/dataTables.bootstrap4.min.css"
-    onerror="this.onerror=null;this.href='../styles/src/plugins/datatables/css/dataTables.bootstrap4.min.css';" />
+    onerror="this.onerror=null;this.href='../../styles/src/plugins/datatables/css/dataTables.bootstrap4.min.css';" />
   <link rel="stylesheet" type="text/css"
     href="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/css/responsive.bootstrap4.min.css"
-    onerror="this.onerror=null;this.href='../styles/src/plugins/datatables/css/responsive.bootstrap4.min.css';" />
+    onerror="this.onerror=null;this.href='../../styles/src/plugins/datatables/css/responsive.bootstrap4.min.css';" />
   <link rel="stylesheet" type="text/css"
     href="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/styles/style.css"
-    onerror="this.onerror=null;this.href='../styles/vendors/styles/style.css';" />
+    onerror="this.onerror=null;this.href='../../styles/vendors/styles/style.css';" />
 </head>
 <body>
   <div class="pre-loader">
@@ -977,7 +977,7 @@ cat <<EOL >$NetworkFile
       <div class="loader-logo">
         <img
           src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/images/forensicator_logo.png"
-          alt="../styles/vendors/images/forensicator_logo.png" />
+          alt="../../styles/vendors/images/forensicator_logo.png" />
       </div>
       <div class="loader-progress" id="progress_div">
         <div class="bar" id="bar1"></div>
@@ -1403,54 +1403,54 @@ cat <<EOL >>$NetworkFile
   <!-- js -->
   <script type="text/javascript"
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/scripts/core.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/vendors/scripts/core.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/vendors/scripts/core.js"><\/script>')</script>
   <script type="text/javascript"
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/scripts/script.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/vendors/scripts/script.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/vendors/scripts/script.js"><\/script>')</script>
   <script type="text/javascript"
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/scripts/process.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/vendors/scripts/process.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/vendors/scripts/process.js"><\/script>')</script>
   <script type="text/javascript"
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/scripts/layout-settings.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/vendors/scripts/layout-settings.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/vendors/scripts/layout-settings.js"><\/script>')</script>
   <script type="text/javascript"
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/jquery.dataTables.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatables/js/jquery.dataTables.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatables/js/jquery.dataTables.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/dataTables.bootstrap4.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatables/js/dataTables.bootstrap4.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatables/js/dataTables.bootstrap4.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/dataTables.responsive.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatables/js/dataTables.responsive.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatables/js/dataTables.responsive.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/responsive.bootstrap4.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatables/js/responsive.bootstrap4.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatables/js/responsive.bootstrap4.min.js"><\/script>')</script>
   <!-- buttons for Export datatable -->
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/dataTables.buttons.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatablges/js/dataTables.buttons.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatablges/js/dataTables.buttons.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/buttons.bootstrap4.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatabgles/js/buttons.bootstrap4.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatabgles/js/buttons.bootstrap4.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/buttons.print.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatabgles/js/buttons.print.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatabgles/js/buttons.print.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/buttons.html5.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatabgles/js/buttons.html5.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatabgles/js/buttons.html5.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/buttons.flash.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatabgles/js/buttons.flash.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatabgles/js/buttons.flash.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/pdfmake.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatabgles/js/pdfmake.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatabgles/js/pdfmake.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/vfs_fonts.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatabgles/js/vfs_fonts.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatabgles/js/vfs_fonts.js"><\/script>')</script>
   <!-- Datatable Setting js -->
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/scripts/datatable-setting.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/vendors/scripts/datatable-setting.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/vendors/scripts/datatable-setting.js"><\/script>')</script>
   <!-- buttons for Export datatable -->
 </body>
 </html>
@@ -1475,19 +1475,19 @@ cat <<EOL >$UserFile
   <!-- CSS -->
   <link rel="stylesheet" type="text/css"
     href="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/styles/core.css"
-    onerror="this.onerror=null;this.href='../styles/vendors/styles/core.css';" />
+    onerror="this.onerror=null;this.href='../../styles/vendors/styles/core.css';" />
   <link rel="stylesheet" type="text/css"
     href="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/styles/icon-font.min.css"
-    onerror="this.onerror=null;this.href='../styles/vendors/styles/icon-font.min.css';" />
+    onerror="this.onerror=null;this.href='../../styles/vendors/styles/icon-font.min.css';" />
   <link rel="stylesheet" type="text/css"
     href="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/css/dataTables.bootstrap4.min.css"
-    onerror="this.onerror=null;this.href='../styles/src/plugins/datatables/css/dataTables.bootstrap4.min.css';" />
+    onerror="this.onerror=null;this.href='../../styles/src/plugins/datatables/css/dataTables.bootstrap4.min.css';" />
   <link rel="stylesheet" type="text/css"
     href="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/css/responsive.bootstrap4.min.css"
-    onerror="this.onerror=null;this.href='../styles/src/plugins/datatables/css/responsive.bootstrap4.min.css';" />
+    onerror="this.onerror=null;this.href='../../styles/src/plugins/datatables/css/responsive.bootstrap4.min.css';" />
   <link rel="stylesheet" type="text/css"
     href="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/styles/style.css"
-    onerror="this.onerror=null;this.href='../styles/vendors/styles/style.css';" />
+    onerror="this.onerror=null;this.href='../../styles/vendors/styles/style.css';" />
 </head>
 <body>
   <div class="pre-loader">
@@ -1495,7 +1495,7 @@ cat <<EOL >$UserFile
       <div class="loader-logo">
         <img
           src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/images/forensicator_logo.png"
-          alt="../styles/vendors/images/forensicator_logo.png" />
+          alt="../../styles/vendors/images/forensicator_logo.png" />
       </div>
       <div class="loader-progress" id="progress_div">
         <div class="bar" id="bar1"></div>
@@ -1826,54 +1826,54 @@ cat <<EOL >>$UserFile
   <!-- js -->
   <script type="text/javascript"
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/scripts/core.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/vendors/scripts/core.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/vendors/scripts/core.js"><\/script>')</script>
   <script type="text/javascript"
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/scripts/script.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/vendors/scripts/script.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/vendors/scripts/script.js"><\/script>')</script>
   <script type="text/javascript"
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/scripts/process.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/vendors/scripts/process.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/vendors/scripts/process.js"><\/script>')</script>
   <script type="text/javascript"
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/scripts/layout-settings.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/vendors/scripts/layout-settings.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/vendors/scripts/layout-settings.js"><\/script>')</script>
   <script type="text/javascript"
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/jquery.dataTables.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatables/js/jquery.dataTables.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatables/js/jquery.dataTables.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/dataTables.bootstrap4.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatables/js/dataTables.bootstrap4.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatables/js/dataTables.bootstrap4.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/dataTables.responsive.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatables/js/dataTables.responsive.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatables/js/dataTables.responsive.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/responsive.bootstrap4.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatables/js/responsive.bootstrap4.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatables/js/responsive.bootstrap4.min.js"><\/script>')</script>
   <!-- buttons for Export datatable -->
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/dataTables.buttons.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatablges/js/dataTables.buttons.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatablges/js/dataTables.buttons.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/buttons.bootstrap4.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatabgles/js/buttons.bootstrap4.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatabgles/js/buttons.bootstrap4.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/buttons.print.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatabgles/js/buttons.print.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatabgles/js/buttons.print.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/buttons.html5.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatabgles/js/buttons.html5.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatabgles/js/buttons.html5.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/buttons.flash.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatabgles/js/buttons.flash.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatabgles/js/buttons.flash.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/pdfmake.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatabgles/js/pdfmake.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatabgles/js/pdfmake.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/vfs_fonts.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatabgles/js/vfs_fonts.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatabgles/js/vfs_fonts.js"><\/script>')</script>
   <!-- Datatable Setting js -->
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/scripts/datatable-setting.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/vendors/scripts/datatable-setting.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/vendors/scripts/datatable-setting.js"><\/script>')</script>
   <!-- buttons for Export datatable -->
 </body>
 </html>
@@ -1896,19 +1896,19 @@ cat <<EOL >$SystemFile
   <!-- CSS -->
   <link rel="stylesheet" type="text/css"
     href="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/styles/core.css"
-    onerror="this.onerror=null;this.href='../styles/vendors/styles/core.css';" />
+    onerror="this.onerror=null;this.href='../../styles/vendors/styles/core.css';" />
   <link rel="stylesheet" type="text/css"
     href="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/styles/icon-font.min.css"
-    onerror="this.onerror=null;this.href='../styles/vendors/styles/icon-font.min.css';" />
+    onerror="this.onerror=null;this.href='../../styles/vendors/styles/icon-font.min.css';" />
   <link rel="stylesheet" type="text/css"
     href="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/css/dataTables.bootstrap4.min.css"
-    onerror="this.onerror=null;this.href='../styles/src/plugins/datatables/css/dataTables.bootstrap4.min.css';" />
+    onerror="this.onerror=null;this.href='../../styles/src/plugins/datatables/css/dataTables.bootstrap4.min.css';" />
   <link rel="stylesheet" type="text/css"
     href="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/css/responsive.bootstrap4.min.css"
-    onerror="this.onerror=null;this.href='../styles/src/plugins/datatables/css/responsive.bootstrap4.min.css';" />
+    onerror="this.onerror=null;this.href='../../styles/src/plugins/datatables/css/responsive.bootstrap4.min.css';" />
   <link rel="stylesheet" type="text/css"
     href="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/styles/style.css"
-    onerror="this.onerror=null;this.href='../styles/vendors/styles/style.css';" />
+    onerror="this.onerror=null;this.href='../../styles/vendors/styles/style.css';" />
 </head>
 <body>
   <div class="pre-loader">
@@ -1916,7 +1916,7 @@ cat <<EOL >$SystemFile
       <div class="loader-logo">
         <img
           src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/images/forensicator_logo.png"
-          alt="../styles/vendors/images/forensicator_logo.png" />
+          alt="../../styles/vendors/images/forensicator_logo.png" />
       </div>
       <div class="loader-progress" id="progress_div">
         <div class="bar" id="bar1"></div>
@@ -2300,54 +2300,54 @@ cat <<EOL >>$SystemFile
   <!-- js -->
   <script type="text/javascript"
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/scripts/core.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/vendors/scripts/core.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/vendors/scripts/core.js"><\/script>')</script>
   <script type="text/javascript"
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/scripts/script.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/vendors/scripts/script.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/vendors/scripts/script.js"><\/script>')</script>
   <script type="text/javascript"
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/scripts/process.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/vendors/scripts/process.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/vendors/scripts/process.js"><\/script>')</script>
   <script type="text/javascript"
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/scripts/layout-settings.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/vendors/scripts/layout-settings.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/vendors/scripts/layout-settings.js"><\/script>')</script>
   <script type="text/javascript"
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/jquery.dataTables.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatables/js/jquery.dataTables.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatables/js/jquery.dataTables.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/dataTables.bootstrap4.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatables/js/dataTables.bootstrap4.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatables/js/dataTables.bootstrap4.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/dataTables.responsive.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatables/js/dataTables.responsive.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatables/js/dataTables.responsive.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/responsive.bootstrap4.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatables/js/responsive.bootstrap4.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatables/js/responsive.bootstrap4.min.js"><\/script>')</script>
   <!-- buttons for Export datatable -->
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/dataTables.buttons.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatablges/js/dataTables.buttons.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatablges/js/dataTables.buttons.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/buttons.bootstrap4.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatabgles/js/buttons.bootstrap4.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatabgles/js/buttons.bootstrap4.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/buttons.print.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatabgles/js/buttons.print.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatabgles/js/buttons.print.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/buttons.html5.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatabgles/js/buttons.html5.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatabgles/js/buttons.html5.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/buttons.flash.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatabgles/js/buttons.flash.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatabgles/js/buttons.flash.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/pdfmake.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatabgles/js/pdfmake.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatabgles/js/pdfmake.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/vfs_fonts.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatabgles/js/vfs_fonts.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatabgles/js/vfs_fonts.js"><\/script>')</script>
   <!-- Datatable Setting js -->
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/scripts/datatable-setting.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/vendors/scripts/datatable-setting.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/vendors/scripts/datatable-setting.js"><\/script>')</script>
   <!-- buttons for Export datatable -->
 </body>
 </html>
@@ -2370,19 +2370,19 @@ cat <<EOL >$ProcessFile
   <!-- CSS -->
   <link rel="stylesheet" type="text/css"
     href="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/styles/core.css"
-    onerror="this.onerror=null;this.href='../styles/vendors/styles/core.css';" />
+    onerror="this.onerror=null;this.href='../../styles/vendors/styles/core.css';" />
   <link rel="stylesheet" type="text/css"
     href="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/styles/icon-font.min.css"
-    onerror="this.onerror=null;this.href='../styles/vendors/styles/icon-font.min.css';" />
+    onerror="this.onerror=null;this.href='../../styles/vendors/styles/icon-font.min.css';" />
   <link rel="stylesheet" type="text/css"
     href="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/css/dataTables.bootstrap4.min.css"
-    onerror="this.onerror=null;this.href='../styles/src/plugins/datatables/css/dataTables.bootstrap4.min.css';" />
+    onerror="this.onerror=null;this.href='../../styles/src/plugins/datatables/css/dataTables.bootstrap4.min.css';" />
   <link rel="stylesheet" type="text/css"
     href="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/css/responsive.bootstrap4.min.css"
-    onerror="this.onerror=null;this.href='../styles/src/plugins/datatables/css/responsive.bootstrap4.min.css';" />
+    onerror="this.onerror=null;this.href='../../styles/src/plugins/datatables/css/responsive.bootstrap4.min.css';" />
   <link rel="stylesheet" type="text/css"
     href="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/styles/style.css"
-    onerror="this.onerror=null;this.href='../styles/vendors/styles/style.css';" />
+    onerror="this.onerror=null;this.href='../../styles/vendors/styles/style.css';" />
 </head>
 <body>
   <div class="pre-loader">
@@ -2390,7 +2390,7 @@ cat <<EOL >$ProcessFile
       <div class="loader-logo">
         <img
           src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/images/forensicator_logo.png"
-          alt="../styles/vendors/images/forensicator_logo.png" />
+          alt="../../styles/vendors/images/forensicator_logo.png" />
       </div>
       <div class="loader-progress" id="progress_div">
         <div class="bar" id="bar1"></div>
@@ -2733,54 +2733,54 @@ cat <<EOL >>$ProcessFile
   <!-- js -->
   <script type="text/javascript"
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/scripts/core.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/vendors/scripts/core.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/vendors/scripts/core.js"><\/script>')</script>
   <script type="text/javascript"
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/scripts/script.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/vendors/scripts/script.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/vendors/scripts/script.js"><\/script>')</script>
   <script type="text/javascript"
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/scripts/process.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/vendors/scripts/process.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/vendors/scripts/process.js"><\/script>')</script>
   <script type="text/javascript"
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/scripts/layout-settings.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/vendors/scripts/layout-settings.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/vendors/scripts/layout-settings.js"><\/script>')</script>
   <script type="text/javascript"
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/jquery.dataTables.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatables/js/jquery.dataTables.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatables/js/jquery.dataTables.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/dataTables.bootstrap4.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatables/js/dataTables.bootstrap4.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatables/js/dataTables.bootstrap4.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/dataTables.responsive.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatables/js/dataTables.responsive.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatables/js/dataTables.responsive.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/responsive.bootstrap4.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatables/js/responsive.bootstrap4.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatables/js/responsive.bootstrap4.min.js"><\/script>')</script>
   <!-- buttons for Export datatable -->
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/dataTables.buttons.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatablges/js/dataTables.buttons.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatablges/js/dataTables.buttons.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/buttons.bootstrap4.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatabgles/js/buttons.bootstrap4.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatabgles/js/buttons.bootstrap4.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/buttons.print.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatabgles/js/buttons.print.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatabgles/js/buttons.print.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/buttons.html5.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatabgles/js/buttons.html5.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatabgles/js/buttons.html5.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/buttons.flash.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatabgles/js/buttons.flash.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatabgles/js/buttons.flash.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/pdfmake.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatabgles/js/pdfmake.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatabgles/js/pdfmake.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/vfs_fonts.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatabgles/js/vfs_fonts.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatabgles/js/vfs_fonts.js"><\/script>')</script>
   <!-- Datatable Setting js -->
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/scripts/datatable-setting.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/vendors/scripts/datatable-setting.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/vendors/scripts/datatable-setting.js"><\/script>')</script>
   <!-- buttons for Export datatable -->
 </body>
 </html>
@@ -2803,19 +2803,19 @@ cat <<EOL >$OthersFile
   <!-- CSS -->
   <link rel="stylesheet" type="text/css"
     href="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/styles/core.css"
-    onerror="this.onerror=null;this.href='../styles/vendors/styles/core.css';" />
+    onerror="this.onerror=null;this.href='../../styles/vendors/styles/core.css';" />
   <link rel="stylesheet" type="text/css"
     href="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/styles/icon-font.min.css"
-    onerror="this.onerror=null;this.href='../styles/vendors/styles/icon-font.min.css';" />
+    onerror="this.onerror=null;this.href='../../styles/vendors/styles/icon-font.min.css';" />
   <link rel="stylesheet" type="text/css"
     href="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/css/dataTables.bootstrap4.min.css"
-    onerror="this.onerror=null;this.href='../styles/src/plugins/datatables/css/dataTables.bootstrap4.min.css';" />
+    onerror="this.onerror=null;this.href='../../styles/src/plugins/datatables/css/dataTables.bootstrap4.min.css';" />
   <link rel="stylesheet" type="text/css"
     href="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/css/responsive.bootstrap4.min.css"
-    onerror="this.onerror=null;this.href='../styles/src/plugins/datatables/css/responsive.bootstrap4.min.css';" />
+    onerror="this.onerror=null;this.href='../../styles/src/plugins/datatables/css/responsive.bootstrap4.min.css';" />
   <link rel="stylesheet" type="text/css"
     href="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/styles/style.css"
-    onerror="this.onerror=null;this.href='../styles/vendors/styles/style.css';" />
+    onerror="this.onerror=null;this.href='../../styles/vendors/styles/style.css';" />
 </head>
 <body>
   <div class="pre-loader">
@@ -2823,7 +2823,7 @@ cat <<EOL >$OthersFile
       <div class="loader-logo">
         <img
           src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/images/forensicator_logo.png"
-          alt="../styles/vendors/images/forensicator_logo.png" />
+          alt="../../styles/vendors/images/forensicator_logo.png" />
       </div>
       <div class="loader-progress" id="progress_div">
         <div class="bar" id="bar1"></div>
@@ -3591,54 +3591,54 @@ cat <<EOL >>$OthersFile
   <!-- js -->
   <script type="text/javascript"
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/scripts/core.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/vendors/scripts/core.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/vendors/scripts/core.js"><\/script>')</script>
   <script type="text/javascript"
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/scripts/script.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/vendors/scripts/script.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/vendors/scripts/script.js"><\/script>')</script>
   <script type="text/javascript"
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/scripts/process.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/vendors/scripts/process.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/vendors/scripts/process.js"><\/script>')</script>
   <script type="text/javascript"
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/scripts/layout-settings.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/vendors/scripts/layout-settings.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/vendors/scripts/layout-settings.js"><\/script>')</script>
   <script type="text/javascript"
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/jquery.dataTables.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatables/js/jquery.dataTables.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatables/js/jquery.dataTables.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/dataTables.bootstrap4.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatables/js/dataTables.bootstrap4.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatables/js/dataTables.bootstrap4.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/dataTables.responsive.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatables/js/dataTables.responsive.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatables/js/dataTables.responsive.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/responsive.bootstrap4.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatables/js/responsive.bootstrap4.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatables/js/responsive.bootstrap4.min.js"><\/script>')</script>
   <!-- buttons for Export datatable -->
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/dataTables.buttons.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatablges/js/dataTables.buttons.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatablges/js/dataTables.buttons.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/buttons.bootstrap4.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatabgles/js/buttons.bootstrap4.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatabgles/js/buttons.bootstrap4.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/buttons.print.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatabgles/js/buttons.print.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatabgles/js/buttons.print.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/buttons.html5.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatabgles/js/buttons.html5.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatabgles/js/buttons.html5.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/buttons.flash.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatabgles/js/buttons.flash.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatabgles/js/buttons.flash.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/pdfmake.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatabgles/js/pdfmake.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatabgles/js/pdfmake.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/vfs_fonts.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatabgles/js/vfs_fonts.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatabgles/js/vfs_fonts.js"><\/script>')</script>
   <!-- Datatable Setting js -->
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/scripts/datatable-setting.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/vendors/scripts/datatable-setting.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/vendors/scripts/datatable-setting.js"><\/script>')</script>
   <!-- buttons for Export datatable -->
 </body>
 </html>
@@ -3661,19 +3661,19 @@ cat <<EOL >$ForensicatorExtrasFile
   <!-- CSS -->
   <link rel="stylesheet" type="text/css"
     href="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/styles/core.css"
-    onerror="this.onerror=null;this.href='../styles/vendors/styles/core.css';" />
+    onerror="this.onerror=null;this.href='../../styles/vendors/styles/core.css';" />
   <link rel="stylesheet" type="text/css"
     href="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/styles/icon-font.min.css"
-    onerror="this.onerror=null;this.href='../styles/vendors/styles/icon-font.min.css';" />
+    onerror="this.onerror=null;this.href='../../styles/vendors/styles/icon-font.min.css';" />
   <link rel="stylesheet" type="text/css"
     href="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/css/dataTables.bootstrap4.min.css"
-    onerror="this.onerror=null;this.href='../styles/src/plugins/datatables/css/dataTables.bootstrap4.min.css';" />
+    onerror="this.onerror=null;this.href='../../styles/src/plugins/datatables/css/dataTables.bootstrap4.min.css';" />
   <link rel="stylesheet" type="text/css"
     href="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/css/responsive.bootstrap4.min.css"
-    onerror="this.onerror=null;this.href='../styles/src/plugins/datatables/css/responsive.bootstrap4.min.css';" />
+    onerror="this.onerror=null;this.href='../../styles/src/plugins/datatables/css/responsive.bootstrap4.min.css';" />
   <link rel="stylesheet" type="text/css"
     href="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/styles/style.css"
-    onerror="this.onerror=null;this.href='../styles/vendors/styles/style.css';" />
+    onerror="this.onerror=null;this.href='../../styles/vendors/styles/style.css';" />
 </head>
 <body>
   <div class="pre-loader">
@@ -3991,54 +3991,54 @@ cat <<EOL >$ForensicatorExtrasFile
 
   <script type="text/javascript"
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/scripts/core.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/vendors/scripts/core.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/vendors/scripts/core.js"><\/script>')</script>
   <script type="text/javascript"
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/scripts/script.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/vendors/scripts/script.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/vendors/scripts/script.js"><\/script>')</script>
   <script type="text/javascript"
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/scripts/process.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/vendors/scripts/process.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/vendors/scripts/process.js"><\/script>')</script>
   <script type="text/javascript"
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/scripts/layout-settings.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/vendors/scripts/layout-settings.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/vendors/scripts/layout-settings.js"><\/script>')</script>
   <script type="text/javascript"
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/jquery.dataTables.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatables/js/jquery.dataTables.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatables/js/jquery.dataTables.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/dataTables.bootstrap4.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatables/js/dataTables.bootstrap4.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatables/js/dataTables.bootstrap4.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/dataTables.responsive.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatables/js/dataTables.responsive.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatables/js/dataTables.responsive.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/responsive.bootstrap4.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatables/js/responsive.bootstrap4.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatables/js/responsive.bootstrap4.min.js"><\/script>')</script>
   <!-- buttons for Export datatable -->
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/dataTables.buttons.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatablges/js/dataTables.buttons.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatablges/js/dataTables.buttons.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/buttons.bootstrap4.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatabgles/js/buttons.bootstrap4.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatabgles/js/buttons.bootstrap4.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/buttons.print.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatabgles/js/buttons.print.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatabgles/js/buttons.print.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/buttons.html5.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatabgles/js/buttons.html5.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatabgles/js/buttons.html5.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/buttons.flash.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatabgles/js/buttons.flash.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatabgles/js/buttons.flash.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/pdfmake.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatabgles/js/pdfmake.min.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatabgles/js/pdfmake.min.js"><\/script>')</script>
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/src/plugins/datatables/js/vfs_fonts.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/src/plugins/datatabgles/js/vfs_fonts.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/src/plugins/datatabgles/js/vfs_fonts.js"><\/script>')</script>
   <!-- Datatable Setting js -->
   <script
     src="https://cdn.jsdelivr.net/gh/Johnng007/Live-Forensicator@main/styles/vendors/scripts/datatable-setting.js"></script>
-  <script>window.jQuery || document.write('<script src="../styles/vendors/scripts/datatable-setting.js"><\/script>')</script>
+  <script>window.jQuery || document.write('<script src="../../styles/vendors/scripts/datatable-setting.js"><\/script>')</script>
 
 
 </body>
