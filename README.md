@@ -38,6 +38,7 @@ Live Forensicator is part of the Black Widow Toolbox, its aim is to assist Foren
 # 👩‍💻 Forensicator For LINUX
 <p>The Linux version is written in Bash.</p>
 [Check out Forensicator for Linux](https://github.com/Johnng007/Live-Forensicator/tree/main/Linux)
+
 > #### NOTE: 
 > The Bash codes were written for cross compatibility accross linux distros so therefore efforts were made to use OS native commands avoid secoundary utitlities like `net-tools`.
 
