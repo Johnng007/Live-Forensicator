@@ -1,5 +1,5 @@
 <h1 align="center">📝 Forensicator 📝</h1>
-<h3 align="center">POWERSHELL | BASH SCRIPT TO AID LIVE FORENSICS & INCIDENCE RESPONSE</h3>
+<h3 align="center">BASH SCRIPT TO AID LIVE FORENSICS & INCIDENCE RESPONSE</h3>
                                                
 ```bash
 
@@ -11,7 +11,7 @@ ___________                                .__               __
  \___  / \____/|__|    \___  >___|  /____  >__|\___  >____  /__|  \____/|__|   
      \/                    \/     \/     \/        \/     \/                    
 
-                                                                          v4.0 *NEW*
+                                                                          v4.0.1
 
 
 
@@ -22,26 +22,21 @@ ___________                                .__               __
 
 Live Forensicator is part of the Black Widow Toolbox, its aim is to assist Forensic Investigators and Incidence responders in carrying out a quick live forensic investigation.
 <p>It achieves this by gathering different system information for further review for anomalous behaviour or unexpected data entry, it also looks out for unusual files or activities and points it out to the investigator.</p>
-<p> **The latest version now analysis Event Logs, it querries the event logs for certain log IDs that might point to an unusual activity or compromise. </p>
+<p>Forensicator for Linux offers a timeline feature for fetching Linux logs from different sources for a specified date and time. </p>
 <p>It is paramount to note that this script has no inbuilt intelligence its left for the investigator to analyse the output and decide on a conclusion or decide on carrying out more deeper investigation.</p>
 
- 
-### 🥊 NOTE: THERE IS A MacOS VERSION AVAILABLE 
-<p>YOU CAN CHECK IT OUT HERE: https://github.com/Johnng007/Live-Forensicator/tree/main/MacOS </p>
 
 ```bash
 
 ## 🎫 Optional Dependencies
 
-This script is written in powershell for use on windows PCs and Servers. 
+This script is written in bash for use on Linux PCs and Servers. 
 For additional features it depends on external binaries, they are in the Forensicator-Share folder.
 But Forensicator can work without these dependencies, they just help with additional features
 ```
 ```bash
-winpmem_mini_x64_rc2.exe   For taking RAM capture (https://github.com/Velocidex/WinPmem)
-BrowsingHistoryView64.exe  For a more robust Browsing History View (http://www.nirsoft.net/utils/browsing_history_view.html)
-etl2pcapng64.exe           For converting network trace to pcap
-FileCryptography.psm1      For Encrypting the Artifacts
+avml     For taking RAM capture (https://github.com/microsoft/avml)
+aqlite3  Aids in Browsing history extraction (https://sqlite.org/)
 ```
 
 ## 🔨 Usage
@@ -50,14 +45,11 @@ FileCryptography.psm1      For Encrypting the Artifacts
 # copy the files to the computer
 git clone https://github.com/Johnng007/Live-Forensicator.git
 
+# change to the Linux Directory and Make script executable
+cd Linux && chmod 777 Forensicator.sh
+
 # Execution
-.\Forensicator.ps1 <parameters>
-
-# Windows Binary
-.\Forensicator.exe <parameters>
-
-NOTE: You can just double click the exe to run the default checks
-      The Forensicator-Share is parked into the EXE which will self extract on run.
+.\Forensicator.sh <parameters>
 
 ```
 
@@ -65,55 +57,44 @@ NOTE: You can just double click the exe to run the default checks
 
 ```python
 # Basic
-.\Forensicator.ps1
-
-# Check your Version
-.\Forensicator.ps1 -VERSION
-
-# Check for Updates
-.\Forensicator.ps1 -UPDATE
+.\Forensicator.sh
 
 # Check Usage
-.\Forensicator.ps1 -USAGE
+.\Forensicator.sh -u, --usage
 
-# Decrypt An Encrypted Artifact
-.\Forensicator.ps1 -DECRYPT DECRYPT
-
-# Extract Event Logs alongside Basic Usage
-.\Forensicator.ps1 -EVTX EVTX
-
-# Use the Nirsoft Browser History View to Capture Browser History
-.\Forensicator.ps1 -BROWSER BROWSER
-
-#Grab weblogs IIS & Apache
-.\Forensicator.ps1 -WEBLOGS WEBLOGS
-
-#Run Network Tracing & Capture PCAPNG for 120 secounds
-.\Forensicator.ps1 -PCAP PCAP
-
-# Extract RAM Dump alongside Basic Usage
-.\Forensicator.ps1 -RAM RAM
-
-# Check for log4j with the JNDILookup.class
-.\Forensicator.ps1 -LOG4J LOG4J
-
-# Encrypt Artifact after collecting it
-.\Forensicator.ps1 -ENCRYPTED ENCRYPTED
-
-# Yes of course you can do all
-.\Forensicator.ps1 -EVTX EVTX -RAM RAM -log4j log4j -PCAP PCAP -WEBLOGS WEBLOGS
-
-# For Unattended Mode on Basic Usage
-.\Forensicator.ps1 -OPERATOR "Ebuka John" -CASE 01123 -TITLE "Ransomware Infected Laptop" -LOCATION Nigeria -DEVICE AZUZ
-
-# You can use unattended mode for each of the other parameters
-.\Forensicator.ps1 -OPERATOR "Ebuka John" -CASE 01123 -TITLE "Ransomware Infected Laptop" -LOCATION Nigeria -DEVICE AZUZ -EVTX EVTX -RAM RAM -log4j log4j
+# Capture network traffic for 60 secounds
+.\Forensicator.sh -p, pcap
 
 # Check for files that has similar extensions with ransomware encrypted files (can take some time to complete)
-.\Forensicator.ps1 -RANSOMWARE RANSOMWARE
+.\Forensicator.sh -s, ransom
 
-# You can compress the Forensicator output immidiately after execution Oneliner
-.\Forensicator.ps1 ; Start-Sleep -s 15 ; Compress-Archive -Path "$env:computername" -DestinationPath "C:\inetpub\wwwroot\$env:computername.zip" -Force
+# Grab weblogs NGINX & Apache
+.\Forensicator.sh -w, weblogs
+
+# Extract logs based on a timeline (e.g --timeline 'startdate' 'enddate')(e.g --timeline '2024-06-01 00:00:00' '2024-06-07 23:59:59')
+.\Forensicator.sh -t, --timeline
+
+# Collect browsing history
+.\Forensicator.sh -b, browser
+
+# Define LogFiles to search through when using timeline
+.\Forensicator.sh -log, logfiles (e.g --logfiles auth.log,syslog,kern.log)
+
+# Define log directory to loop through when using timeline
+.\Forensicator.sh -logdir, --logdir (e.g --outputdir /custom/log/directory)
+
+# Extract RAM
+.\Forensicator.sh -r, --ram
+
+# Yes of course you can do all (Defining log files and directory is actually optional when using timeline.)
+.\Forensicator.sh -p -s -w --timeline '2024-06-01 00:00:00' '2024-06-07 23:59:59'
+
+# For Unattended Mode on Basic Usage
+.\Forensicator.sh -name 'Ebuka John' -case 01123 -title 'Ransomware Infected Laptop' -loc Prague -device AZUZ
+
+# You can use unattended mode for each of the other parameters
+.\Forensicator.sh -name 'Ebuka John' -case 01123 -title 'Ransomware Infected Laptop' -loc Prague -device AZUZ -p -s -w
+
 
 ```
 
