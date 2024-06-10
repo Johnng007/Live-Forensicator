@@ -1,5 +1,5 @@
 <h1 align="center">📝 Forensicator 📝</h1>
-<h3 align="center">POWERSHELL | BASH SCRIPT TO AID LIVE FORENSICS & INCIDENCE RESPONSE</h3>
+<h3 align="center">POWERSHELL SCRIPT TO AID LIVE FORENSICS & INCIDENCE RESPONSE</h3>
                                                
 ```bash
 
@@ -25,9 +25,6 @@ Live Forensicator is part of the Black Widow Toolbox, its aim is to assist Foren
 <p> **The latest version now analysis Event Logs, it querries the event logs for certain log IDs that might point to an unusual activity or compromise. </p>
 <p>It is paramount to note that this script has no inbuilt intelligence its left for the investigator to analyse the output and decide on a conclusion or decide on carrying out more deeper investigation.</p>
 
- 
-### 🥊 NOTE: THERE IS A MacOS VERSION AVAILABLE 
-<p>YOU CAN CHECK IT OUT HERE: https://github.com/Johnng007/Live-Forensicator/tree/main/MacOS </p>
 
 ```bash
 
@@ -242,68 +239,6 @@ NOTE: You can just double click the exe to run the default checks
 
 ```
 
-
-
-## 🤔 MORE TOOLS
-Want to check out other Black Widow Tools?
-1. Anteater - A python based web reconnaisence tool. https://github.com/Johnng007/Anteater
-2. Nessus Pro API - A powershell Script to Export and Download Nessus Scan Results via Nessus API. https://github.com/Johnng007/PowershellNessus
-
-## ✨ ChangeLog
-```bash
-V4.0 13/02/2024 - Big Update
-1. General Code Improvement and Standardization.
-2. Output HTML File has been improved greatly.
-3. Ability to search individual checks in a table from the html output.
-4. Ability to export each check to excel, pdf or print. from the html output.
-5. A new visually stunning HTML output.
-6. Added RDP logon History (Outgoing & Incoming)
-7. changed the config file from config.yml to config.json so the script can use default powershell json manipulation.
-
-v3.3.2 13/05/2023
-Fixed Windows Defender warning while running Forensicator.
-Added config.yml to handle malicious file names, executable names and powershell commands.
-      In the future config.yml may hold more configuration information.
-
-v3.3.1 22/02/2023
-Updated The UI
-Added Eventlog Analysis for {Logon Events, Object Access, Process Execution & Suspicious Activities}
-Added auto checking of update.
-
-v3.2.1 29/06/2022
-Updated The UI
-Added EventLog Analysis
-
-v3.1.0 27/05/2022
-Moved all the Binary Helpers to a folder.
-Added an inbuilt powershell based browser history extractor.
-Added a flag for calling Nirsoft Based browser history extractor in case you need a robust extraction.
-Added a usage switch to show usage options.
-Minor Bug fixes.
-
-v2.0 25/04/2022
-Minor Bug Fixes
-Added the possiblity of encrypting the Artifact after acquiring it to maintain integrity.
-
-v1.4 14/04/2022
-Added Ability perform network tracing using netsh trace, the subsequent et1 is converted to pcapng
-Minor Bug Fixes in Script Update.
-Added Weblogs as an option parameter.
-
-v1.3 11/04/2022
-Added a feature to check for files that has similar extensions with known ransomware encrypted files.
-You can now check for updates within the script.
-UI update
-
-v1.2 29/03/2022 
-Added unattended Mode Feature
-Added Ability to grab browsing history of all users
-Minor Bug Fix
-
-v1 28/01/2022
-Initial Release
-
-```
 
 ## Screenshot
 <img src="https://github.com/Johnng007/Live-Forensicator/blob/main/styles/vendors/images/Forensicator_Output.png?raw=true" alt="Forensicator"  /> <br>
