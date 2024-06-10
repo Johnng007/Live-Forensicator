@@ -197,14 +197,6 @@ Want to check out other Black Widow Tools?
 1. Anteater - A python based web reconnaisence tool. https://github.com/Johnng007/Anteater
 2. Nessus Pro API - A powershell Script to Export and Download Nessus Scan Results via Nessus API. https://github.com/Johnng007/PowershellNessus
 
-## ✨ ChangeLog
-```bash
-
-Linux: v1.0 09/06/2024
-1. Created Forensicator for Linux machines.
-2. Re-arranged the Directory to show that Forensicator has moved from just a powershell tool to a suite of tools.
-
-```
 
 ## Screenshot
 <img src="https://github.com/Johnng007/Live-Forensicator/blob/main/styles/vendors/images/Forensicator_Output.png?raw=true" alt="Forensicator"  /> <br>
