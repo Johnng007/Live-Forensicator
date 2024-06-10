@@ -12,7 +12,7 @@ ___________                                .__               __
  \___  / \____/|__|    \___  >___|  /____  >__|\___  >____  /__|  \____/|__|   
      \/                    \/     \/     \/        \/     \/                    
 
-                                                                          
+                                                                        v4.0.1        
 
 
 ```
@@ -71,14 +71,22 @@ Want to check out other Black Widow Tools?
 1. Anteater - A python based web reconnaisence tool. https://github.com/Johnng007/Anteater
 2. Nessus Pro API - A powershell Script to Export and Download Nessus Scan Results via Nessus API. https://github.com/Johnng007/PowershellNessus
 
+
+## Screenshot
+<img src="https://github.com/Johnng007/Live-Forensicator/blob/main/styles/vendors/images/Forensicator_Output.png?raw=true" alt="Forensicator"  /> <br>
+## HTML Output
+<img src="https://github.com/Johnng007/Live-Forensicator/blob/main/styles/vendors/images/Forensicator_HTML1.png?raw=true" alt="Forensicator"  /> <br>
+<img src="https://github.com/Johnng007/Live-Forensicator/blob/main/styles/vendors/images/Forensicator_HTML2.png?raw=true" alt="Forensicator"  /> <br>
+<img src="https://github.com/Johnng007/Live-Forensicator/blob/main/styles/vendors/images/Forensicator_HTML3.png?raw=true" alt="Forensicator"  /> <br>
+<br></br>
+
 ## ✨ ChangeLog
 ```bash
-Linux: v1.0 09/06/2024
-1. Created Forensicator for Linux machines.
-2. Re-arranged the Directory to show that Forensicator has moved from just a powershell tool to a suite of tools.
 
 Windows: v4.0.1 09/06/2024
-1. Adjusted Static file references to adapt to the new Forensicator Github structure.
+1. Windows: Adjusted Static file references to adapt to the new Forensicator Github structure.
+2. Linux: Created Forensicator for Linux machines.
+3. Re-arranged the Directory to show that Forensicator has moved from just a powershell tool to a suite of tools.
 
 V4.0 13/02/2024 - Big Update
 1. General Code Improvement and Standardization.
@@ -134,13 +142,6 @@ Initial Release
 
 ```
 
-## Screenshot
-<img src="https://github.com/Johnng007/Live-Forensicator/blob/main/styles/vendors/images/Forensicator_Output.png?raw=true" alt="Forensicator"  /> <br>
-## HTML Output
-<img src="https://github.com/Johnng007/Live-Forensicator/blob/main/styles/vendors/images/Forensicator_HTML1.png?raw=true" alt="Forensicator"  /> <br>
-<img src="https://github.com/Johnng007/Live-Forensicator/blob/main/styles/vendors/images/Forensicator_HTML2.png?raw=true" alt="Forensicator"  /> <br>
-<img src="https://github.com/Johnng007/Live-Forensicator/blob/main/styles/vendors/images/Forensicator_HTML3.png?raw=true" alt="Forensicator"  /> <br>
-<br></br>
 
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change or add.
