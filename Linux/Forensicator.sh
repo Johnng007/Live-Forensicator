@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Live Forensicator Powershell Script
+# Live Forensicator Bash Script
 # Part of the Black Widow Tools
 # Coded by Ebuka John Onyejegbu
 
