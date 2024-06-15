@@ -4,19 +4,17 @@
 # Part of the Black Widow Tools
 # Coded by Ebuka John Onyejegbu
 
-# Usage
-
 # Defining parameters
 usage() {
-    echo "Usage: $0 [-p|--pcap] [-r|--ram] [-s|--ransom] [-w|--weblogs] [-b|--browser] [-t|--timeline] [-e|--encrypt] [-d|--decrypt] [-u|--usage] [-z|--update]"
+    echo "Usage: $0 [-p|--pcap] [-r|--ram] [-s|--ransom] [-w|--weblogs] [-b|--browser] [-t|--timeline START_DATE END_DATE] [-log|--logfiles LOG_FILES] [-logdir|--logdir LOG_DIR] [-e|--encrypt] [-d|--decrypt] [-u|--usage] [-z|--update] [-name|--name NAME] [-case|--case CASE] [-title|--title TITLE] [-loc|--location LOCATION] [-device|--device DEVICE]"
     echo "  -p, --pcap            Record network traffic for 60 seconds and save as a pcap file"
     echo "  -r, --ram             Extract the system RAM"
-    echo "  -s, --ransom          Check filesystem for ransomeware encrypted files"
+    echo "  -s, --ransom          Check filesystem for ransomware encrypted files"
     echo "  -w, --weblogs         Collect Webserver logs"
     echo "  -b, --browser         Collects browsing history"
     echo "  -t, --timeline        Incident timeline helpful when extracting logs"
-    echo "  -log --logfiles        Log filenames to search through"
-    echo "  -logdir --logdir      Log directory to search through"
+    echo "  -log, --logfiles      Log filenames to search through"
+    echo "  -logdir, --logdir     Log directory to search through"
     echo "  -e, --encrypt         Encrypts the Forensicator extracted artifacts"
     echo "  -d, --decrypt         Decrypts and encrypted Forensicator artifact"
     echo "  -u, --usage           Shows the tool usage"
@@ -25,12 +23,31 @@ usage() {
     echo "  -case, --case         Supply case reference as a flag"
     echo "  -title, --title       Supply Investigation title as a flag"
     echo "  -loc, --location      Supply Examination location as a flag"
-    echo "  -device, --device     Supply Examination location as a flag"
+    echo "  -device, --device     Supply Examination device as a flag"
     exit 1
 }
 
 # create working directory
-mkdir $(hostname)
+
+create_directory(){
+    WORKDIR=$(hostname)
+    if [ -d "$WORKDIR" ]; then
+        echo "Removing $WORKDIR"
+        rm -rf "$WORKDIR"
+    elif [ -f "$WORKDIR" ]; then
+        echo "File with this name already exists, not a directory."
+        exit
+    fi
+    if mkdir "$WORKDIR"; then
+        echo "Directory created: $WORKDIR"
+        return 0
+    else
+        echo "Creating directory failed: $WORKDIR"
+        return 1
+    fi 
+}
+
+create_directory
 
 # define working hostname
 Hostname=$(hostname)
@@ -45,85 +62,6 @@ cyan() {
     echo -e "\e[36m$@\e[0m"
 }
 
-# Assigning functions to parameters
-
-while [[ $# -gt 0 ]]; do
-    key="$1"
-    case $key in
-    -t | --timeline)
-        TIMELINE=1
-        START_DATE="$2"
-        END_DATE="$3"
-        validate_date "$START_DATE"
-        validate_date "$END_DATE"
-        shift # past argument
-        shift # past value
-        shift # past value
-        ;;
-    -logdir | --logdir)
-        LOG_DIR="$2"
-        shift # past argument
-        shift # past value
-        ;;
-    -log | --logfiles)
-        IFS=',' read -r -a LOG_FILES <<<"$2"
-        shift # past argument
-        shift # past value
-        ;;
-    -name | --name)
-        NAME="$2"
-        shift # past argument
-        shift # past value
-        ;;
-    -case | --case)
-        CASE="$2"
-        shift # past argument
-        shift # past value
-        ;;
-    -title | --title)
-        TITLE="$2"
-        shift # past argument
-        shift # past value
-        ;;
-    -loc | --location)
-        LOCATION="$2"
-        shift # past argument
-        shift # past value
-        ;;
-    -device | --device)
-        DEVICE="$2"
-        shift # past argument
-        shift # past value
-        ;;
-    -p | --pcap)
-        pcap
-        ;;
-    -z | --update)
-        update
-        ;;
-    -u | --usage)
-        usage
-        ;;
-    -r | --ram)
-        ram
-        ;;
-    -w | --weblogs)
-        weblogs
-        ;;
-    -b | --browser)
-        browser
-        ;;
-    -s | --ransom)
-        ransom
-        ;;
-    *)
-        # Unknown option
-        echo "Error: Unknown option: $key"
-        usage
-        ;;
-    esac
-    shift
-done
 
 # Getting version info
 MyVersion=$(<version.txt)
@@ -161,55 +99,6 @@ done
 
 echo -e "\033[0m" # reset color
 
-# changing directory to the created
-cd $(hostname)
-
-# Setting Operator Details
-NAME=""
-CASE=""
-TITLE=""
-LOCATION=""
-DEVICE=""
-
-# Prompt for investigator details if not provided
-if [[ -z "$NAME" || -z "$CASE" || -z "$TITLE" || -z "$LOCATION" || -z "$DEVICE" ]]; then
-    read -p "Enter investigator name: " NAME
-    read -p "Enter case number: " CASE
-    read -p "Enter case title: " TITLE
-    read -p "Enter examination location: " LOCATION
-    read -p "Enter device description: " DEVICE
-fi
-
-# Save investigator details
-#echo "Case reference: $CASE" >
-#cho "Examiner Name: $NAME" >
-#echo "Investigation Title: $TITLE" >
-#echo "Device: $DEVICE" >
-#echo "Examination Location: $LOCATION" >
-
-# Setting our html files
-
-# Setting index output file
-ForensicatorIndexFile="index.html"
-
-# Setting Network Information Output
-NetworkFile="network.html"
-
-# Setting Users Information Output
-UserFile="users.html"
-
-# Setting System Information Output
-SystemFile="system.html"
-
-# Setting Processes Output
-ProcessFile="processes.html"
-
-# Setting Other Checks Output
-OthersFile="others.html"
-
-# Setting Extras Output file
-ForensicatorExtrasFile="extras.html"
-
 # Recording start time
 startdate=$(date)
 
@@ -237,6 +126,14 @@ CheckForUpdates() {
 # Call the function to check for updates
 CheckForUpdates
 
+    validate_date() {
+        date -d "$1" "+%Y-%m-%d %H:%M:%S" &>/dev/null
+        if [[ $? -ne 0 ]]; then
+            echo "Invalid date format: $1"
+            usage
+        fi
+    }
+
 # Function to record network traffic for 60 seconds and save as a pcap file
 pcap() {
     mkdir $(hostname)/PCAP
@@ -258,14 +155,20 @@ ram() {
 weblogs() {
     mkdir $(hostname)/WEBLOGS
     cyan "Checking the existance of Apache logs..."
-    apache_logs_dir=$(apachectl -V | grep SERVER_CONFIG_FILE | sed 's/.*"\(.*httpd.conf\)".*/\1/' | xargs dirname)
+    # Example to calculate days difference
+    #START_DATE="2024-06-01"
+    TODAY=$(date +%s)  # Get today's date in seconds since epoch
+    START_DATE_SECONDS=$(date -d "$START_DATE" +%s)  # Get start date in seconds since epoch
+    DAYS_DIFF=$(( ($TODAY - $START_DATE_SECONDS) / (60*60*24) ))  # Calculate days difference
+
+    apache_logs_dir=$(apachectl -V | grep -w "SERVER_CONFIG_FILE" | sed 's/ -D //' | sed 's/.*"\(.*\)".*/\1/' | xargs dirname)
     if [[ -z "$apache_logs_dir" ]]; then
         cyan "Looks like there are no Apache webservers"
         #exit 1
     fi
 
     # Copy Apache logs to destination directory
-    find "$apache_logs_dir" -type f -name "*.log" -mtime -$timeline -exec cp {} "$(hostname)/WEBLOGS" \;
+    find "$apache_logs_dir" -type f -name "*.log" -mtime -$DAYS_DIFF -exec cp {} "$(hostname)/WEBLOGS" \;
     green "Apache logs extracted and copied"
 
     cyan "Checking the existance of NGINX logs..."
@@ -276,7 +179,7 @@ weblogs() {
     fi
 
     # Copy Nginx logs to destination directory
-    find "$nginx_logs_dir" -type f -name "*.log" -mtime -$timeline -exec cp {} "$(hostname)/WEBLOGS" \;
+    find "$nginx_logs_dir" -type f -name "*.log" -mtime -$DAYS_DIFF -exec cp {} "$(hostname)/WEBLOGS" \;
     green "Nginx logs extracted and copied"
 }
 
@@ -357,6 +260,8 @@ ransom() {
 
 }
 
+
+
 # Function to extract system logs within a timeline.
 timeline() {
 
@@ -407,6 +312,168 @@ timeline() {
     green "[!] Done"
 
 }
+
+# Setting Operator Details
+NAME=""
+CASE=""
+TITLE=""
+LOCATION=""
+DEVICE=""
+
+
+
+# Assigning functions to parameters
+while [[ $# -gt 0 ]]; do
+    key="$1"
+    case $key in
+        -t|--timeline)
+            TIMELINE=1
+            START_DATE="$2"
+            END_DATE="$3"
+            validate_date "$START_DATE"
+            validate_date "$END_DATE"
+            RUN_TIMELINE=1
+            shift 3
+            ;;
+        -logdir|--logdir)
+            LOG_DIR="$2"
+            shift 2
+            ;;
+        -log|--logfiles)
+            IFS=',' read -r -a LOG_FILES <<< "$2"
+            shift 2
+            ;;
+        -name|--name)
+            NAME="$2"
+            shift 2
+            ;;
+        -case|--case)
+            CASE="$2"
+            shift 2
+            ;;
+        -title|--title)
+            TITLE="$2"
+            shift 2
+            ;;
+        -loc|--location)
+            LOCATION="$2"
+            shift 2
+            ;;
+        -device|--device)
+            DEVICE="$2"
+            shift 2
+            ;;
+        -p|--pcap)
+            RUN_PCAP=1
+            shift
+            ;;
+        -z|--update)
+            RUN_UPDATE=1
+            shift
+            ;;
+        -u|--usage)
+            usage
+            ;;
+        -r|--ram)
+            RUN_RAM=1
+            shift
+            ;;
+        -w|--weblogs)
+            RUN_WEBLOGS=1
+            shift
+            ;;
+        -b|--browser)
+            RUN_BROWSER=1
+            shift
+            ;;
+        -s|--ransom)
+            RUN_RANSOM=1
+            shift
+            ;;
+        *)
+            # Unknown option
+            echo "Error: Unknown option: $key"
+            usage
+            ;;
+    esac
+done
+
+echo ""
+echo ""
+
+# Prompt for investigator details if not provided
+if [[ -z "$NAME" ]]; then
+    read -p "Enter investigator name: " NAME
+fi
+if [[ -z "$CASE" ]]; then
+    read -p "Enter case number: " CASE
+fi
+if [[ -z "$TITLE" ]]; then
+    read -p "Enter case title: " TITLE
+fi
+if [[ -z "$LOCATION" ]]; then
+    read -p "Enter examination location: " LOCATION
+fi
+if [[ -z "$DEVICE" ]]; then
+    read -p "Enter device description: " DEVICE
+fi
+
+echo ""
+echo ""
+
+# Check that all required details are provided before running any functions
+if [[ -z "$NAME" || -z "$CASE" || -z "$TITLE" || -z "$LOCATION" || -z "$DEVICE" ]]; then
+    echo "Error: Missing required investigator or case details."
+    usage
+fi
+
+# Execute functions only if required details are provided
+if [[ $RUN_PCAP ]]; then
+    pcap
+fi
+if [[ $RUN_UPDATE ]]; then
+    update
+fi
+if [[ $RUN_RAM ]]; then
+    ram
+fi
+if [[ $RUN_WEBLOGS ]]; then
+    weblogs
+fi
+if [[ $RUN_BROWSER ]]; then
+    browser
+fi
+if [[ $RUN_RANSOM ]]; then
+    ransom
+fi
+if [[ $RUN_TIMELINE ]]; then
+    timeline
+fi
+
+# Setting our html files
+
+# Setting index output file
+ForensicatorIndexFile="$(hostname)/index.html"
+
+# Setting Network Information Output
+NetworkFile="$(hostname)/network.html"
+
+# Setting Users Information Output
+UserFile="$(hostname)/users.html"
+
+# Setting System Information Output
+SystemFile="$(hostname)/system.html"
+
+# Setting Processes Output
+ProcessFile="$(hostname)/processes.html"
+
+# Setting Other Checks Output
+OthersFile="$(hostname)/others.html"
+
+# Setting Extras Output file
+ForensicatorExtrasFile="$(hostname)/extras.html"
+
+
 
 ###############################################
 # BASIC INFORMATION COLLECTION
