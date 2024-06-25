@@ -1,5 +1,6 @@
 <h1 align="center">📝 Forensicator 📝</h1>
 <h3 align="center">BASH SCRIPT TO AID LIVE FORENSICS & INCIDENCE RESPONSE</h3>
+<h3 align="center">Linux Digital Forensics Tool</h3>
                                                
 ```bash
 
