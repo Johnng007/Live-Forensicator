@@ -92,59 +92,8 @@ Windows: v4.0.1 09/06/2024
 2. Linux: Created Forensicator for Linux machines.
 3. Re-arranged the Directory to show that Forensicator has moved from just a PowerShell tool to a suite of tools.
 
-V4.0 13/02/2024 - Big Update
-1. General Code Improvement and Standardization.
-2. The Output HTML File has been improved greatly.
-3. Ability to search individual checks in a table from the HTML output.
-4. Ability to export each check to Excel, pdf, or print. from the HTML output.
-5. A new visually stunning HTML output.
-6. Added RDP logon History (Outgoing & Incoming)
-7. Changed the config file from config.yml to config.json so the script can use default PowerShell JSON manipulation.
-
-v3.3.2 13/05/2023
-Fixed Windows Defender warning while running Forensicator.
-Added config.yml to handle malicious file names, executable names, and PowerShell commands.
-      In the future config.yml may hold more configuration information.
-
-v3.3.1 22/02/2023
-Updated The UI
-Added Eventlog Analysis for {Logon Events, Object Access, Process Execution & Suspicious Activities}
-Added auto-checking for updates.
-
-v3.2.1 29/06/2022
-Updated The UI
-Added EventLog Analysis
-
-v3.1.0 27/05/2022
-Moved all the Binary Helpers to a folder.
-Added an inbuilt powershell-based browser history extractor.
-Added a flag for calling the Nirsoft-based browser history extractor in case you need a robust extraction.
-Added a usage switch to show usage options.
-Minor Bug fixes.
-
-v2.0 25/04/2022
-Minor Bug Fixes
-Added the possibility of encrypting the Artifact after acquiring it to maintain integrity.
-
-v1.4 14/04/2022
-Added Ability to perform network tracing using netsh trace, the subsequent et1 is converted to pcapng
-Minor Bug Fixes in Script Update.
-Added Weblogs as an option parameter.
-
-v1.3 11/04/2022
-Added a feature to check for files that have similar extensions with known ransomware-encrypted files.
-You can now check for updates within the script.
-UI update
-
-v1.2 29/03/2022 
-Added unattended Mode Feature
-Added Ability to grab the browsing history of all users
-Minor Bug Fix
-
-v1 28/01/2022
-Initial Release
-
 ```
+[See Wiki](https://github.com/Johnng007/Live-Forensicator/wiki/Changelog) For full Changelog.
 
 
 ## Contributing
