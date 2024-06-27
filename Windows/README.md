@@ -20,17 +20,17 @@ ___________                                .__               __
 
 # 🤔 ABOUT
 
-Live Forensicator is part of the Black Widow Toolbox, its aim is to assist Forensic Investigators and Incidence responders in carrying out a quick live forensic investigation.
-<p>It achieves this by gathering different system information for further review for anomalous behaviour or unexpected data entry, it also looks out for unusual files or activities and points it out to the investigator.</p>
-<p> **The latest version now analysis Event Logs, it querries the event logs for certain log IDs that might point to an unusual activity or compromise. </p>
-<p>It is paramount to note that this script has no inbuilt intelligence its left for the investigator to analyse the output and decide on a conclusion or decide on carrying out more deeper investigation.</p>
+Live Forensicator is part of the Black Widow Toolbox, it aims to assist Forensic Investigators and Incident responders in carrying out a quick live forensic investigation.
+<p>It achieves this by gathering different system information for further review for anomalous behavior or unexpected data entry, it also looks out for unusual files or activities and points it out to the investigator.</p>
+<p> **The latest version now analyzes Event Logs, it queries the event logs for certain log IDs that might point to an unusual activity or compromise. </p>
+<p>It is paramount to note that this script has no inbuilt intelligence it is left for the investigator to analyze the output and decide on a conclusion or conduct a deeper investigation.</p>
 
 
 ```bash
 
 ## 🎫 Optional Dependencies
 
-This script is written in powershell for use on windows PCs and Servers. 
+This script is written in Powershell for use on Windows PCs and Servers. 
 For additional features it depends on external binaries, they are in the Forensicator-Share folder.
 But Forensicator can work without these dependencies, they just help with additional features
 ```
@@ -53,8 +53,8 @@ git clone https://github.com/Johnng007/Live-Forensicator.git
 # Windows Binary
 .\Forensicator.exe <parameters>
 
-NOTE: You can just double click the exe to run the default checks
-      The Forensicator-Share is parked into the EXE which will self extract on run.
+NOTE: You can just double-click the exe to run the default checks
+      The Forensicator-Share is parked into the EXE which will self-extract on run.
 
 ```
 
@@ -85,7 +85,7 @@ NOTE: You can just double click the exe to run the default checks
 #Grab weblogs IIS & Apache
 .\Forensicator.ps1 -WEBLOGS WEBLOGS
 
-#Run Network Tracing & Capture PCAPNG for 120 secounds
+#Run Network Tracing & Capture PCAPNG for 120 seconds
 .\Forensicator.ps1 -PCAP PCAP
 
 # Extract RAM Dump alongside Basic Usage
@@ -94,7 +94,7 @@ NOTE: You can just double click the exe to run the default checks
 # Check for log4j with the JNDILookup.class
 .\Forensicator.ps1 -LOG4J LOG4J
 
-# Encrypt Artifact after collecting it
+# Encrypt the Artifact after collecting it
 .\Forensicator.ps1 -ENCRYPTED ENCRYPTED
 
 # Yes of course you can do all
@@ -106,10 +106,10 @@ NOTE: You can just double click the exe to run the default checks
 # You can use unattended mode for each of the other parameters
 .\Forensicator.ps1 -OPERATOR "Ebuka John" -CASE 01123 -TITLE "Ransomware Infected Laptop" -LOCATION Nigeria -DEVICE AZUZ -EVTX EVTX -RAM RAM -log4j log4j
 
-# Check for files that has similar extensions with ransomware encrypted files (can take some time to complete)
+# Check for files that have similar extensions with ransomware encrypted files (can take some time to complete)
 .\Forensicator.ps1 -RANSOMWARE RANSOMWARE
 
-# You can compress the Forensicator output immidiately after execution Oneliner
+# You can compress the Forensicator output immediately after execution Oneliner
 .\Forensicator.ps1 ; Start-Sleep -s 15 ; Compress-Archive -Path "$env:computername" -DestinationPath "C:\inetpub\wwwroot\$env:computername.zip" -Force
 
 ```
@@ -118,18 +118,17 @@ NOTE: You can just double click the exe to run the default checks
 * Run the script as an administrator to get value.<br>
 
 * Forensicator Activities may be flagged by IDS or IPS Solutions so take note.<br>
-  The results are outputed in nice looking html files with an index file. <br>
 
-* You can find all extracted Artifacts in the script's working directory.
+* The results are output in nice-looking html files with an index file, You can find all extracted Artifacts in the script's working directory.
 
-* <p>Forensicator Has the ability to Search through all the folders within a system looking for files with similar extensions as well known Ransomwares, Albeit this     search takes long but its helpful if the Alert you recieved is related to a Ransomware attack, Use the -RANSOMWARE Parameter to invoke this.</p>
+* <p>Forensicator Can Search through all the folders within a system looking for files with similar extensions as well-known Ransomware, this     search takes a long but is helpful if the Alert you received is related to a Ransomware attack, Use the -RANSOMWARE Parameter to invoke this.</p>
 
-* <p>Forensictor can capture network traffic using netsh trace, this is useful when your investigation has to do with asset communicating with known malicious IPs,       this way you can parse the pcapng file to wireshark and examine for C&C servers. By Defult i set the capture to take 120secs</p>
+* <p>Forensictor can capture network traffic using netsh trace, this is useful when your investigation has to do with assets communicating with known malicious IPs,       this way you can parse the pcapng file to Wireshark and examine for C&C servers. By default, I set the capture to take 120secs</p>
 
-* <p>Sometimes it may be paramount to maintain the integrity of the Artifacts, where lawyers may argue that it might have been compromised on transit to your lab.
-  Forensicator can now encrypt the Artifact with a unique randomely generated key using AES algorithm, you can specify this by using the -ENCRYPTED parameter. You can   decrypt it at will anywhere anytime even with another copy of Forensicator, just keep your key safe. This task is performed by the FileCryptography.psm1 file</p>
+* <p>Sometimes it may be paramount to maintain the integrity of the Artifacts, where lawyers may argue that they might have been compromised in transit to your lab.
+  Forensicator can now encrypt the Artifact with a unique randomly generated key using the AES algorithm, you can specify this by using the -ENCRYPTED parameter. You can   decrypt it at will anywhere anytime even with another copy of Forensicator, just keep your key safe. This task is performed by the FileCryptography.psm1 file</p>
 
-* <p>Forensictor looks out for suspicious activities within the Event Log, it has a long list of malicious executables, and powershell commands which it queries the event log against.</p>
+* <p>Forensictor looks out for suspicious activities within the Event Log, it has a long list of malicious executables, and PowerShell commands which it queries the event log against.</p>
 
 ## 🔥 What Forensicator Grabs
 ```bash
@@ -169,8 +168,8 @@ NOTE: You can just double click the exe to run the default checks
      8. CURRENT FIREWALL RULES
      9. ACTIVE SMB SESSIONS (IF ITS A SERVER)
      10. ACTIVE SMB SHARES
-     11. IP ROUTES TO NON LOCAL DESTINATIONS
-     12. NETWORK ADAPTERS WITH IP ROUTES TO NON LOCAL DESTINATIONS
+     11. IP ROUTES TO NON-LOCAL DESTINATIONS
+     12. NETWORK ADAPTERS WITH IP ROUTES TO NON-LOCAL DESTINATIONS
      13. IP ROUTES WITH INFINITE VALID LIFETIME
      14. All RDP Connections
      15. All Outgoing RDP Connection History
@@ -183,12 +182,12 @@ NOTE: You can just double click the exe to run the default checks
     3. SCHEDULED TASK
     4. SCHEDULED TASKS AND STATE
     5. SERVICES
-    6. PERSISTANCE IN REGISTRY
+    6. PERSISTENCE IN REGISTRY
     
    ========================================
      EVENTLOG ANALYSIS
    ========================================
-    1. USER RELATED ACTIVITES.
+    1. USER RELATED ACTIVITIES.
        1. RDP LOGINS
        2. ENUMERATED A USER GROUP MEMBERSHIP
        3. CREATED USERS
@@ -217,14 +216,14 @@ NOTE: You can just double click the exe to run the default checks
     5.  ALL PREVIOUSLY CONNECTED DRIVES
     6.  ALL FILES CREATED IN THE LAST 180 DAYS
     7.  500 DAYS WORTH OF POWERSHELL HISTORY
-    9.  EXECUTABLES IN DOWNLOADS FOLDER
+    9.  EXECUTABLES IN THE DOWNLOADS FOLDER
     10. EXECUTABLES IN APPDATA
     11. EXECUATBLES IN TEMP
     12. EXECUTABLES IN PERFLOGS
     13. EXECUTABLES IN THE DOCUMENTS FOLDER
 
    =========================================
-      ORTHER FORENSICATOR EXTRA CHECKS
+      OTHER FORENSICATOR EXTRA CHECKS
    =========================================
     1.  GROUP POLICY REPORT
     2.  WINPMEM RAM CAPTURE
@@ -232,7 +231,7 @@ NOTE: You can just double click the exe to run the default checks
     4.  IIS LOGS
     5.  TOMCAT LOGS
     6.  BROWSING HISTORY OF ALL USERS 
-    7.  CHECK FOR FILES THAT HAS SIMILAR EXTENSIONS WITH KNOWN RANSOMWARE ENCRYPTED FILES
+    7.  CHECK FOR FILES THAT HAVE SIMILAR EXTENSIONS WITH KNOWN RANSOMWARE-ENCRYPTED FILES
         NOTE: THIS CHECK CAN TAKE SOME TIME TO COMPLETE DEPENDING ON THE NUMBER OF DRIVES AND AMOUNT OF FILES.
     8.  RUNS NETWORK TRACING USING NETSH TRACE & CONVERTS TO PCAPNG FOR FURTHER ANALYSIS
     9.  Event Logs in EVTX Format
