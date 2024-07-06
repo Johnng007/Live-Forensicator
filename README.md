@@ -78,6 +78,7 @@ Live Forensicator is part of the Black Widow Toolbox, it aims to assist Forensic
 <br></br>
 
 ## ✨ ChangeLog
+[See Wiki](https://github.com/Johnng007/Live-Forensicator/wiki/Changelog) For full Changelog.
 ```bash
 
 Windows: v4.0.1 09/06/2024
@@ -86,7 +87,7 @@ Windows: v4.0.1 09/06/2024
 3. Re-arranged the Directory to show that Forensicator has moved from just a PowerShell tool to a suite of tools.
 
 ```
-[See Wiki](https://github.com/Johnng007/Live-Forensicator/wiki/Changelog) For full Changelog.
+
 
 
 ## 🤔 MORE TOOLS
