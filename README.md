@@ -69,13 +69,6 @@ Live Forensicator is part of the Black Widow Toolbox, it aims to assist Forensic
 * <p>In the Windows module Forensictor looks out for suspicious activities within the Event Log, it has a long list of malicious executables, and PowerShell commands which it queries the event log against.</p>
 
 
-
-## 🤔 MORE TOOLS
-Want to check out other Black Widow Tools?
-1. [Anteater](https://github.com/Johnng007/Anteater) - A Python-based web reconnaissance tool.
-2. [Nessus Pro API](https://github.com/Johnng007/PowershellNessus) - A PowerShell Script to Export and Download Nessus Scan Results via Nessus API. 
-
-
 ## Screenshot
 <img src="https://github.com/Johnng007/Live-Forensicator/blob/main/styles/vendors/images/Forensicator_Output.png?raw=true" alt="Forensicator"  /> <br>
 ## HTML Output
@@ -95,6 +88,11 @@ Windows: v4.0.1 09/06/2024
 ```
 [See Wiki](https://github.com/Johnng007/Live-Forensicator/wiki/Changelog) For full Changelog.
 
+
+## 🤔 MORE TOOLS
+Want to check out other Black Widow Tools?
+1. [Anteater](https://github.com/Johnng007/Anteater) - A Python-based web reconnaissance tool.
+2. [Nessus Pro API](https://github.com/Johnng007/PowershellNessus) - A PowerShell Script to Export and Download Nessus Scan Results via Nessus API. 
 
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change or add.
