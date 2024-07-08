@@ -64,7 +64,7 @@ function CheckForUpdates {
     }
   }
   catch {
-    Write-Host "Failed to check for updates. You probably dont have internet connection."
+    Write-Host "Failed to check for updates. You probably don't have an internet connection."
     Write-Host "Error: $_"
   }
 }
