@@ -26,19 +26,28 @@ Live Forensicator is part of the Black Widow Toolbox, it aims to assist Forensic
 <p>It is paramount to note that this script has no inbuilt intelligence it is left for the investigator to analyze the output and decide on a conclusion or conduct a deeper investigation.</p>
 
 
-```bash
+```
 
 ## 🎫 Optional Dependencies
 
 This script is written in Powershell for use on Windows PCs and Servers. 
 For additional features it depends on external binaries, they are in the Forensicator-Share folder.
-But Forensicator can work without these dependencies, they just help with additional features
+But Forensicator can work without these dependencies, they help with additional features
 ```
-```bash
+```
 winpmem_mini_x64_rc2.exe   For taking RAM capture (https://github.com/Velocidex/WinPmem)
 BrowsingHistoryView64.exe  For a more robust Browsing History View (http://www.nirsoft.net/utils/browsing_history_view.html)
 etl2pcapng64.exe           For converting network trace to pcap
 FileCryptography.psm1      For Encrypting the Artifacts
+```
+```
+## 🎫 Other Dependencies
+There are other files within the Forensicator-Share folder that this script depends on to offer more robust features.
+```
+```
+malicious_URLs.txt          This file contains a list of malicious URLs used by the Forensicator
+                            to match Browsing History to malicious domains. 
+sqlite3.exe                 Assists with extracting Browser History. 
 ```
 
 ## 🔨 Usage
@@ -129,6 +138,9 @@ NOTE: You can just double-click the exe to run the default checks
   Forensicator can now encrypt the Artifact with a unique randomly generated key using the AES algorithm, you can specify this by using the -ENCRYPTED parameter. You can   decrypt it at will anywhere anytime even with another copy of Forensicator, just keep your key safe. This task is performed by the FileCryptography.psm1 file</p>
 
 * <p>Forensictor looks out for suspicious activities within the Event Log, it has a long list of malicious executables, and PowerShell commands which it queries the event log against.</p>
+
+- Forensictor extracts Browsing History from Chrome, Mozilla, Edge and IE, this browsing history is further passed through a list of malicious URLs for detection - [See More In Wiki](https://github.com/Johnng007/Live-Forensicator/wiki/Usage-%E2%80%90-Windows#-malicious-web-traffic-analysis).
+ 
 
 ## 🔥 What Forensicator Grabs
 ```bash
