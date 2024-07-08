@@ -1248,106 +1248,264 @@ else {
   #region  BROWSER  INBUILT        ##########################################################################
   ###########################################################################################################
 
-  Write-Host -Fore DarkCyan "[*] Extracting Browser History (Inbuilt)"
+Write-Host -Fore DarkCyan "[*] Extracting Browser History (Inbuilt)"
 		
-	
-  #CHROME
 
-  mkdir BROWSING_HISTORY | Out-Null
-
-  $users = Get-ChildItem $Env:SystemDrive\Users | Where-Object { $_.name -notmatch 'Public|default' }
-  foreach ($user in $users) {
-
-    $Path = "$($user.fullname)\AppData\Local\Google\Chrome\User Data\Default\History"
-    if (-not (Test-Path -Path $Path)) {
-      Write-Verbose "[!] Could not find Chrome History for username: $user"
-    }
-    $Regex = '(http|https)://([\w-]+\.)+[\w-]+(/[\w- ./?%&=]*)*?'
-    $Value = Get-Content -Path $path | Select-String -AllMatches $regex | ForEach-Object { ($_.Matches).Value } | Sort-Object -Unique
-    $Value | ForEach-Object {
-      $Key = $_
-      if ($Key -match $Search) {
-		
-        New-Object -TypeName PSObject -Property @{
-          User     = $user
-          Browser  = 'Chrome'
-          DataType = 'History'
-          Data     = $_
-        }
-			
-      } 
-    } | Out-File BROWSING_HISTORY\Chrome_History_of_$user.txt
-	
-  }
-
-  #MOZILLA
-
-  $users = Get-ChildItem $Env:SystemDrive\Users | Where-Object { $_.name -notmatch 'Public|default' }
-  foreach ($user in $users) {
-
-    $Path = "$($user.fullname)\AppData\Roaming\Mozilla\Firefox\Profiles\"
-    if (-not (Test-Path -Path $Path)) {
-      Write-Verbose "[!] Could not find Chrome History for username: $user"
-    }
-    $Profiles = Get-ChildItem -Path "$Path\*.default\" -ErrorAction SilentlyContinue
-    $Regex = '(http|https)://([\w-]+\.)+[\w-]+(/[\w- ./?%&=]*)*?'
-    $Value = Get-Content $Profiles\places.sqlite | Select-String -AllMatches $regex | ForEach-Object { ($_.Matches).Value } | Sort-Object -Unique
-    $Value | ForEach-Object {
-      $Key = $_
-      if ($Key -match $Search) {
-		
-        New-Object -TypeName PSObject -Property @{
-          User     = $user
-          Browser  = 'Firefox'
-          DataType = 'History'
-          Data     = $_
-        }
-			
-      } 
-    } | Out-File BROWSING_HISTORY\Firefox_History_of_$user.txt
-	
-  }
-
-  #IE
+mkdir BROWSING_HISTORY | Out-Null
 
 
+# path to the malicious URLs file
+$maliciousUrlsFilePath = "$PSScriptRoot\Forensicator-Share\malicious_URLs.txt"
 
-  $Null = New-PSDrive -Name HKU -PSProvider Registry -Root HKEY_USERS
-  $Paths = Get-ChildItem 'HKU:\' -ErrorAction SilentlyContinue | Where-Object { $_.Name -match 'S-1-5-21-[0-9]+-[0-9]+-[0-9]+-[0-9]+$' }
+# Loading the malicious URLs
+$maliciousUrls = Get-Content -Path $maliciousUrlsFilePath
 
-  ForEach ($Path in $Paths) {
-
-    $User = ([System.Security.Principal.SecurityIdentifier] $Path.PSChildName).Translate( [System.Security.Principal.NTAccount]) | Select-Object -ExpandProperty Value
-
-    $Path = $Path | Select-Object -ExpandProperty PSPath
-
-    $UserPath = "$Path\Software\Microsoft\Internet Explorer\TypedURLs"
-    if (-not (Test-Path -Path $UserPath)) {
-      Write-Verbose "[!] Could not find IE History for SID: $Path"
-    }
-    else {
-      Get-Item -Path $UserPath -ErrorAction SilentlyContinue | ForEach-Object {
-        $Key = $_
-        $Key.GetValueNames() | ForEach-Object {
-          $Value = $Key.GetValue($_)
-          if ($Value -match $Search) {
-            New-Object -TypeName PSObject -Property @{
-              User     = $_.Name
-              Browser  = 'IE'
-              DataType = 'History'
-              Data     = $Value
-            }
-          }
-        }
-      } | Out-File BROWSING_HISTORY\IE_History.txt
-    }
-  }
-
-
-  Write-Host -Fore Cyan "[!] Done"
-
-
+# check URLs against the malicious list
+function Check-MaliciousUrl {
+    param (
+        [string]$url
+    )
+    return $maliciousUrls -contains $url
 }
+
+# convert Firefox timestamp to human-readable format
+function Convert-FirefoxTime {
+    param (
+        [long]$firefoxTime
+    )
+    $epoch = [datetime]'1970-01-01'
+    $humanReadableTime = $epoch.AddSeconds($firefoxTime / 1000000)
+    return $humanReadableTime.ToString("yyyy-MM-dd HH:mm:ss")
+}
+
+# process Chrome history
+function Process-ChromeHistory {
+    param (
+        [string]$user
+    )
+
+    $chromeHistoryPath = "$($user)\AppData\Local\Google\Chrome\User Data\Default\History"
+    if (-not (Test-Path -Path $chromeHistoryPath)) {
+        Write-Verbose "[!] Could not find Chrome History for username: $user"
+        return
+    }
+
+    $query = "SELECT url, datetime(last_visit_time/1000000-11644473600,'unixepoch') as chromeTime FROM urls"
+    $sqlitePath = "$PSScriptRoot\Forensicator-Share\sqlite3.exe"
+    $urls = & $sqlitePath $chromeHistoryPath $query
+
+    $history = @()
+    $maliciousMatches = @()
+    foreach ($entry in $urls) {
+        $splitEntry = $entry -split "\|"
+        $url = $splitEntry[0]
+
+        $chromeTime = $splitEntry[1]
+
+
+        $historyEntry = @{
+            User          = $user
+            Browser       = 'Chrome'
+            DataType      = 'History'
+            URL           = $url
+            #LastVisitTime = $lastVisitTime
+            LastVisitTime = $chromeTime
+            IsMalicious   = Check-MaliciousUrl -url $url
+        }
+        $history += $historyEntry
+
+        if ($historyEntry.IsMalicious) {
+            $maliciousMatches += $historyEntry
+        }
+    }
+
+    $outputHistoryFilePath = "BROWSING_HISTORY\Chrome_History_of_$($user.Split('\')[-1]).txt"
+    $history | ForEach-Object {
+        $_ | Out-String
+    } | Out-File $outputHistoryFilePath
+
+    if ($maliciousMatches.Count -gt 0) {
+        $outputMaliciousFilePath = "BROWSING_HISTORY\Malicious_Chrome_History_of_$($user.Split('\')[-1]).txt"
+        $maliciousMatches | ForEach-Object {
+            $_ | Out-String
+        } | Out-File $outputMaliciousFilePath
+    }
+}
+
+# process Firefox history
+function Process-FirefoxHistory {
+    param (
+        [string]$user
+    )
+
+    $firefoxProfilesPath = "$($user)\AppData\Roaming\Mozilla\Firefox\Profiles\"
+    if (-not (Test-Path -Path $firefoxProfilesPath)) {
+        Write-Verbose "[!] Could not find Firefox profiles for username: $user"
+        return
+    }
+
+    $profiles = Get-ChildItem -Path $firefoxProfilesPath -Directory
+    foreach ($profile in $profiles) {
+        $firefoxHistoryPath = "$($profile.FullName)\places.sqlite"
+        if (-not (Test-Path -Path $firefoxHistoryPath)) {
+            Write-Verbose "[!] Could not find Firefox History for profile: $($profile.Name)"
+            continue
+        }
+
+        $query = "SELECT url, last_visit_date FROM moz_places"
+        $sqlitePath = "$PSScriptRoot\Forensicator-Share\sqlite3.exe"
+        $urls = & $sqlitePath $firefoxHistoryPath $query
+
+        $history = @()
+        $maliciousMatches = @()
+        foreach ($entry in $urls) {
+            $splitEntry = $entry -split "\|"
+            $url = $splitEntry[0]
+            $lastVisitTimeRaw = [long]$splitEntry[1]
+            $lastVisitTime = Convert-FirefoxTime -firefoxTime $lastVisitTimeRaw
+
+            $historyEntry = @{
+                User          = $user
+                Browser       = 'Firefox'
+                DataType      = 'History'
+                URL           = $url
+                LastVisitTime = $lastVisitTime
+                IsMalicious   = Check-MaliciousUrl -url $url
+            }
+            $history += $historyEntry
+
+            if ($historyEntry.IsMalicious) {
+                $maliciousMatches += $historyEntry
+            }
+        }
+
+        $outputHistoryFilePath = "BROWSING_HISTORY\Firefox_History_of_$($user.Split('\')[-1])_$($profile.Name).txt"
+        $history | ForEach-Object {
+            $_ | Out-String
+        } | Out-File $outputHistoryFilePath
+
+        if ($maliciousMatches.Count -gt 0) {
+            $outputMaliciousFilePath = "BROWSING_HISTORY\Malicious_Firefox_History_of_$($user.Split('\')[-1])_$($profile.Name).txt"
+            $maliciousMatches | ForEach-Object {
+                $_ | Out-String
+            } | Out-File $outputMaliciousFilePath
+        }
+    }
+}
+
+# process Edge history
+function Process-EdgeHistory {
+    param (
+        [string]$user
+    )
+
+    $edgeHistoryPath = "$($user)\AppData\Local\Microsoft\Edge\User Data\Default\History"
+    if (-not (Test-Path -Path $edgeHistoryPath)) {
+        Write-Verbose "[!] Could not find Edge History for username: $user"
+        return
+    }
+
+    $query = "SELECT url, last_visit_time FROM urls"
+    $sqlitePath = "$PSScriptRoot\Forensicator-Share\sqlite3.exe"
+    $urls = & $sqlitePath $edgeHistoryPath $query
+
+    $history = @()
+    $maliciousMatches = @()
+    foreach ($entry in $urls) {
+        $splitEntry = $entry -split "\|"
+        $url = $splitEntry[0]
+        $lastVisitTimeRaw = [long]$splitEntry[1]
+        $lastVisitTime = Convert-ChromeTime -chromeTime $lastVisitTimeRaw
+
+        $historyEntry = @{
+            User          = $user
+            Browser       = 'Edge'
+            DataType      = 'History'
+            URL           = $url
+            LastVisitTime = $lastVisitTime
+            IsMalicious   = Check-MaliciousUrl -url $url
+        }
+        $history += $historyEntry
+
+        if ($historyEntry.IsMalicious) {
+            $maliciousMatches += $historyEntry
+        }
+    }
+
+    $outputHistoryFilePath = "BROWSING_HISTORY\Edge_History_of_$($user.Split('\')[-1]).txt"
+    $history | ForEach-Object {
+        $_ | Out-String
+    } | Out-File $outputHistoryFilePath
+
+    if ($maliciousMatches.Count -gt 0) {
+        $outputMaliciousFilePath = "BROWSING_HISTORY\Malicious_Edge_History_of_$($user.Split('\')[-1]).txt"
+        $maliciousMatches | ForEach-Object {
+            $_ | Out-String
+        } | Out-File $outputMaliciousFilePath
+    }
+}
+
+# process Internet Explorer history
+function Process-IEHistory {
+    param (
+        [string]$user
+    )
+
+    $userSid = (New-Object System.Security.Principal.NTAccount($user.Split('\')[-1])).Translate([System.Security.Principal.SecurityIdentifier]).Value
+    $ieHistoryPath = "HKU:\$userSid\Software\Microsoft\Internet Explorer\TypedURLs"
+    if (-not (Test-Path -Path $ieHistoryPath)) {
+        Write-Verbose "[!] Could not find IE History for username: $user"
+        return
+    }
+
+    $history = @()
+    $maliciousMatches = @()
+    $key = Get-Item -Path $ieHistoryPath
+    foreach ($valueName in $key.GetValueNames()) {
+        $url = $key.GetValue($valueName)
+        $historyEntry = @{
+            User          = $user
+            Browser       = 'Internet Explorer'
+            DataType      = 'History'
+            URL           = $url
+            LastVisitTime = "N/A"  # IE does not store visit time in TypedURLs
+            IsMalicious   = Check-MaliciousUrl -url $url
+        }
+        $history += $historyEntry
+
+        if ($historyEntry.IsMalicious) {
+            $maliciousMatches += $historyEntry
+        }
+    }
+
+    $outputHistoryFilePath = "BROWSING_HISTORY\IE_History_of_$($user.Split('\')[-1]).txt"
+    $history | ForEach-Object {
+        $_ | Out-String
+    } | Out-File $outputHistoryFilePath
+
+    if ($maliciousMatches.Count -gt 0) {
+        $outputMaliciousFilePath = "BROWSING_HISTORY\Malicious_IE_History_of_$($user.Split('\')[-1]).txt"
+        $maliciousMatches | ForEach-Object {
+            $_ | Out-String
+        } | Out-File $outputMaliciousFilePath
+    }
+}
+
+# Get all users
+$users = Get-ChildItem $Env:SystemDrive\Users | Where-Object { $_.Name -notmatch 'Public|default' } | ForEach-Object { $_.FullName }
+
+# Process browsing history for each user
+foreach ($user in $users) {
+    Process-ChromeHistory -user $user
+    Process-FirefoxHistory -user $user
+    Process-EdgeHistory -user $user
+    Process-IEHistory -user $user
+}
+
+Write-Host -Fore Cyan "[!] Done"
+
+
+} 
 
 ###########################################################################################################
 #endregion   BROWSER INBUILT                ###############################################################
