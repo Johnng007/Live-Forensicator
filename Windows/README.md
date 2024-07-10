@@ -246,7 +246,8 @@ NOTE: You can just double-click the exe to run the default checks
     7.  CHECK FOR FILES THAT HAVE SIMILAR EXTENSIONS WITH KNOWN RANSOMWARE-ENCRYPTED FILES
         NOTE: THIS CHECK CAN TAKE SOME TIME TO COMPLETE DEPENDING ON THE NUMBER OF DRIVES AND AMOUNT OF FILES.
     8.  RUNS NETWORK TRACING USING NETSH TRACE & CONVERTS TO PCAPNG FOR FURTHER ANALYSIS
-    9.  Event Logs in EVTX Format
+    9.  Event Logs in EVTX Format.
+   10.  Forensictor extracts Browsing History from Chrome, Mozilla, Edge and IE, this browsing history is further passed through a list of malicious URLs for detection
 
 ```
 
