@@ -68,6 +68,8 @@ Live Forensicator is part of the Black Widow Toolbox, it aims to assist Forensic
 
 * <p>In the Windows module Forensictor looks out for suspicious activities within the Event Log, it has a long list of malicious executables, and PowerShell commands which it queries the event log against.</p>
 
+* <p>In the Windows module Forensictor Matches hashes of executables within the system to malicious hash databases for malware detection, Also browsing history URLs are matched against a list of latest URLs from IOCs for detection.</p>
+
 
 ## Screenshot
 <img src="https://github.com/Johnng007/Live-Forensicator/blob/main/styles/vendors/images/Forensicator_Output.png?raw=true" alt="Forensicator"  /> <br>
@@ -81,10 +83,10 @@ Live Forensicator is part of the Black Widow Toolbox, it aims to assist Forensic
 [See Wiki](https://github.com/Johnng007/Live-Forensicator/wiki/Changelog) For full Changelog.
 ```bash
 
-Windows: v4.0.1 09/06/2024
-1. Windows: Adjusted Static file references to adapt to the new Forensicator Github structure.
-2. Linux: Created Forensicator for Linux machines.
-3. Re-arranged the Directory to show that Forensicator has moved from just a PowerShell tool to a suite of tools.
+Windows: v4.0.2 07/08/2024
+1. Windows: Added hash check for malware detection.
+2. Windows: Minor Bug Fixes.
+3. Windows: Added a notification when Forensicator is not running as admin.
 
 ```
 
