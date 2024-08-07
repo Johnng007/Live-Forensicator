@@ -1,5 +1,15 @@
 
 {
+  "hash_source": [
+    "https://bazaar.abuse.ch/export/txt/md5/recent/"
+  ],
+  "executables_extensions": [
+    "*.exe",
+    "*.dll",
+    "*.bat",
+    "*.cmd",
+    "*.ps1"
+  ],
   "suspicious_executables": [
     "block",
     "go",
