@@ -21,6 +21,7 @@ param(
   [String]$WEBLOGS,
   [String]$BROWSER,
   [String]$PCAP,
+  [String]$HASHCHECK,
   [String]$ENCRYPTED,
   [switch]$UPDATE,
   [switch]$VERSION,
@@ -187,26 +188,29 @@ else {
 if ($USAGE) {
 	
   Write-Host ''
-  Write-Host -Fore DarkCyan   'FORESNSICATOR USAGE'
+  Write-Host -Fore Cyan       'FORESNSICATOR USAGE'
+  Write-Host ''
+  Write-Host -Fore DarkCyan   'Note: This may not be up to date please check github'
   Write-Host ''
   Write-Host -Fore DarkCyan   '[*] .\Forensicator.ps1   This runs the Basic checks on a system.'
   Write-Host ''
-  Write-Host -Fore DarkCyan   'FLAGS'
-  Write-Host -Fore Cyan   'The below flags can be added to the Basic Usage'
+  Write-Host -Fore Cyan       'FLAGS'
+  Write-Host -Fore Cyan       'The below flags can be added to the Basic Usage'
   Write-Host ''
-  Write-Host -Fore DarkCyan   '[*] -EVTX EVTX           Also grab Event Logs'
-  Write-Host -Fore DarkCyan   '[*] -WEBLOGS WEBLOGS     Also grab Web Logs.'
-  Write-Host -Fore DarkCyan   '[*] -PCAP PCAP           Run network tracing and capture PCAP for 120seconds'
+  Write-Host -Fore DarkCyan   '[*] -EVTX EVTX               Also grab Event Logs'
+  Write-Host -Fore DarkCyan   '[*] -WEBLOGS WEBLOGS         Also grab Web Logs.'
+  Write-Host -Fore DarkCyan   '[*] -PCAP PCAP               Run network tracing and capture PCAP for 120seconds'
   Write-Host -Fore Cyan       "[!] requires the etl2pcapng file in share folder"
-  Write-Host -Fore DarkCyan   '[*] -RAM RAM             Extract RAM Dump'
+  Write-Host -Fore DarkCyan   '[*] -RAM RAM                 Extract RAM Dump'
   Write-Host -Fore Cyan       "[!] requires the winpmem file in share folder"
-  Write-Host -Fore DarkCyan   '[*] -LOG4J LOG4J         Checks for vulnerable log4j files'
-  Write-Host -Fore DarkCyan   '[*] -ENCRYPTED ENCRYPTED Encrypt Artifacts after collecting them'
+  Write-Host -Fore DarkCyan   '[*] -LOG4J LOG4J             Checks for vulnerable log4j files'
+  Write-Host -Fore DarkCyan   '[*] -ENCRYPTED ENCRYPTED     Encrypts Artifacts after collecting them'
   Write-Host -Fore Cyan       "[!] requires the FileCryptography file in share folder"
-  Write-Host -Fore DarkCyan   '[*] -BROWSER BROWSER     Grabs a detailed browsing history from system'
+  Write-Host -Fore DarkCyan   '[*] -BROWSER BROWSER         Grabs a detailed browsing history from system'
   Write-Host -Fore Cyan       "[!] requires the Nirsoft BrowserView file in share folder"
+  Write-Host -Fore DarkCyan   '[*] -HASHCHECK HASHCHECK     Check executable hashes for latest malware'
   Write-Host -Fore DarkCyan   ''
-  Write-Host -Fore DarkCyan   'SWITCHES'
+  Write-Host -Fore DarkCyan   'SWITCHES' 
   Write-Host -Fore DarkCyan   ''
   Write-Host -Fore DarkCyan   '[*] .\Forensicator.ps1 -VERSION           This checks the version of Foresicator you have'
   Write-Host -Fore DarkCyan   '[*] .\Forensicator.ps1 -UPDATE            This checks for and updates your copy of Forensicator'
@@ -219,6 +223,22 @@ if ($USAGE) {
 else {
 	
 }
+
+# Function to check if running as administrator
+function Test-IsAdministrator {
+  $currentUser = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
+  $isAdmin = $currentUser.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+  $isDomainAdmin = $currentUser.IsInRole("Domain Admins")
+  return $isAdmin -or $isDomainAdmin
+}
+
+# Check if running as administrator
+if (-not (Test-IsAdministrator)) {
+  Write-Host -Fore DarkCyan "[!] Forensicator is not running with admin rights"
+  Write-Host -Fore DarkCyan "[!] To get the best of results, please run as an admin!"
+
+}
+
 
 ##################################################
 #endregion ARTIFACT DECRYPTION SWITCH            #
@@ -1523,7 +1543,7 @@ if ($RANSOMWARE) {
 
   #CHECKING FOR RANSOMWARE ENCRYPTED FILES
   # Read target file extensions from the YAML configuration file
-  $configFile = "config.json"
+  $configFile = "$PSScriptRoot\config.json"
   $configData = Get-Content $configFile | ConvertFrom-Json
   $ransomwareExtensions = $configData.Ransomeware_Extensions
 
@@ -1760,6 +1780,114 @@ if ($LOG4J) {
 else {
 
 }
+
+#endregion
+
+
+
+#############################################################################################################
+#region   Checking File Hashes for Malware        ###########################################################
+#############################################################################################################
+
+if ($HASHCHECK) {
+  
+  Write-Host -Fore DarkCyan "[*] Starting Hash lookup."
+
+  # Define the path to the configuration file
+  $configFile = "$PSScriptRoot\config.json"
+
+  # Read and parse the configuration file
+  $configData = Get-Content $configFile | ConvertFrom-Json
+
+  # Get the executable extensions and hash source URL from the configuration
+  $ExecExtensions = $configData.executables_extensions
+  $hashsource = $configData.hash_source
+
+  # Define the directory to scan
+  #$directory = "C:\"  # Replace with your actual directory
+  #$Drives = Get-PSDrive -PSProvider 'FileSystem'
+
+  # Define the path to save the downloaded hash file
+  $hashFilePath = "$PSScriptRoot\Forensicator-Share\md5hashes.txt"
+
+  # Function to compute MD5 hash of a file
+  function Get-FileMD5 {
+    param (
+      [string]$filePath
+    )
+    $md5 = [System.Security.Cryptography.MD5]::Create()
+    $fileStream = [System.IO.File]::OpenRead($filePath)
+    $hashBytes = $md5.ComputeHash($fileStream)
+    $fileStream.Close()
+    return ([BitConverter]::ToString($hashBytes) -replace "-", "").ToLower()
+  }
+
+  # Download the MD5 hash file if it does not exist
+  if (-Not (Test-Path $hashFilePath)) {
+    Write-Host -Fore DarkCyan "[*] Hash file not found in Forensicator-Share"
+    Write-Host -Fore DarkCyan "[*] I will attempt to download it."
+
+    if ((Test-NetConnection bazaar.abuse.ch -Port 80 -InformationLevel "Detailed").TcpTestSucceeded) {
+      Write-Host -Fore DarkCyan "[*] Downloading..."
+      Invoke-WebRequest -Uri $hashsource -OutFile $hashFilePath
+    }
+    else {
+      Write-Host -Fore DarkCyan "[*] bazaar.abuse.ch is not reachable, please check your connection"
+      Write-Host -Fore DarkCyan "[*] Moving on..."
+    }
+  }
+  else {
+    Write-Host -Fore Cyan "[!] I will use the hashfile provided..."
+  }
+
+  # Read the downloaded MD5 hashes
+  $downloadedHashes = Get-Content $hashFilePath
+
+  # Get the MD5 hashes of the specified files in the directory
+  $localHashes = @()
+  foreach ($ExecExtension in $ExecExtensions) {
+    #$files = Get-ChildItem -Path $directory -Filter $ExecExtension -Recurse
+    $files = Get-PSDrive -PSProvider FileSystem | ForEach-Object { Get-ChildItem -Path $_.Root -Filter $ExecExtension -Recurse -ErrorAction SilentlyContinue }
+    foreach ($file in $files) {
+      $hash = Get-FileMD5 -filePath $file.FullName
+      $localHashes += [PSCustomObject]@{
+        FileName = $file.FullName
+        MD5Hash  = $hash
+      }
+    }
+  }
+
+  # Compare local hashes with downloaded hashes and output matches
+  $hashmatch = @()
+  foreach ($localHash in $localHashes) {
+    if ($downloadedHashes -contains $localHash.MD5Hash) {
+      $hashmatch += [PSCustomObject]@{
+        DetectedFile     = $localHash.FileName
+        OriginalFileHash = $localHash.MD5Hash
+        MatchingMD5      = ($downloadedHashes | Where-Object { $_ -eq $localHash.MD5Hash })
+      }
+    }
+  }
+
+  # Output the matches
+
+  mkdir HashMatches | Out-Null
+  $HashMatchFilePath = "HashMatches\MalwareHashMatch.txt"
+  if ($hashmatch.Count -gt 0) {
+    $hashmatch | Format-Table -AutoSize | Out-File $HashMatchFilePath
+    #$hashmatch | ConvertTo-Html -As LIST -fragment
+  }
+  else {
+    Write-Output "No matches found." | Out-File $HashMatchFilePath
+  }
+
+
+} 
+else {
+
+}
+
+Write-Host -Fore Cyan "[!] Done."
 
 #endregion
 
@@ -2427,7 +2555,7 @@ $severityLevels = @{
 }
 
 # Get suspicious executables and PowerShell commands from config.json
-$json = Get-Content -Raw -Path ".\config.json" | ConvertFrom-Json
+$json = Get-Content -Raw -Path "$PSScriptRoot\config.json" | ConvertFrom-Json
 $suspiciousExecutables = $json.suspicious_executables -join "|"
 $suspiciousPSCommands = $json.suspicious_PS_commands -join "|"
 
@@ -5916,6 +6044,14 @@ function ForensicatorExtras {
                         <a target="_blank" class="text-blue" href="LOG4J">/LOG4J</a>
                       </td>
                     </tr>
+                    <tr>
+                      <td class="table-plus">
+                        <span class="badge badge-pill table-badge">Matched Hashes</span>
+                      </td>
+                      <td>
+                        <a target="_blank" class="text-blue" href="HashMatches">/LOG4J</a>
+                      </td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
@@ -7789,7 +7925,7 @@ function SuspiciousEventsStyle {
         <!-- Export Datatable start -->
         <div class="card-box mb-30">
           <div class="pd-20">
-            <h4 class="text-blue h4">Object Access</h4>
+            <h4 class="text-blue h4">Suspecious Activities</h4>
           </div>
           <div class="pb-20">
             <table class="table hover multiple-select-row data-table-export nowrap ">
