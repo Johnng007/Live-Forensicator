@@ -118,6 +118,9 @@ NOTE: You can just double-click the exe to run the default checks
 # Check for files that have similar extensions with ransomware encrypted files (can take some time to complete)
 .\Forensicator.ps1 -RANSOMWARE RANSOMWARE
 
+# You can match hashes of executables on the system to publicly available malware hashes
+.\Forensicator.ps1 -HASHCHECK HASHCHECK
+
 # You can compress the Forensicator output immediately after execution Oneliner
 .\Forensicator.ps1 ; Start-Sleep -s 15 ; Compress-Archive -Path "$env:computername" -DestinationPath "C:\inetpub\wwwroot\$env:computername.zip" -Force
 
@@ -139,7 +142,9 @@ NOTE: You can just double-click the exe to run the default checks
 
 * <p>Forensictor looks out for suspicious activities within the Event Log, it has a long list of malicious executables, and PowerShell commands which it queries the event log against.</p>
 
-- Forensictor extracts Browsing History from Chrome, Mozilla, Edge and IE, this browsing history is further passed through a list of malicious URLs for detection - [See More In Wiki](https://github.com/Johnng007/Live-Forensicator/wiki/Usage-%E2%80%90-Windows#-malicious-web-traffic-analysis).
+- Forensictor extracts Browsing History from Chrome, Mozilla, Edge, and IE, this browsing history is further passed through a list of malicious URLs for detection - [See More In Wiki](https://github.com/Johnng007/Live-Forensicator/wiki/Usage-%E2%80%90-Windows#-malicious-web-traffic-analysis).
+  
+- Forensicator matches the hashes of executables on the machine to publicly available malicious hash databases, this helps detect malicious executables. [See More In Wiki](https://github.com/Johnng007/Live-Forensicator/wiki/Usage-%E2%80%90-Windows#-malware-static-analysis)
  
 
 ## 🔥 What Forensicator Grabs
@@ -248,6 +253,7 @@ NOTE: You can just double-click the exe to run the default checks
     8.  RUNS NETWORK TRACING USING NETSH TRACE & CONVERTS TO PCAPNG FOR FURTHER ANALYSIS
     9.  Event Logs in EVTX Format.
    10.  Forensictor extracts Browsing History from Chrome, Mozilla, Edge and IE, this browsing history is further passed through a list of malicious URLs for detection
+   11.  Forensicator matches the hashes of executables on the machine to publicly available malicious hash databases for malware detection
 
 ```
 
@@ -261,7 +267,7 @@ NOTE: You can just double-click the exe to run the default checks
 <br></br>
 
 ## Contributing
-Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change or add.
+Just to let you know, pull requests are welcome. For major changes, please open an issue first to talk about what you would like to change or add.
 
 
 
