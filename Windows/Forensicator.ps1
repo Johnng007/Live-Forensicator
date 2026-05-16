@@ -116,8 +116,8 @@ Write-Host ''
 Write-Host ''
 Write-Host -ForegroundColor DarkCyan '[!] Live Forensicator'
 Write-Host ''
-Write-Host -ForegroundColor DarkCyan '[!] Performs Live Forensics on Live Hosts while grabbing required data for further analysis.'
-Write-Host -ForegroundColor DarkCyan '[!] By Ebuka John Onyejegbu.'
+Write-Host -ForegroundColor DarkCyan '[!] Live Forensicator is a free and open-source PowerShell script designed to automate the collection of forensic artifacts from Windows systems. It provides a comprehensive set of features for incident responders, digital forensic analysts, and cybersecurity professionals to efficiently gather critical information during investigations.'
+Write-Host -ForegroundColor DarkCyan '[!] https://forensicator.io'
 Write-Host -ForegroundColor DarkCyan '[!] https://github.com/Johnng007/Live-Forensicator'
 Write-Host ''
 
@@ -331,14 +331,14 @@ else{
 if ($USAGE) {
 	
   Write-Host ''
-  Write-Host -ForegroundColor Cyan 'FORESNSICATOR USAGE'
+  Write-Host -ForegroundColor Cyan 'SAMPLE FORESNSICATOR USAGE'
   Write-Host ''
   Write-Host -ForegroundColor DarkCyan 'Note: This may not be up to date please check github'
   Write-Host ''
   Write-Host -ForegroundColor DarkCyan '[*] .\Forensicator.ps1   This runs the Basic checks on a system.'
   Write-Host ''
   Write-Host -ForegroundColor Cyan 'FLAGS'
-  Write-Host -ForegroundColor Cyan 'The below flags can be added to the Basic Usage'
+  Write-Host -ForegroundColor Cyan 'The below sample flags can be added to the Basic Usage'
   Write-Host ''
   Write-Host -ForegroundColor DarkCyan '[*] -EVTX EVTX               Also grab Event Logs'
   Write-Host -ForegroundColor DarkCyan '[*] -WEBLOGS WEBLOGS         Also grab Web Logs.'
@@ -348,8 +348,6 @@ if ($USAGE) {
   Write-Host -ForegroundColor Cyan "[!] requires the winpmem file in share folder"
   Write-Host -ForegroundColor DarkCyan '[*] -LOG4J LOG4J             Checks for vulnerable log4j files'
   Write-Host -ForegroundColor DarkCyan '[*] -ENCRYPTED ENCRYPTED     Encrypts Artifacts after collecting them'
-  Write-Host -ForegroundColor Cyan "[!] requires the FileCryptography file in share folder"
-  Write-Host -ForegroundColor Cyan "[!] requires the Nirsoft BrowserView file in share folder"
   Write-Host -ForegroundColor DarkCyan '[*] -HASHCHECK HASHCHECK     Check executable hashes for latest malware'
   Write-Host -ForegroundColor DarkCyan ''
   Write-Host -ForegroundColor DarkCyan 'SWITCHES' 
@@ -357,8 +355,8 @@ if ($USAGE) {
   Write-Host -ForegroundColor DarkCyan '[*] .\Forensicator.ps1 -VERSION           This checks the version of Foresicator you have'
   Write-Host -ForegroundColor DarkCyan '[*] .\Forensicator.ps1 -UPDATE            This checks for and updates your copy of Forensicator'
   Write-Host -ForegroundColor DarkCyan '[*] .\Forensicator.ps1 -DECRYPT DECRYPT   This decrypts a Foresicator encrypted Artifact'
-  Write-Host -ForegroundColor Cyan "[!] requires the FileCryptography file in share folder"
   Write-Host -ForegroundColor DarkCyan '[*] .\Forensicator.ps1 -USAGE             Prints this help file'
+  Write-Host -ForegroundColor Cyan '[!] Stay up to date with usage options by visiting https://forensicator.io'
 
   exit 0
 }
@@ -510,9 +508,11 @@ $Hostname = $env:computername
 
 # ── Safe defaults for JS data globals — overwritten later after data collection ──
 # Using $script: scope so they are visible inside the HTMLFiles function's here-string.
-$script:sigmaJsonSafe = '[]'
-$script:hashJsonSafe  = '[]'
-$script:iocJsonSafe   = '[]'
+$script:sigmaJsonSafe      = '[]'
+$script:hashJsonSafe       = '[]'
+$script:iocJsonSafe        = '[]'
+$script:evtlogCountsJson   = '{}'
+$script:topEventIdsJson    = '{}'
 
 #$userUID = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value
 
@@ -663,7 +663,11 @@ $HTMLFiles = "$PSScriptRoot\$env:COMPUTERNAME\index.html"
 Write-ForensicLog "[*] Gathering Network & Network Settings" -Level INFO -Section "NETWORK"
 
 #Gets DNS cache. Replaces ipconfig /dislaydns
-$DNSCache = Get-DnsClientCache | Select-Object Entry, Name, Status, TimeToLive, Data #| ConvertTo-Html -As LIST -fragment | Select-Object -Skip 1 | Select-Object -SkipLast 1
+$Cmd_DnsCache = @{
+    Display = 'Get-DnsClientCache | Select-Object Entry, Name, Status, TimeToLive, Data'
+    Action  = { Get-DnsClientCache | Select-Object Entry, Name, Status, TimeToLive, Data }
+}
+$DNSCache = & $Cmd_DnsCache.Action
 foreach ($process in $DNSCache) {
   $DNSCacheFragment += "<tr>"
   $DNSCacheFragment += "<td>$($process.Entry)</td>"
@@ -674,7 +678,12 @@ foreach ($process in $DNSCache) {
   $DNSCacheFragment += "</tr>"
 }
 
-$NetworkAdapter = Get-CimInstance -class Win32_NetworkAdapter  | Select-Object -Property AdapterType, ProductName, Description, MACAddress, Availability, NetconnectionStatus, NetEnabled, PhysicalAdapter #| ConvertTo-Html -As LIST -fragment | Select-Object -Skip 1 | Select-Object -SkipLast 1
+# Replaces ipconfig /all and network adapter details
+$Cmd_NetworkAdapter = @{
+    Display = 'Get-CimInstance -Class Win32_NetworkAdapter | Select-Object AdapterType, ProductName, Description, MACAddress, Availability, NetConnectionStatus, NetEnabled, PhysicalAdapter'
+    Action  = { Get-CimInstance -Class Win32_NetworkAdapter | Select-Object -Property AdapterType, ProductName, Description, MACAddress, Availability, NetconnectionStatus, NetEnabled, PhysicalAdapter }
+}
+$NetworkAdapter = & $Cmd_NetworkAdapter.Action
 foreach ($process in $NetworkAdapter) {
   $NetworkAdapterFragment += "<tr>"
   $NetworkAdapterFragment += "<td>$($process.AdapterType)</td>"
@@ -689,7 +698,11 @@ foreach ($process in $NetworkAdapter) {
 }
 
 #Replaces ipconfig:
-$IPConfiguration = Get-CimInstance Win32_NetworkAdapterConfiguration |  Select-Object Description, @{Name = 'IpAddress'; Expression = { $_.IpAddress -join '; ' } }, @{Name = 'IpSubnet'; Expression = { $_.IpSubnet -join '; ' } }, MACAddress, @{Name = 'DefaultIPGateway'; Expression = { $_.DefaultIPGateway -join '; ' } }, DNSDomain, DNSHostName, DHCPEnabled, ServiceName #| ConvertTo-Html -As LIST -fragment | Select-Object -Skip 1 | Select-Object -SkipLast 1
+$Cmd_IPConfiguration = @{
+    Display = "Get-CimInstance Win32_NetworkAdapterConfiguration | Select-Object Description, @{Name='IpAddress';Expression={`$_.IpAddress -join '; '}}, @{Name='IpSubnet';Expression={`$_.IpSubnet -join '; '}}, MACAddress, @{Name='DefaultIPGateway';Expression={`$_.DefaultIPGateway -join '; '}}, DNSDomain, DNSHostName, DHCPEnabled, ServiceName"
+    Action  = { Get-CimInstance Win32_NetworkAdapterConfiguration | Select-Object Description, @{Name='IpAddress';Expression={$_.IpAddress -join '; '}}, @{Name='IpSubnet';Expression={$_.IpSubnet -join '; '}}, MACAddress, @{Name='DefaultIPGateway';Expression={$_.DefaultIPGateway -join '; '}}, DNSDomain, DNSHostName, DHCPEnabled, ServiceName }
+}
+$IPConfiguration = & $Cmd_IPConfiguration.Action
 foreach ($process in $IPConfiguration) {
   $IPConfigurationFragment += "<tr>"
   $IPConfigurationFragment += "<td>$($process.Description)</td>"
@@ -699,6 +712,11 @@ foreach ($process in $IPConfiguration) {
   $IPConfigurationFragment += "<td>$($process.DHCPEnabled)</td>"
   $IPConfigurationFragment += "<td>$($process.ServiceName)</td>"
   $IPConfigurationFragment += "</tr>"
+}
+
+# Gets IP Address details. Replaces ipconfig and Get-NetIPAddress
+$Cmd_NetIPAddress = @{
+    Display = 'Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -notmatch "^(127\.|169\.254)" } | Select-Object InterfaceAlias, IPAddress, @{Name="Status";Expression={(Get-NetAdapter -InterfaceIndex $_.InterfaceIndex).Status}}, @{Name="LinkSpeed";Expression={(Get-NetAdapter -InterfaceIndex $_.InterfaceIndex).LinkSpeed}}'
 }
 
 $NetIPAddress = foreach ($ip in Get-NetIPAddress -AddressFamily IPv4 | Where-Object {
@@ -726,7 +744,12 @@ foreach ($process in $NetIPAddress) {
 
 }
 
-$NetConnectProfile = Get-NetConnectionProfile | Select-Object Name, InterfaceAlias, NetworkCategory, IPV4Connectivity, IPv6Connectivity #| ConvertTo-Html -As LIST -fragment | Select-Object -Skip 1 | Select-Object -SkipLast 1
+# Gets network profiles and network category. 
+$Cmd_NetConnectProfile = @{
+    Display = 'Get-NetConnectionProfile | Select-Object Name, InterfaceAlias, NetworkCategory, IPV4Connectivity, IPv6Connectivity'
+    Action  = { Get-NetConnectionProfile | Select-Object Name, InterfaceAlias, NetworkCategory, IPV4Connectivity, IPv6Connectivity }
+}
+$NetConnectProfile = & $Cmd_NetConnectProfile.Action
 foreach ($process in $NetConnectProfile) {
   $NetConnectProfileFragment += "<tr>"
   $NetConnectProfileFragment += "<td>$($process.Name)</td>"
@@ -737,7 +760,12 @@ foreach ($process in $NetConnectProfile) {
   $NetConnectProfileFragment += "</tr>"
 }
 
-$NetAdapter = Get-NetAdapter | Select-Object Name, InterfaceDescription, Status, MacAddress, LinkSpeed #| ConvertTo-Html -As LIST -fragment | Select-Object -Skip 1 | Select-Object -SkipLast 1
+# Gets network adapter details.
+$Cmd_NetAdapter = @{
+    Display = 'Get-NetAdapter | Select-Object Name, InterfaceDescription, Status, MacAddress, LinkSpeed'
+    Action  = { Get-NetAdapter | Select-Object Name, InterfaceDescription, Status, MacAddress, LinkSpeed }
+}
+$NetAdapter = & $Cmd_NetAdapter.Action
 foreach ($process in $NetAdapter) {
   $NetAdapterFragment += "<tr>"
   $NetAdapterFragment += "<td>$($process.Name)</td>"
@@ -749,7 +777,11 @@ foreach ($process in $NetAdapter) {
 }
 
 #Replaces arp -a:
-$NetNeighbor = Get-NetNeighbor | Select-Object InterfaceAlias, IPAddress, LinkLayerAddress #| ConvertTo-Html -As LIST -fragment | Select-Object -Skip 1 | Select-Object -SkipLast 1
+$Cmd_NetNeighbor = @{
+    Display = 'Get-NetNeighbor | Select-Object InterfaceAlias, IPAddress, LinkLayerAddress'
+    Action  = { Get-NetNeighbor | Select-Object InterfaceAlias, IPAddress, LinkLayerAddress }
+}
+$NetNeighbor = & $Cmd_NetNeighbor.Action
 foreach ($process in $NetNeighbor) {
   $NetNeighborFragment += "<tr>"
   $NetNeighborFragment += "<td>$($process.InterfaceAlias)</td>"
@@ -759,7 +791,11 @@ foreach ($process in $NetNeighbor) {
 }
 
 #Replaces netstat commands
-$NetTCPConnect = Get-NetTCPConnection | Select-Object LocalAddress, LocalPort, RemoteAddress, RemotePort, State, OwningProcess, @{Name = "Process"; Expression = { (Get-Process -Id $_.OwningProcess).ProcessName } } #| ConvertTo-Html -As LIST -fragment | Select-Object -Skip 1 | Select-Object -SkipLast 1
+$Cmd_NetTCPConnect = @{
+    Display = "Get-NetTCPConnection | Select-Object LocalAddress, LocalPort, RemoteAddress, RemotePort, State, OwningProcess, @{Name='Process';Expression={(Get-Process -Id `$_.OwningProcess).ProcessName}}"
+    Action  = { Get-NetTCPConnection | Select-Object LocalAddress, LocalPort, RemoteAddress, RemotePort, State, OwningProcess, @{Name='Process';Expression={(Get-Process -Id $_.OwningProcess).ProcessName}} }
+}
+$NetTCPConnect = & $Cmd_NetTCPConnect.Action
 foreach ($process in $NetTCPConnect) {
   $NetTCPConnectFragment += "<tr>"
   $NetTCPConnectFragment += "<td>$($process.LocalAddress)</td>"
@@ -770,6 +806,12 @@ foreach ($process in $NetTCPConnect) {
   $NetTCPConnectFragment += "<td>$($process.OwningProcess)</td>"
   $NetTCPConnectFragment += "<td>$($process.Process)</td>"
   $NetTCPConnectFragment += "</tr>"
+}
+
+# Replaces netstat -an | find "LISTEN"
+$Cmd_ListeningPorts = @{
+    Display = "Get-NetTCPConnection -State Listen | Select-Object LocalAddress, LocalPort, State, OwningProcess, @{Name='Process';Expression={(Get-Process -Id `$_.OwningProcess).ProcessName}}"
+    #Action  = { Get-NetTCPConnection -State Listen | Select-Object LocalAddress, LocalPort, State, OwningProcess, @{Name='Process';Expression={(Get-Process -Id $_.OwningProcess).ProcessName}} }
 }
 
 $procIndex = Get-Process | Group-Object Id -AsHashTable -AsString
@@ -791,7 +833,12 @@ $NetListenFragment += foreach ($c in Get-NetUDPEndpoint) {
 }
 
 #Get Wi-fi Names and Passwords
-$WlanPasswords = netsh.exe wlan show profiles | Select-String "\:(.+)$" | ForEach-Object { $wlanname = $_.Matches.Groups[1].Value.Trim(); $_ } | ForEach-Object { (netsh wlan show profile name="$wlanname" key=clear) }  | Select-String 'Key Content\W+\:(.+)$' | ForEach-Object { $wlanpass = $_.Matches.Groups[1].Value.Trim(); [PSCustomObject]@{ PROFILE_NAME = $wlanname; PASSWORD = $wlanpass } }
+$Cmd_WlanPasswords = @{
+    Display = 'netsh.exe wlan show profiles | Select-String "\:(.+)$" | ForEach-Object { $wlanname = $_.Matches.Groups[1].Value.Trim(); netsh wlan show profile name="$wlanname" key=clear } | Select-String "Key Content\W+\:(.+)$" | ForEach-Object { $wlanpass = $_.Matches.Groups[1].Value.Trim(); [PSCustomObject]@{ PROFILE_NAME = $wlanname; PASSWORD = $wlanpass } }'
+    Action  = { netsh.exe wlan show profiles | Select-String "\:(.+)$" | ForEach-Object { $wlanname = $_.Matches.Groups[1].Value.Trim(); $_ } | ForEach-Object { (netsh wlan show profile name="$wlanname" key=clear) }  | Select-String 'Key Content\W+\:(.+)$' | ForEach-Object { $wlanpass = $_.Matches.Groups[1].Value.Trim(); [PSCustomObject]@{ PROFILE_NAME = $wlanname; PASSWORD = $wlanpass } } }
+}
+
+$WlanPasswords = & $Cmd_WlanPasswords.Action
 
 $WlanPasswordsFragment = ""
 
@@ -804,7 +851,11 @@ foreach ($process in $WlanPasswords) {
 
 
 #Get Firewall Information. Replaces netsh firewall show config
-$FirewallRule = Get-NetFirewallRule | select-object Name, DisplayName, Description, Direction, Action, EdgeTraversalPolicy, Owner, EnforcementStatus #| ConvertTo-Html -As LIST -fragment | Select-Object -Skip 1 | Select-Object -SkipLast 1
+$Cmd_FirewallRule = @{
+    Display = 'Get-NetFirewallRule | Select-Object Name, DisplayName, Description, Direction, Action, EdgeTraversalPolicy, Owner, EnforcementStatus'
+    Action  = { Get-NetFirewallRule | Select-Object Name, DisplayName, Description, Direction, Action, EdgeTraversalPolicy, Owner, EnforcementStatus }
+}
+$FirewallRule = & $Cmd_FirewallRule.Action
 foreach ($process in $FirewallRule) {
   $FirewallRuleFragment += "<tr>"
   $FirewallRuleFragment += "<td>$($process.Name)</td>"
@@ -819,7 +870,12 @@ foreach ($process in $FirewallRule) {
 }
 
 #Outgoing SMB Session
-$outboundSmbSessions = Get-NetTCPConnection | Where-Object { $_.LocalPort -eq 445 -and $_.State -eq "Established" }
+$Cmd_OutboundSmbSessions = @{
+    Display = 'Get-NetTCPConnection | Where-Object { $_.LocalPort -eq 445 -and $_.State -eq "Established" }'
+    Action  = { Get-NetTCPConnection | Where-Object { $_.LocalPort -eq 445 -and $_.State -eq "Established" } }
+}
+
+$outboundSmbSessions = & $Cmd_OutboundSmbSessions.Action
 foreach ($process in $outboundSmbSessions) {
   $outboundSmbSessionsFragment += "<tr>"
   $outboundSmbSessionsFragment += "<td>$($process.LocalAddress)</td>"
@@ -833,7 +889,11 @@ foreach ($process in $outboundSmbSessions) {
 }
 
 #Display active samba sessions
-$SMBSessions = Get-SMBSession -ea silentlycontinue #| ConvertTo-Html -As LIST -fragment | Select-Object -Skip 1 | Select-Object -SkipLast 1
+$Cmd_SMBSessions = @{
+    Display = 'Get-SmbSession -ErrorAction SilentlyContinue'
+    Action  = { Get-SmbSession -ErrorAction SilentlyContinue }
+}
+$SMBSessions = & $Cmd_SMBSessions.Action
 foreach ($process in $SMBSessions) {
   $SMBSessionsFragment += "<tr>"
   $SMBSessionsFragment += "<td>$($process.SessionId)</td>"
@@ -844,7 +904,11 @@ foreach ($process in $SMBSessions) {
 }
 
 #Display active samba shares
-$SMBShares = Get-SMBShare | Select-Object description, path, volume #| ConvertTo-Html -As LIST -fragment | Select-Object -Skip 1 | Select-Object -SkipLast 1
+$Cmd_SMBShares = @{
+    Display = 'Get-SmbShare | Select-Object Description, Path, Volume'
+    Action  = { Get-SmbShare | Select-Object Description, Path, Volume }
+}
+$SMBShares = & $Cmd_SMBShares.Action
 foreach ($process in $SMBShares) {
   $SMBSharesFragment += "<tr>"
   $SMBSharesFragment += "<td>$($process.description)</td>"
@@ -854,7 +918,11 @@ foreach ($process in $SMBShares) {
 }
 
 #Get IP routes to non-local destinations
-$NetHops = Get-NetRoute | Where-Object -FilterScript { $_.NextHop -Ne "::" } | Where-Object -FilterScript { $_.NextHop -Ne "0.0.0.0" } | Where-Object -FilterScript { ($_.NextHop.SubString(0, 6) -Ne "fe80::") } #| ConvertTo-Html -As LIST -fragment | Select-Object -Skip 1 | Select-Object -SkipLast 1
+$Cmd_NetHops = @{
+    Display = 'Get-NetRoute | Where-Object { $_.NextHop -ne "::" } | Where-Object { $_.NextHop -ne "0.0.0.0" } | Where-Object { $_.NextHop.Substring(0,6) -ne "fe80::" }'
+    Action  = { Get-NetRoute | Where-Object { $_.NextHop -ne '::' } | Where-Object { $_.NextHop -ne '0.0.0.0' } | Where-Object { $_.NextHop.SubString(0,6) -ne 'fe80::' } }
+}
+$NetHops = & $Cmd_NetHops.Action
 foreach ($process in $NetHops) {
   $NetHopsFragment += "<tr>"
   $NetHopsFragment += "<td>$($process.ifIndex)</td>"
@@ -867,7 +935,11 @@ foreach ($process in $NetHops) {
 }
 
 #Get network adapters that have IP routes to non-local destinations
-$AdaptHops = Get-NetRoute | Where-Object -FilterScript { $_.NextHop -Ne "::" } | Where-Object -FilterScript { $_.NextHop -Ne "0.0.0.0" } | Where-Object -FilterScript { ($_.NextHop.SubString(0, 6) -Ne "fe80::") } | Get-NetAdapter #| ConvertTo-Html -As LIST -fragment | Select-Object -Skip 1 | Select-Object -SkipLast 1
+$Cmd_AdaptHops = @{
+    Display = 'Get-NetRoute | Where-Object { $_.NextHop -ne "::" } | Where-Object { $_.NextHop -ne "0.0.0.0" } | Where-Object { $_.NextHop.Substring(0,6) -ne "fe80::" } | Get-NetAdapter'
+    Action  = { Get-NetRoute | Where-Object { $_.NextHop -ne '::' } | Where-Object { $_.NextHop -ne '0.0.0.0' } | Where-Object { $_.NextHop.SubString(0,6) -ne 'fe80::' } | Get-NetAdapter }
+}
+$AdaptHops = & $Cmd_AdaptHops.Action
 foreach ($process in $AdaptHops) {
   $AdaptHopsFragment += "<tr>"
   $AdaptHopsFragment += "<td>$($process.Name)</td>"
@@ -880,7 +952,11 @@ foreach ($process in $AdaptHops) {
 }
 
 #Get IP routes that have an infINFOe valid lifetime
-$IpHops = Get-NetRoute | Where-Object -FilterScript { $_.ValidLifetime -Eq ([TimeSpan]::MaxValue) } #| ConvertTo-Html -As LIST -fragment | Select-Object -Skip 1 | Select-Object -SkipLast 1
+$Cmd_IpHops = @{
+    Display = 'Get-NetRoute | Where-Object { $_.ValidLifetime -eq ([TimeSpan]::MaxValue) }'
+    Action  = { Get-NetRoute | Where-Object { $_.ValidLifetime -eq ([TimeSpan]::MaxValue) } }
+}
+$IpHops = & $Cmd_IpHops.Action
 # Populate the HTML table with process information
 foreach ($process in $IpHops) {
   $IpHopsFragment += "<tr>"
@@ -905,7 +981,12 @@ Write-ForensicLog ""
 
 Write-ForensicLog "[*] Gathering User Account Details" -Level INFO -Section "USER"
 
-$LocalUserAccounts = Get-LocalUser | Select-Object Name, Enabled, LastLogon, PasswordLastSet, PasswordExpires, Description, PasswordChangeableDate, UserMayChangePassword
+# Gets local user accounts and details. Replaces net user and wmic useraccount list full
+$Cmd_LocalUserAccounts = @{
+    Display = 'Get-LocalUser | Select-Object Name, Enabled, LastLogon, PasswordLastSet, PasswordExpires, Description, PasswordChangeableDate, UserMayChangePassword'
+    Action  = { Get-LocalUser | Select-Object Name, Enabled, LastLogon, PasswordLastSet, PasswordExpires, Description, PasswordChangeableDate, UserMayChangePassword }
+}
+$LocalUserAccounts = & $Cmd_LocalUserAccounts.Action
 foreach ($process in $LocalUserAccounts) {
   $LocalUserAccountsFragment += "<tr>"
   $LocalUserAccountsFragment += "<td>$($process.Name)</td>"
@@ -919,7 +1000,12 @@ foreach ($process in $LocalUserAccounts) {
   $LocalUserAccountsFragment += "</tr>"
 }
 
-$administrators = Get-LocalGroupMember -Group "Administrators"
+# Gets local administrators group members. Replaces net localgroup administrators
+$Cmd_Administrators = @{
+    Display = 'Get-LocalGroupMember -Group "Administrators"'
+    Action  = { Get-LocalGroupMember -Group 'Administrators' }
+}
+$administrators = & $Cmd_Administrators.Action
 
 $adminFragment = ""
 
@@ -931,7 +1017,13 @@ foreach ($process in $administrators) {
   $adminFragment += "</tr>"
 }
 
-$logonsession = (quser 2>$null | Select-Object -Skip 1 | ForEach-Object { ($_ -replace '^\s*>?', '') -replace '\s{2,}', ',' }) | ConvertFrom-Csv -Header Username,SessionName,ID,State,IdleTime,LogonTime | Select-Object @{N='Username';E={$_.Username}}, @{N='Domain';E={$env:COMPUTERNAME}}, @{N='LogonType';E={'Interactive'}}, @{N='LogonTime';E={$_.LogonTime}}, @{N='IDLETIME';E={$_.IdleTime}}
+# Gets active logon sessions. 
+$Cmd_logonsession = @{
+    Display = 'quser 2>$null | Select-Object -Skip 1 | ForEach-Object { ($_ -replace "^\s*>?", "") -replace "\s{2,}", "," } | ConvertFrom-Csv -Header Username,SessionName,ID,State,IdleTime,LogonTime | Select-Object @{N="Username";E={$_.Username}}, @{N="Domain";E={$env:COMPUTERNAME}}, @{N="LogonType";E={"Interactive"}}, @{N="LogonTime";E={$_.LogonTime}}, @{N="IDLETIME";E={$_.IdleTime}}'
+    Action  = { quser 2>$null | Select-Object -Skip 1 | ForEach-Object { ($_ -replace '^\s*>?', '') -replace '\s{2,}', ',' } | ConvertFrom-Csv -Header Username,SessionName,ID,State,IdleTime,LogonTime | Select-Object @{N='Username';E={$_.Username}}, @{N='Domain';E={$env:COMPUTERNAME}}, @{N='LogonType';E={'Interactive'}}, @{N='LogonTime';E={$_.LogonTime}}, @{N='IDLETIME';E={$_.IdleTime}} }
+}
+
+$logonsession = & $Cmd_logonsession.Action
 
 $logonsessionFragment = ""
 # Populate the HTML table with process information
@@ -945,8 +1037,14 @@ foreach ($process in $logonsession) {
   $logonsessionFragment += "</tr>"
 }
 
-$userprofiles = Get-CimInstance Win32_UserProfile | Where-Object {$_.LocalPath -like "C:\Users\*"} | Select-Object @{N='Username';E={Split-Path $_.LocalPath -Leaf}}, SID, @{N='LastUseTime';E={[datetime]$_.LastUseTime}}
-# Populate the HTML table with process information
+# Gets user profiles and last use time. Replaces wmic userprofile list full
+$Cmd_UserProfiles = @{
+    Display = 'Get-CimInstance Win32_UserProfile | Where-Object {$_.LocalPath -like "C:\Users\*"} | Select-Object @{N="Username";E={Split-Path $_.LocalPath -Leaf}}, SID, @{N="LastUseTime";E={[datetime]$_.LastUseTime}}'
+    Action  = { Get-CimInstance Win32_UserProfile | Where-Object {$_.LocalPath -like 'C:\Users\*'} | Select-Object @{N='Username';E={Split-Path $_.LocalPath -Leaf}}, SID, @{N='LastUseTime';E={[datetime]$_.LastUseTime}} }
+}
+
+$userprofiles = & $Cmd_UserProfiles.Action
+
 $profileFragment = ""
 
 foreach ($process in $userprofiles) {
@@ -957,8 +1055,13 @@ foreach ($process in $userprofiles) {
   $profileFragment += "</tr>"
 }
 
+# Gets members of local groups. Replaces net localgroup and net localgroup "Remote Desktop Users"
+$Cmd_LocalGroup = @{
+    Display = "'Administrators','Remote Desktop Users','Backup Operators','Power Users' | ForEach-Object { Get-LocalGroupMember -Group $_ -ErrorAction SilentlyContinue } | Select-Object @{N='Group';E={$_.'Group'}}, @{N='Username';E={($_.Name -split '\\')[-1]}}, @{N='Domain';E={($_.Name -split '\\')[0]}}, @{N='Type';E={$_.ObjectClass}}"
+    Action  = { 'Administrators','Remote Desktop Users','Backup Operators','Power Users' | ForEach-Object { Get-LocalGroupMember -Group $_ -ErrorAction SilentlyContinue } | Select-Object @{N='Group';E={$_.'Group'}}, @{N='Username';E={($_.Name -split '\\')[-1]}}, @{N='Domain';E={($_.Name -split '\\')[0]}}, @{N='Type';E={$_.ObjectClass}} }
+}
 
-$LocalGroup = 'Administrators','Remote Desktop Users','Backup Operators','Power Users' | ForEach-Object { $g=$_; Get-LocalGroupMember -Group $g -ErrorAction SilentlyContinue | ForEach-Object { [PSCustomObject]@{ Group=$g; Username=($_.Name -split '\\')[-1]; Domain=($_.Name -split '\\')[0]; Type=$_.ObjectClass } } }
+$LocalGroup = & $Cmd_LocalGroup.Action
 
 $localFragment = ""
 foreach ($process in $LocalGroup) {
@@ -984,8 +1087,13 @@ Write-ForensicLog ""
 
 Write-ForensicLog "[*] Gathering System Information" -Level INFO -Section "SYSTEM_INFO"
 
-$OSinfo = Get-CimInstance -Class Win32_OperatingSystem   | Select-Object -Property Name, Description, Version, BuildNumber, InstallDate, SystemDrive, SystemDevice, WindowsDirectory, LastBootupTime, Locale, LocalDateTime, NumberofUsers, RegisteredUser, Organization, OSProductSuite
-# Populate the HTML table with process information
+# Gets operating system information. Replaces systeminfo and wmic os get /format:list
+$Cmd_OSinfo = @{
+    Display = 'Get-CimInstance -Class Win32_OperatingSystem | Select-Object -Property Name, Description, Version, BuildNumber, InstallDate, SystemDrive, SystemDevice, WindowsDirectory, LastBootupTime, Locale, LocalDateTime, NumberofUsers, RegisteredUser, Organization, OSProductSuite'
+    Action  = { Get-CimInstance -Class Win32_OperatingSystem | Select-Object -Property Name, Description, Version, BuildNumber, InstallDate, SystemDrive, SystemDevice, WindowsDirectory, LastBootupTime, Locale, LocalDateTime, NumberofUsers, RegisteredUser, Organization, OSProductSuite }
+}
+$OSinfo = & $Cmd_OSinfo.Action
+
 foreach ($process in $OSinfo) {
   $OSinfoFragment += "<div class='kv-list-row'><div class='kv-list-k'>Name</div><div class='kv-list-v'>$($process.Name)</div></div>"
   $OSinfoFragment += "<div class='kv-list-row'><div class='kv-list-k'>Version</div><div class='kv-list-v'>$($process.Version)</div></div>"
@@ -999,26 +1107,42 @@ foreach ($process in $OSinfo) {
   $OSinfoFragment += "<div class='kv-list-row'><div class='kv-list-k'>Organization</div><div class='kv-list-v'>$($process.Organization)</div></div>"
 }
 
+# Gets installed applications. Replaces wmic product get /format:list and Get-Package
+$Cmd_InstalledApps = @{
+    Display = 'Get-ItemProperty "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*", "HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*" | Where-Object {$_.DisplayName} | Select-Object DisplayName, DisplayVersion, Publisher, InstallDate, InstallLocation, UninstallString'
+    #Action  = { Get-ItemProperty "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*", "HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*" | Where-Object {$_.DisplayName} | Select-Object DisplayName, DisplayVersion, Publisher, InstallDate, InstallLocation, UninstallString }
+}
 
 $paths = @(
   "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*",
   "HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
 )
 
-Get-ItemProperty $paths | Where-Object {$_.DisplayName} |
-Select-Object DisplayName, DisplayVersion, Publisher, InstallDate, InstallLocation, UninstallString | ForEach-Object {
-  $InstalledAppsFragment += "<tr>"
-  $InstalledAppsFragment += "<td>$($_.DisplayName)</td>"
-  $InstalledAppsFragment += "<td>$($_.DisplayVersion)</td>"
-  $InstalledAppsFragment += "<td>$($_.Publisher)</td>"
-  $InstalledAppsFragment += "<td>$($_.InstallDate)</td>"
-  $InstalledAppsFragment += "<td>$($_.InstallLocation)</td>"
-  $InstalledAppsFragment += "<td>$($_.UninstallString)</td>"
-  $InstalledAppsFragment += "</tr>"
+$InstalledApps = Get-ItemProperty $paths | Where-Object {$_.DisplayName} | Select-Object DisplayName, DisplayVersion, Publisher, InstallDate, InstallLocation, UninstallString
+
+if ($InstalledApps) {
+    foreach ($process in $InstalledApps) {
+        $InstalledAppsFragment += "<tr>"
+        $InstalledAppsFragment += "<td>$($process.DisplayName)</td>"
+        $InstalledAppsFragment += "<td>$($process.DisplayVersion)</td>"
+        $InstalledAppsFragment += "<td>$($process.Publisher)</td>"
+        $InstalledAppsFragment += "<td>$($process.InstallDate)</td>"
+        $InstalledAppsFragment += "<td>$($process.InstallLocation)</td>"
+        $InstalledAppsFragment += "<td>$($process.UninstallString)</td>"
+        $InstalledAppsFragment += "</tr>"
+    }
+}
+else {
+   # $InstalledAppsFragment = "<tr><td colspan='7'>No installed applications found.</td></tr>"
 }
 
+# Gets logical drive information. Replaces wmic logicaldisk get /format:list and fsutil fsinfo drives
+$Cmd_LogicalDrives = @{
+    Display = 'Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3" | Select-Object DeviceID, VolumeName, @{N="Size (GB)";E={[math]::Round($_.Size/1GB,2)}}, @{N="Free (GB)";E={[math]::Round($_.FreeSpace/1GB,2)}}, @{N="%Free";E={ if ($_.Size -gt 0) {[math]::Round(($_.FreeSpace/$_.Size)*100,2)} else {0} }}'
+    Action  = { Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3" | Select-Object @{N='Drive';E={$_.DeviceID}}, @{N='Label';E={$_.VolumeName}}, @{N='Size (GB)';E={[math]::Round($_.Size/1GB,2)}}, @{N='Free (GB)';E={[math]::Round($_.FreeSpace/1GB,2)}}, @{N='%Free';E={ if ($_.Size -gt 0) {[math]::Round(($_.FreeSpace/$_.Size)*100,2)} else {0} }} }
+}
 
-$LogicalDrives = Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3" | Select-Object @{N='Drive';E={$_.DeviceID}}, @{N='Label';E={$_.VolumeName}}, @{N='Size (GB)';E={[math]::Round($_.Size/1GB,2)}}, @{N='Free (GB)';E={[math]::Round($_.FreeSpace/1GB,2)}}, @{N='%Free';E={ if ($_.Size -gt 0) {[math]::Round(($_.FreeSpace/$_.Size)*100,2)} else {0} }}
+$LogicalDrives = & $Cmd_LogicalDrives.Action
 
 if ($LogicalDrives) {
 
@@ -1037,6 +1161,11 @@ else {
    # $LogicalDrivesFragment = "<tr><td colspan='5'>No local fixed drives found.</td></tr>"
 }
 
+# Gets environment variables. Replaces set and wmic environment list full
+$Cmd_interestingenv = @{
+    Display = "'PATH','TEMP','TMP','USERNAME','USERDOMAIN','COMPUTERNAME','APPDATA','LOCALAPPDATA','PROCESSOR_ARCHITECTURE','ProgramFiles','ProgramFiles(x86)' | ForEach-Object { Get-ChildItem Env:\$_ } | Select-Object Name, Value"
+    #Action  = { 'PATH','TEMP','TMP','USERNAME','USERDOMAIN','COMPUTERNAME','APPDATA','LOCALAPPDATA','PROCESSOR_ARCHITECTURE','ProgramFiles','ProgramFiles(x86)' | ForEach-Object { Get-ChildItem Env:\$_ } | Select-Object Name, Value }
+}
 
 $interestingenv = 'PATH','TEMP','TMP','USERNAME','USERDOMAIN','COMPUTERNAME','APPDATA','LOCALAPPDATA','PROCESSOR_ARCHITECTURE','ProgramFiles','ProgramFiles(x86)'
 
@@ -1050,9 +1179,13 @@ Select-Object Name, Value | ForEach-Object {
   $envFragment += "</tr>"
 }
 
+# Gets installed hotfixes. Replaces wmic qfe list full and systeminfo
+$Cmd_Hotfixes = @{
+    Display = 'Get-HotFix | Select-Object -Property CSName, Caption, Description, HotFixID, InstalledBy, InstalledOn'
+    Action  = { Get-Hotfix | Select-Object -Property CSName, Caption, Description, HotfixID, InstalledBy, InstalledOn }
+}
+$Hotfixes = & $Cmd_Hotfixes.Action
 
-$Hotfixes = Get-Hotfix | Select-Object -Property CSName, Caption, Description, HotfixID, InstalledBy, InstalledOn
-# Populate the HTML table with process information
 foreach ($process in $Hotfixes) {
   $HotfixesFragment += "<tr>"
   $HotfixesFragment += "<td>$($process.CSName)</td>"
@@ -1064,8 +1197,12 @@ foreach ($process in $Hotfixes) {
   $HotfixesFragment += "</tr>"
 }
 
-
-$WinDefender = Get-MpComputerStatus | Select-Object -Property AMProductVersion, AMRunningMode, AMServiceEnabled, AntispywareEnabled, AntispywareSignatureLastUpdated, AntivirusEnabled, AntivirusSignatureLastUpdated, BehaviorMonitorEnabled, DefenderSignaturesOutOfDate, DeviceControlPoliciesLastUpdated, DeviceControlState, NISSignatureLastUpdated, QuickScanEndTime, RealTimeProtectionEnabled
+# Gets Windows Defender status and configuration. 
+$Cmd_WinDefender = @{
+    Display = 'Get-MpComputerStatus | Select-Object -Property AMProductVersion, AMRunningMode, AMServiceEnabled, AntispywareEnabled, AntispywareSignatureLastUpdated, AntivirusEnabled, AntivirusSignatureLastUpdated, BehaviorMonitorEnabled, DefenderSignaturesOutOfDate, DeviceControlPoliciesLastUpdated, DeviceControlState, NISSignatureLastUpdated, QuickScanEndTime, RealTimeProtectionEnabled'
+    Action  = { Get-MpComputerStatus | Select-Object -Property AMProductVersion, AMRunningMode, AMServiceEnabled, AntispywareEnabled, AntispywareSignatureLastUpdated, AntivirusEnabled, AntivirusSignatureLastUpdated, BehaviorMonitorEnabled, DefenderSignaturesOutOfDate, DeviceControlPoliciesLastUpdated, DeviceControlState, NISSignatureLastUpdated, QuickScanEndTime, RealTimeProtectionEnabled }
+}
+$WinDefender = & $Cmd_WinDefender.Action
 # Populate the HTML table with process information
 foreach ($process in $WinDefender) {
   $WinDefenderFragment += "<tr>"
@@ -1101,6 +1238,10 @@ Write-ForensicLog ""
 
 Write-ForensicLog "[*] Gathering Processes" -Level INFO -Section "PROCESSES"
 
+# Gets running processes and details. Replaces tasklist /v and wmic process list full
+$Cmd_Processes = @{
+    Display = 'Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Select-Object Name, ProcessId, ParentProcessId, ExecutablePath, CommandLine, CreationDate'
+}
 
 $processByPid = Get-Process -IncludeUserName -ErrorAction SilentlyContinue |
     Group-Object -Property Id -AsHashTable -AsString
@@ -1140,17 +1281,17 @@ function Encode-Cell {
     return [System.Net.WebUtility]::HtmlEncode([string]$Value)
 }
 
-# Verify it's populated
-#Write-Host "Captured $($ProcessFragment.Count) processes"
-
-# Then convert to HTML rows
 $ProcessFragmentrows = $ProcessFragment | ForEach-Object {
-  "<tr><td>$([System.Net.WebUtility]::HtmlEncode([string]$_.Name))</td><td>$($_.PID)</td><td>$($_.PPID)</td><td>$([System.Net.WebUtility]::HtmlEncode([string]$_.UserName))</td><td class='path-cell'>$([System.Net.WebUtility]::HtmlEncode([string]$_.ExecutablePath))</td><td class='cmd-cell'>$([System.Net.WebUtility]::HtmlEncode([string]$_.CommandLine))</td><td>$($_.CPU)</td><td>$($_.MemoryMB)</td><td>$($_.CreationDate)</td><td>$($_.SignatureStatus)</td></tr>"
+  "<tr><td>$(Encode-Cell $_.Name)</td><td>$(Encode-Cell $_.PID)</td><td>$(Encode-Cell $_.PPID)</td><td>$(Encode-Cell $_.UserName)</td><td class='path-cell'>$(Encode-Cell $_.ExecutablePath)</td><td class='cmd-cell'>$(Encode-Cell $_.CommandLine)</td><td>$(Encode-Cell $_.CPU)</td><td>$(Encode-Cell $_.MemoryMB)</td><td>$(Encode-Cell $_.CreationDate)</td><td>$(Encode-Cell $_.SignatureStatus)</td></tr>"
 }
 
+# Gets startup programs. Replaces wmic startup get /format:list and autoruns
+$Cmd_StartupProgs = @{
+    Display = 'Get-CimInstance Win32_StartupCommand | Select-Object Name, Command, Location, User'
+    Action  = { Get-CimInstance Win32_StartupCommand | Select-Object Name, command, Location, User }
+}
+$StartupProgs = & $Cmd_StartupProgs.Action
 
-$StartupProgs = Get-CimInstance Win32_StartupCommand | Select-Object Name, command, Location, User
-# Populate the HTML table with process information
 foreach ($process in $StartupProgs) {
   $StartupProgsFragment += "<tr>"
   $StartupProgsFragment += "<td>$(Encode-Cell $process.Name)</td>"
@@ -1171,9 +1312,13 @@ Write-ForensicLog ""
 ################################################################################
 #region Services                                                              ##
 ################################################################################
-#$Services = Get-Service | Select-Object Name, DisplayName, Status, StartType | ConvertTo-Html -As LIST -fragment | Select-Object -Skip 1 | Select-Object -SkipLast 1
 
 Write-ForensicLog "[*] Gathering Services" -Level INFO -Section "SERVICES"
+
+# Gets services and details. Replaces wmic service list full and sc queryex type= service
+$Cmd_Services = @{
+    Display = 'Get-CimInstance Win32_Service | Select-Object DisplayName, Name, State, StartMode, StartName, @{Name="Command";Expression={$_.PathName}}, @{Name="BinaryPath";Expression={ if ($_.PathName -match "^\"([^\"]+)\"") { $matches[1] } else { ($_.PathName -split "\s+")[0] } }}, Description'
+}
 
 $Services = Get-CimInstance Win32_Service | Select-Object `
     DisplayName,
@@ -1216,6 +1361,11 @@ Write-ForensicLog ""
 ################################################################################
 
 Write-ForensicLog "[*] Gathering Scheduled Tasks" -Level INFO -Section "SCHEDULED_TASKS"
+
+# Gets scheduled tasks and details. Replaces schtasks /query /v and wmic path Win32_ScheduledJob list full
+$Cmd_ScheduledTasks = @{
+    Display = 'Get-ScheduledTask | Get-ScheduledTaskInfo'
+}
 
 $ScheduledTasksFragment = foreach ($t in Get-ScheduledTask) {
     $info = $t | Get-ScheduledTaskInfo
@@ -1281,9 +1431,12 @@ Write-ForensicLog ""
 Write-ForensicLog "[*] Gathering Files & USB Information" -Level INFO -Section "FILES_USB"
 
 #Gets list of USB devices
-#$USBDevices = Get-ItemProperty -Path HKLM:\System\CurrentControlSet\Enum\USB*\*\* | Select-Object FriendlyName, Driver, mfg, DeviceDesc | ConvertTo-Html -As LIST -fragment | Select-Object -Skip 1 | Select-Object -SkipLast 1 
-$USBDevices = Get-ItemProperty -Path HKLM:\System\CurrentControlSet\Enum\USB*\*\* | Select-Object FriendlyName, Driver, mfg, DeviceDesc
-# Populate the HTML table with process information
+$Cmd_USBDevices = @{
+    Display = 'Get-ItemProperty -Path HKLM:\System\CurrentControlSet\Enum\USB*\*\* | Select-Object FriendlyName, Driver, Mfg, DeviceDesc'
+    Action  = { Get-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Enum\USB*\*\*' | Select-Object FriendlyName, Driver, mfg, DeviceDesc }
+}
+$USBDevices = & $Cmd_USBDevices.Action
+
 if ($USBDevices) {
 foreach ($process in $USBDevices) {
   $USBDevicesFragment += "<tr>"
@@ -1298,13 +1451,13 @@ foreach ($process in $USBDevices) {
     $USBDevicesFragment += "<tr><td colspan='9' style='text-align:center;color:#27ae60;'>Nothing found</td></tr>"
 }
 
-###Gets list of imaging devices (cameras, webcams, etc)
+# Gets list of imaging devices (cameras, webcams, etc)
+$Cmd_Imagedevice = @{
+    Display = 'Get-CimInstance Win32_PnPEntity -ErrorAction SilentlyContinue | Where-Object { $_.PNPClass -eq "Image" -or $_.Caption -match "camera|webcam" } | Select-Object Caption, Manufacturer, DeviceID, Status, Present'
+    Action  = { Get-CimInstance Win32_PnPEntity -ErrorAction SilentlyContinue | Where-Object { $_.PNPClass -eq "Image" -or $_.Caption -match "camera|webcam" } | Select-Object Caption, Manufacturer, DeviceID, Status, Present }
+}
 
-$Imagedevice = Get-CimInstance Win32_PnPEntity -ErrorAction SilentlyContinue |
-    Where-Object {
-        $_.PNPClass -eq "Image" -or $_.Caption -match 'camera|webcam'
-    } |
-    Select-Object Caption, Manufacturer, DeviceID, Status, Present
+$Imagedevice = & $Cmd_Imagedevice.Action
 
 if ($Imagedevice) {
 foreach ($process in $Imagedevice) {
@@ -1319,13 +1472,13 @@ foreach ($process in $Imagedevice) {
     $ImagedeviceFragment += "<tr><td colspan='9' style='text-align:center;color:#27ae60;'>Nothing found</td></tr>"
 }
 
-#All currently connected PNP devices
-#$UPNPDevices = Get-PnpDevice -PresentOnly -class 'USB', 'DiskDrive', 'Mouse', 'Keyboard', 'Net', 'Image', 'Media', 'Monitor' | ConvertTo-Html -As LIST -fragment | Select-Object -Skip 1 | Select-Object -SkipLast 1
-$UPNPDevices = Get-PnpDevice -PresentOnly |
-           Where-Object {
-               $_.Class -in @('USB','DiskDrive','Mouse','Keyboard','Net','Image','Media','Monitor')
-           } |
-           Select-Object Status, Class, FriendlyName, InstanceId
+# All currently connected PNP devices
+$Cmd_UPNPDevices = @{
+    Display = 'Get-PnpDevice -PresentOnly | Where-Object { $_.Class -in @("USB","DiskDrive","Mouse","Keyboard","Net","Image","Media","Monitor") } | Select-Object Status, Class, FriendlyName, InstanceId'
+    Action  = { Get-PnpDevice -PresentOnly | Where-Object { $_.Class -in @('USB','DiskDrive','Mouse','Keyboard','Net','Image','Media','Monitor') } | Select-Object Status, Class, FriendlyName, InstanceId }
+}
+
+$UPNPDevices = & $Cmd_UPNPDevices.Action
 
 
 if ($UPNPDevices) {
@@ -1341,16 +1494,13 @@ foreach ($process in $UPNPDevices) {
     $UPNPDevicesFragment += "<tr><td colspan='9' style='text-align:center;color:#27ae60;'>Nothing found</td></tr>"
 }
 
-#All previously connected disk drives not currently accounted for. Useful if target computer has had drive replaced/hidden
-#$UnknownDrives = Get-ItemProperty -Path HKLM:\SYSTEM\CurrentControlSet\Enum\USBSTOR\*\* | Select-Object FriendlyName | ConvertTo-Html -As LIST -fragment | Select-Object -Skip 1 | Select-Object -SkipLast 1
-$UnknownDrives = Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Enum\USBSTOR\*\*" -ErrorAction SilentlyContinue |
-    Where-Object { $_.FriendlyName } |
-    Select-Object FriendlyName, Mfg,
-        @{Name="Serial";Expression={$_.PSChildName}},
-        @{Name="LastWriteTime";Expression={
-            (Get-Item $_.PSPath).LastWriteTime
-        }} |
-    Sort-Object LastWriteTime -Descending
+# All previously connected disk drives not currently accounted for. Useful if target computer has had drive replaced/hidden
+$Cmd_UnknownDrives = @{
+    Display = 'Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Enum\USBSTOR\*\*" -ErrorAction SilentlyContinue | Where-Object { $_.FriendlyName } | Select-Object FriendlyName, Mfg, @{Name="Serial";Expression={$_.PSChildName}}, @{Name="LastWriteTime";Expression={ (Get-Item $_.PSPath).LastWriteTime }} | Sort-Object LastWriteTime -Descending'
+    Action  = { Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Enum\USBSTOR\*\*" -ErrorAction SilentlyContinue | Where-Object { $_.FriendlyName } | Select-Object FriendlyName, Mfg, @{Name="Serial";Expression={$_.PSChildName}}, @{Name="LastWriteTime";Expression={ (Get-Item $_.PSPath).LastWriteTime }} | Sort-Object LastWriteTime -Descending }
+}
+
+$UnknownDrives = & $Cmd_UnknownDrives.Action
 
 if ($UnknownDrives) {
 foreach ($process in $UnknownDrives) {
@@ -1365,10 +1515,10 @@ foreach ($process in $UnknownDrives) {
     $UnknownDrivesFragment += "<tr><td colspan='9' style='text-align:center;color:#27ae60;'>Nothing found</td></tr>"
 }
 
-#Gets all link files created in last 180 days. Perhaps export this as a separate CSV and make it keyword searchable?
-#$LinkFiles = Get-CimInstance Win32_ShortcutFile | Select-Object Filename, Caption, @{NAME = 'CreationDate'; Expression = { $_.ConvertToDateTime($_.CreationDate) } }, @{Name = 'LastAccessed'; Expression = { $_.ConvertToDateTime($_.LastAccessed) } }, @{Name = 'LastModified'; Expression = { $_.ConvertToDateTime($_.LastModified) } }, Target | Where-Object { $_.LastModified -gt ((Get-Date).AddDays(-180)) } | Sort-Object LastModified -Descending | ConvertTo-Html -As LIST -fragment | Select-Object -Skip 1 | Select-Object -SkipLast 1
-#$LinkFiles = Get-CimInstance Win32_ShortcutFile | Select-Object Filename, Caption, @{NAME = 'CreationDate'; Expression = { $_.ConvertToDateTime($_.CreationDate) } }, @{Name = 'LastAccessed'; Expression = { $_.ConvertToDateTime($_.LastAccessed) } }, @{Name = 'LastModified'; Expression = { $_.ConvertToDateTime($_.LastModified) } }, Target | Where-Object { $_.LastModified -gt ((Get-Date).AddDays(-180)) } | Sort-Object LastModified -Descending
-#$LinkFiles = Get-CimInstance Win32_ShortcutFile | Select-Object Name, FileName, CreationDate, LastAccessed, FileType
+# Gets all link files created in last 180 days. Perhaps export this as a separate CSV and make it keyword searchable?
+$Cmd_LinkFiles = @{
+    Display = 'Get-ChildItem -Path "C:\Users" -Recurse -Filter *.lnk'
+}
 
 $lnkFiles = Get-ChildItem -Path "C:\Users" -Recurse -Filter *.lnk -ErrorAction SilentlyContinue
 
@@ -1406,7 +1556,10 @@ else {
     $LinkFilesFragment += "<tr><td colspan='4'>No shortcuts found</td></tr>"
 }
 
-
+# Gets PowerShell command history from current session and PSReadLine history file. Note that PSReadLine history may not be available if the user has disabled it or is using a custom shell like Windows Terminal that doesn't use the default PSReadLine configuration.
+$Cmd_PSHistory = @{
+    Display = 'Get-History -ErrorAction SilentlyContinue | Select-Object Id, CommandLine, StartExecutionTime, EndExecutionTime'
+}
 
 $sessionHistory = Get-History -ErrorAction SilentlyContinue |
     Select-Object Id, CommandLine, StartExecutionTime, EndExecutionTime
@@ -1436,7 +1589,10 @@ else {
     $PSHistoryFragment += "<tr><td colspan='2'>No PowerShell history found</td></tr>"
 }
 
-#Gets all executables created in last 180 days in common user accessible locations. This may be a bit noisy but can be useful for identifying recently added files that may have been used for persistence or lateral movement. Perhaps export this as a separate CSV and make it keyword searchable?
+# Gets all executables created in last 180 days in common user accessible locations. This may be a bit noisy but can be useful for identifying recently added files that may have been used for persistence or lateral movement. Perhaps export this as a separate CSV and make it keyword searchable?
+$Cmd_NewFiles = @{
+    Display = 'Get-ChildItem -Path $paths -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -ge (Get-Date).AddDays(-180) -and $_.Extension -match ''\.exe|\.dll|\.ps1|\.bat|\.vbs|\.js'' }'
+}
 
 $paths = @(
     "$env:USERPROFILE\AppData\Local\Temp",
@@ -1457,9 +1613,12 @@ $NewFiles = foreach ($path in $paths) {
 }
 
 
-#All execs in Downloads folder. This may cause an error if the script is run from an external USB or Network drive.
-#$Downloads = Get-ChildItem C:\Users\*\Downloads\* -recurse  |  Select-Object  PSChildName, Root, Name, FullName, Extension, CreationTimeUTC, LastAccessTimeUTC, LastWriteTimeUTC, Attributes | Where-Object { $_.extension -eq '.exe' } | ConvertTo-Html -As LIST -fragment | Select-Object -Skip 1 | Select-Object -SkipLast 1
-$Downloads = Get-ChildItem C:\Users\*\Downloads\* -recurse | Select-Object  Name, FullName, Extension, CreationTimeUTC, LastAccessTimeUTC, LastWriteTimeUTC, Attributes | Where-Object { $_.extension -eq '.exe' }
+# Gets all executables in Downloads folder. This may cause an error if the script is run from an external USB or Network drive.
+$Cmd_Downloads = @{
+    Display = 'Get-ChildItem C:\Users\*\Downloads\* -Recurse | Select-Object Name, FullName, Extension, CreationTimeUTC, LastAccessTimeUTC, LastWriteTimeUTC, Attributes | Where-Object { $_.Extension -eq ".exe" }'
+    Action  = { Get-ChildItem C:\Users\*\Downloads\* -Recurse | Select-Object Name, FullName, Extension, CreationTimeUTC, LastAccessTimeUTC, LastWriteTimeUTC, Attributes | Where-Object { $_.extension -eq '.exe' } }
+}
+$Downloads = & $Cmd_Downloads.Action
 
 if ($Downloads) {
 foreach ($process in $Downloads) {
@@ -1476,9 +1635,12 @@ foreach ($process in $Downloads) {
     $DownloadsFragment += "<tr><td colspan='9' style='text-align:center;color:#27ae60;'>Nothing found</td></tr>"
 }
 
-#Executables Running From Obscure Places
-#$HiddenExecs1 = Get-ChildItem C:\Users\*\AppData\Local\Temp\* -recurse  |  Select-Object  PSChildName, Root, Name, FullName, Extension, CreationTimeUTC, LastAccessTimeUTC, LastWriteTimeUTC, Attributes | Where-Object { $_.extension -eq '.exe' } | ConvertTo-Html -As LIST -fragment | Select-Object -Skip 1 | Select-Object -SkipLast 1
-$HiddenExecs1 = Get-ChildItem C:\Users\*\AppData\Local\Temp\* -recurse | Select-Object  Name, FullName, Extension, CreationTimeUTC, LastAccessTimeUTC, LastWriteTimeUTC, Attributes | Where-Object { $_.extension -eq '.exe' }
+# Executables Running From Obscure Places
+$Cmd_HiddenExecs1 = @{
+    Display = 'Get-ChildItem C:\Users\*\AppData\Local\Temp\* -Recurse | Select-Object Name, FullName, Extension, CreationTimeUTC, LastAccessTimeUTC, LastWriteTimeUTC, Attributes | Where-Object { $_.Extension -eq ".exe" }'
+    Action  = { Get-ChildItem C:\Users\*\AppData\Local\Temp\* -Recurse | Select-Object Name, FullName, Extension, CreationTimeUTC, LastAccessTimeUTC, LastWriteTimeUTC, Attributes | Where-Object { $_.extension -eq '.exe' } }
+}
+$HiddenExecs1 = & $Cmd_HiddenExecs1.Action
 
 if ($HiddenExecs1) {
 foreach ($process in $HiddenExecs1) {
@@ -1495,8 +1657,12 @@ foreach ($process in $HiddenExecs1) {
     $HiddenExecs1Fragment += "<tr><td colspan='9' style='text-align:center;color:#27ae60;'>Nothing found</td></tr>"
 }
 
-#$HiddenExecs2 = Get-ChildItem C:\Temp\* -recurse  |  Select-Object  PSChildName, Root, Name, FullName, Extension, CreationTimeUTC, LastAccessTimeUTC, LastWriteTimeUTC, Attributes | Where-Object { $_.extension -eq '.exe' } | ConvertTo-Html -As LIST -fragment | Select-Object -Skip 1 | Select-Object -SkipLast 1
-$HiddenExecs2 = Get-ChildItem C:\Temp\* -recurse | Select-Object Name, FullName, Extension, CreationTimeUTC, LastAccessTimeUTC, LastWriteTimeUTC, Attributes | Where-Object { $_.extension -eq '.exe' }
+# Executables Running From Obscure Places - Part 2. This is a common location for attackers to hide tools and scripts, especially if they have limited permissions on the system. It's also a common location for fileless malware to drop payloads that are then executed directly from memory.
+$Cmd_HiddenExecs2 = @{
+    Display = 'Get-ChildItem C:\Temp\* -Recurse | Select-Object Name, FullName, Extension, CreationTimeUTC, LastAccessTimeUTC, LastWriteTimeUTC, Attributes | Where-Object { $_.Extension -eq ".exe" }'
+    Action  = { Get-ChildItem C:\Temp\* -Recurse | Select-Object Name, FullName, Extension, CreationTimeUTC, LastAccessTimeUTC, LastWriteTimeUTC, Attributes | Where-Object { $_.extension -eq '.exe' } }
+}
+$HiddenExecs2 = & $Cmd_HiddenExecs2.Action
 
 if ($HiddenExecs2) {
 foreach ($process in $HiddenExecs2) {
@@ -1513,8 +1679,12 @@ foreach ($process in $HiddenExecs2) {
     $HiddenExecs2Fragment += "<tr><td colspan='9' style='text-align:center;color:#27ae60;'>Nothing found</td></tr>"
 }
 
-#$HiddenExecs3 = Get-ChildItem C:\PerfLogs\* -recurse  |  Select-Object  PSChildName, Root, Name, FullName, Extension, CreationTimeUTC, LastAccessTimeUTC, LastWriteTimeUTC, Attributes | Where-Object { $_.extension -eq '.exe' } | ConvertTo-Html -As LIST -fragment | Select-Object -Skip 1 | Select-Object -SkipLast 1
-$HiddenExecs3 = Get-ChildItem C:\PerfLogs\* -recurse | Select-Object Name, FullName, Extension, CreationTimeUTC, LastAccessTimeUTC, LastWriteTimeUTC, Attributes | Where-Object { $_.extension -eq '.exe' }
+# Executables Running From Obscure Places - Part 3. This is another common location for attackers to hide tools and scripts, especially if they have limited permissions on the system. It's also a common location for fileless malware to drop payloads that are then executed directly from memory.
+$Cmd_HiddenExecs3 = @{
+    Display = 'Get-ChildItem C:\PerfLogs\* -Recurse | Select-Object Name, FullName, Extension, CreationTimeUTC, LastAccessTimeUTC, LastWriteTimeUTC, Attributes | Where-Object { $_.Extension -eq ".exe" }'
+    Action  = { Get-ChildItem C:\PerfLogs\* -Recurse | Select-Object Name, FullName, Extension, CreationTimeUTC, LastAccessTimeUTC, LastWriteTimeUTC, Attributes | Where-Object { $_.extension -eq '.exe' } }
+}
+$HiddenExecs3 = & $Cmd_HiddenExecs3.Action
 
 if ($HiddenExecs3) {
 foreach ($process in $HiddenExecs3) {
@@ -1531,8 +1701,12 @@ foreach ($process in $HiddenExecs3) {
     $HiddenExecs3Fragment += "<tr><td colspan='9' style='text-align:center;color:#27ae60;'>Nothing found</td></tr>"
 }
 
-#$HiddenExecs4 = Get-ChildItem C:\Users\*\Documents\* -recurse  |  Select-Object  PSChildName, Root, Name, FullName, Extension, CreationTimeUTC, LastAccessTimeUTC, LastWriteTimeUTC, Attributes | Where-Object { $_.extension -eq '.exe' } | ConvertTo-Html -As LIST -fragment | Select-Object -Skip 1 | Select-Object -SkipLast 1
-$HiddenExecs4 = Get-ChildItem C:\Users\*\Documents\* -recurse |  Select-Object Name, FullName, Extension, CreationTimeUTC, LastAccessTimeUTC, LastWriteTimeUTC, Attributes | Where-Object { $_.extension -eq '.exe' }
+# Executables Running From Obscure Places - Part 4. This is another common location for attackers to hide tools and scripts, especially if they have limited permissions on the system. It's also a common location for fileless malware to drop payloads that are then executed directly from memory.
+$Cmd_HiddenExecs4 = @{
+    Display = 'Get-ChildItem C:\Users\*\Documents\* -Recurse | Select-Object Name, FullName, Extension, CreationTimeUTC, LastAccessTimeUTC, LastWriteTimeUTC, Attributes | Where-Object { $_.Extension -eq ".exe" }'
+    Action  = { Get-ChildItem C:\Users\*\Documents\* -Recurse | Select-Object Name, FullName, Extension, CreationTimeUTC, LastAccessTimeUTC, LastWriteTimeUTC, Attributes | Where-Object { $_.extension -eq '.exe' } }
+}
+$HiddenExecs4 = & $Cmd_HiddenExecs4.Action
 
 if ($HiddenExecs4) {
 foreach ($process in $HiddenExecs4) {
@@ -1562,13 +1736,18 @@ Write-ForensicLog ""
 ###########################################################################################################
 # get GPO REsult if on domain
 
+$Cmd_GPOResult = @{
+    Display = 'GPRESULT /H "$PSScriptRoot\$env:COMPUTERNAME\GroupPolicy\GPOReport.html" /F'
+    Action  = { GPRESULT /H "$PSScriptRoot\$env:COMPUTERNAME\GroupPolicy\GPOReport.html" /F }
+}
+
 $cs = Get-CimInstance Win32_ComputerSystem
 
 if ($cs.PartOfDomain) {
     
   Write-ForensicLog "[*] Collecting GPO Results" -Level INFO -Section "GPORESULT"
 
-  GPRESULT /H "$PSScriptRoot\$env:COMPUTERNAME\GroupPolicy\GPOReport.html" /F
+  & $Cmd_GPOResult.Action
 
   Write-ForensicLog "[!] Done" -Level SUCCESS -Section "GPORESULT"
 }
@@ -3650,18 +3829,18 @@ function ConvertTo-ConfigPositiveInt {
 }
 
 $eventLogConfig = $null
-if($null -ne $configData -and $configData.PSObject.Properties["eventlog"]){
+if($null -ne $configData -and $null -ne $configData.eventlog){
   $eventLogConfig = $configData.eventlog
 }
-elseif($null -ne $configData -and $configData.PSObject.Properties["event_log"]){
+elseif($null -ne $configData -and $null -ne $configData.event_log){
   $eventLogConfig = $configData.event_log
 }
 
 $script:EventLogDaysBack = 30
-if($null -ne $eventLogConfig -and $eventLogConfig.PSObject.Properties["days_back"]){
+if($null -ne $eventLogConfig -and $null -ne $eventLogConfig.days_back){
   $script:EventLogDaysBack = ConvertTo-ConfigPositiveInt -Value $eventLogConfig.days_back -Default 30 -Name "eventlog.days_back"
 }
-elseif($null -ne $configData -and $configData.PSObject.Properties["sigma"] -and $configData.sigma.PSObject.Properties["days_back"]){
+elseif($null -ne $configData -and $null -ne $configData.sigma -and $null -ne $configData.sigma.days_back){
   $script:EventLogDaysBack = ConvertTo-ConfigPositiveInt -Value $configData.sigma.days_back -Default 30 -Name "sigma.days_back"
 }
 
@@ -4752,6 +4931,10 @@ Write-ForensicLog ""
 
 Write-ForensicLog "[*] Checking BitLocker encryption status and extracting recovery keys" -Level INFO -Section "BitLocker"
 
+$Cmd_BitLocker = @{
+    Display = "manage-bde -protectors -get C:"
+}
+
 # ---------------------------------------------------------
 # REQUIRES ELEVATION
 # BitLocker key material is only accessible as Administrator
@@ -4762,7 +4945,6 @@ $isElevated = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsI
 
 if(-not $isElevated){
     Write-ForensicLog "[!] BitLocker key extraction requires Administrator privileges" -Level ERROR -Section "BitLocker"
-    return
 }
 
 # ---------------------------------------------------------
@@ -5230,152 +5412,92 @@ Write-ForensicLog ""
 
 
 
-###########################################################################################################
-###########################################################################################################
-########################## START OF STYLES AND HTML FORMATTING             ################################
-###########################################################################################################
-###########################################################################################################
-
-#Write-ForensicLog -Fore DarkCyan "[!] Hang on, the Forensicator is compiling your results"
-
-
-<#
+#######################################################################################
+## Tooltip    -  Forensicator Info Panel (FI Panel)                                  ##
+#######################################################################################
 
 
 function Get-ForensicatorDetectionCommandsMap {
   return [ordered]@{
-    'CURRENT_USER_INFORMATION' = @'
-$Env:UserName
-$Env:UserDomain
-[System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value
-'@
-    'SYSTEM_DETAILS' = 'Get-CimInstance -Class Win32_ComputerSystem | Select-Object Name, DNSHostName, Domain, Manufacturer, Model, PrimaryOwnerName, TotalPhysicalMemory, Workgroup'
-    'LOGON_SESSIONS' = '(((quser) -replace ''^>'', '''') -replace ''\s{2,}'', '','').Trim() | ConvertFrom-Csv'
-    'USER_PROCESSES' = 'Get-Process -IncludeUserName | Select-Object Name, Id, UserName, CPU, Memory, Path'
-    'USER_PROFILE' = 'Get-CimInstance -Class Win32_UserProfile | Select-Object LocalPath, SID, LastUseTime'
-    'ADMINISTRATOR_ACCOUNTS' = 'Get-LocalGroupMember -Group "Administrators"'
-    'LOCAL_GROUPS' = 'Get-LocalGroup'
-    'INSTALLED_PROGRAMS' = 'Get-CimInstance -ClassName Win32_Product | Select-Object Name, Version, Vendor, InstallDate, InstallSource, PackageName, LocalPackage'
-    'INSTALLED_PROGRAMS_REGISTRY' = 'Get-ItemProperty HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* | Select-Object DisplayName, DisplayVersion, Publisher, InstallDate'
-    'ENVIRONMENT_VARIABLES' = 'Get-ChildItem ENV: | Select-Object Name, Value'
-    'SYSTEM_INFORMATION' = 'Get-CimInstance -Class Win32_ComputerSystem | Select-Object -Property Name, Caption, SystemType, Manufacturer, Model, DNSHostName, Domain, PartOfDomain, WorkGroup, CurrentTimeZone, PCSystemType, HyperVisorPresent'
-    'OPERATING_SYSTEM_INFORMATION' = 'Get-CimInstance -Class Win32_OperatingSystem | Select-Object -Property Name, Description, Version, BuildNumber, InstallDate, SystemDrive, SystemDevice, WindowsDirectory, LastBootUpTime, Locale, LocalDateTime, NumberOfUsers, RegisteredUser, Organization, OSProductSuite'
-    'HOTFIXES' = 'Get-HotFix | Select-Object -Property CSName, Caption, Description, HotFixID, InstalledBy, InstalledOn'
-    'WINDOWS_DEFENDER_STATUS' = 'Get-MpComputerStatus | Select-Object -Property AMProductVersion, AMRunningMode, AMServiceEnabled, AntispywareEnabled, AntispywareSignatureLastUpdated, AntivirusEnabled, AntivirusSignatureLastUpdated, BehaviorMonitorEnabled, DefenderSignaturesOutOfDate, DeviceControlPoliciesLastUpdated, DeviceControlState, NISSignatureLastUpdated, QuickScanEndTime, RealTimeProtectionEnabled'
-    'PROCESSES' = 'Get-Process | Select-Object Handles, StartTime, PM, VM, SI, Id, ProcessName, Path, Product, FileVersion'
-    'STARTUP_PROGRAMS' = 'Get-CimInstance Win32_StartupCommand | Select-Object Name, Command, Location, User'
-    'SCHEDULED_TASK' = 'Get-ScheduledTask | Select-Object TaskPath, TaskName, State'
-    'SCHEDULED_TASK_STATE' = 'Get-ScheduledTask | Get-ScheduledTaskInfo | Select-Object LastRunTime, LastTaskResult, NextRunTime, NumberOfMissedRuns, TaskName, TaskPath, PSComputerName'
-    'SERVICES' = 'Get-Service | Select-Object DisplayName, ServiceName, Status, StartType, @{Name=''StartName'';Expression={$_.StartName}}, @{Name=''Description'';Expression={(Get-CimInstance -Class Win32_Service -Filter "Name=''$($_.Name)''").Description}}'
-    'REGRUN' = 'Get-RegistryHtml "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run"'
-    'REGRUNONCE' = 'Get-RegistryHtml "HKLM:\Software\Microsoft\Windows\CurrentVersion\RunOnce"'
-    'REGRUNONCEEX' = 'Get-RegistryHtml "HKLM:\Software\Microsoft\Windows\CurrentVersion\RunOnceEx"'
-    'DNS_CACHE' = 'Get-DnsClientCache | Select-Object Entry, Name, Status, TimeToLive, Data'
-    'NETWORK_ADAPTERS' = 'Get-CimInstance -Class Win32_NetworkAdapter | Select-Object AdapterType, ProductName, Description, MACAddress, Availability, NetConnectionStatus, NetEnabled, PhysicalAdapter'
-    'IP_CONFIGURATION' = 'Get-CimInstance Win32_NetworkAdapterConfiguration | Select-Object Description, @{Name=''IpAddress'';Expression={$_.IpAddress -join ''; ''}}, @{Name=''IpSubnet'';Expression={$_.IpSubnet -join ''; ''}}, MACAddress, @{Name=''DefaultIPGateway'';Expression={$_.DefaultIPGateway -join ''; ''}}, DNSDomain, DNSHostName, DHCPEnabled, ServiceName'
-    'NETWORK_ADAPTER_IP_ADDRESS' = @'
-foreach ($ip in Get-NetIPAddress -AddressFamily IPv4 | Where-Object {
-    $_.IPAddress -notmatch "^(127\.|169\.254)"
-}) {
-    $adapter = Get-NetAdapter -InterfaceIndex $ip.InterfaceIndex -ErrorAction SilentlyContinue
 
-    [PSCustomObject]@{
-        InterfaceAlias = $ip.InterfaceAlias
-        IPAddress      = $ip.IPAddress
-        Status         = $adapter.Status
-        LinkSpeed      = $adapter.LinkSpeed
-    }
-}
-'@
-    'NETWORK_CONNECTION_PROFILE' = 'Get-NetConnectionProfile | Select-Object Name, InterfaceAlias, NetworkCategory, IPV4Connectivity, IPv6Connectivity'
-    'NETWORK_ADAPTERS_BANDWIDTH' = 'Get-NetAdapter | Select-Object Name, InterfaceDescription, Status, MacAddress, LinkSpeed'
-    'ARP_CACHE' = 'Get-NetNeighbor | Select-Object InterfaceAlias, IPAddress, LinkLayerAddress'
-    'TCP_CONNECTIONS' = 'Get-NetTCPConnection | Select-Object LocalAddress, LocalPort, RemoteAddress, RemotePort, State, OwningProcess, @{Name=''Process'';Expression={(Get-Process -Id $_.OwningProcess).ProcessName}}'
-    'LOCAL_ADDRESS' = 'Get-NetTCPConnection | Select-Object LocalAddress, LocalPort, RemoteAddress, RemotePort, State, OwningProcess, @{Name=''Process'';Expression={(Get-Process -Id $_.OwningProcess).ProcessName}}'
-    'WIFI_NETWORKS_PASSWORDS' = 'netsh.exe wlan show profiles | Select-String "\:(.+)$" | ForEach-Object { $wlanname = $_.Matches.Groups[1].Value.Trim(); $_ } | ForEach-Object { netsh wlan show profile name="$wlanname" key=clear } | Select-String ''Key Content\W+\:(.+)$'' | ForEach-Object { $wlanpass = $_.Matches.Groups[1].Value.Trim(); [PSCustomObject]@{ PROFILE_NAME = $wlanname; PASSWORD = $wlanpass } }'
-    'FIREWALL_RULES' = 'Get-NetFirewallRule | Select-Object Name, DisplayName, Description, Direction, Action, EdgeTraversalPolicy, Owner, EnforcementStatus'
-    'SMB_SESSIONS' = 'Get-SmbSession -ErrorAction SilentlyContinue'
-    'SMB_SHARES' = 'Get-SmbShare | Select-Object Description, Path, Volume'
-    'IP_ROUTE_NON_LOCAL' = 'Get-NetRoute | Where-Object { $_.NextHop -ne ''::'' } | Where-Object { $_.NextHop -ne ''0.0.0.0'' } | Where-Object { $_.NextHop.Substring(0, 6) -ne ''fe80::'' }'
-    'NETWORK_ADAPTERS_IP_ROUTE' = 'Get-NetRoute | Where-Object { $_.NextHop -ne ''::'' } | Where-Object { $_.NextHop -ne ''0.0.0.0'' } | Where-Object { $_.NextHop.Substring(0, 6) -ne ''fe80::'' } | Get-NetAdapter'
-    'IP_HOPS' = 'Get-NetRoute | Where-Object { $_.ValidLifetime -eq ([TimeSpan]::MaxValue) }'
-    'LOGICAL_DRIVES' = 'Get-CimInstance Win32_LogicalDisk | Select-Object DeviceID, DriveType, FreeSpace, Size, VolumeName'
-    'USB_DEVICES' = 'Get-ItemProperty -Path HKLM:\System\CurrentControlSet\Enum\USB*\*\* | Select-Object FriendlyName, Driver, Mfg, DeviceDesc'
-    'WEBCAMS' = 'Get-CimInstance Win32_PnPEntity -ErrorAction SilentlyContinue | Where-Object { $_.PNPClass -eq "Image" -or $_.Caption -match ''camera|webcam'' } | Select-Object Caption, Manufacturer, DeviceID, Status, Present'
-    'UPNP_DEVICES' = 'Get-PnpDevice -PresentOnly | Where-Object { $_.Class -in @(''USB'',''DiskDrive'',''Mouse'',''Keyboard'',''Net'',''Image'',''Media'',''Monitor'') } | Select-Object Status, Class, FriendlyName, InstanceId'
-    'PREVIOUSLY_CONNECTED_DRIVES' = 'Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Enum\USBSTOR\*\*" -ErrorAction SilentlyContinue | Where-Object { $_.FriendlyName } | Select-Object FriendlyName, Mfg, @{Name="Serial";Expression={$_.PSChildName}}, @{Name="LastWriteTime";Expression={(Get-Item $_.PSPath).LastWriteTime}} | Sort-Object LastWriteTime -Descending'
-    'POWERSHELL_HISTORY' = @'
-Get-History -ErrorAction SilentlyContinue |
-    Select-Object Id, CommandLine, StartExecutionTime, EndExecutionTime
+    # Users & Accounts
+    'LOCAL_USER_ACCOUNTS' = $Cmd_LocalUserAccounts.Display
+    'ACTIVE_LOGON_SESSIONS' = $Cmd_logonsession.Display
+    'ADMIN_GROUP_MEMBERS' = $Cmd_Administrators.Display
+    'IMPORTANT_USERS_GROUPS' = $Cmd_LocalGroup.Display
+    'HISTORICAL_USER_PRESENCE' = $Cmd_UserProfiles.Display
 
-Get-ChildItem "C:\Users\*\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt" -ErrorAction SilentlyContinue |
-    ForEach-Object { Get-Content $_.FullName }
-'@
-    'DOWNLOADS' = 'Get-ChildItem C:\Users\*\Downloads\* -Recurse | Select-Object Name, FullName, Extension, CreationTimeUTC, LastAccessTimeUTC, LastWriteTimeUTC, Attributes | Where-Object { $_.Extension -eq ''.exe'' }'
-    'APPDATA' = 'Get-ChildItem C:\Users\*\AppData\Local\Temp\* -Recurse | Select-Object Name, FullName, Extension, CreationTimeUTC, LastAccessTimeUTC, LastWriteTimeUTC, Attributes | Where-Object { $_.Extension -eq ''.exe'' }'
-    'EXECS_IN_TEMP' = 'Get-ChildItem C:\Temp\* -Recurse | Select-Object Name, FullName, Extension, CreationTimeUTC, LastAccessTimeUTC, LastWriteTimeUTC, Attributes | Where-Object { $_.Extension -eq ''.exe'' }'
-    'PERFLOGS' = 'Get-ChildItem C:\PerfLogs\* -Recurse | Select-Object Name, FullName, Extension, CreationTimeUTC, LastAccessTimeUTC, LastWriteTimeUTC, Attributes | Where-Object { $_.Extension -eq ''.exe'' }'
-    'DOCUMENTS' = 'Get-ChildItem C:\Users\*\Documents\* -Recurse | Select-Object Name, FullName, Extension, CreationTimeUTC, LastAccessTimeUTC, LastWriteTimeUTC, Attributes | Where-Object { $_.Extension -eq ''.exe'' }'
-    'LINK_FILES' = @'
-$lnkFiles = Get-ChildItem -Path "C:\Users" -Recurse -Filter *.lnk -ErrorAction SilentlyContinue
-$WshShell = New-Object -ComObject WScript.Shell
+    # System Information
+    'OPERATING_SYSTEM_INFORMATION' = $Cmd_OSinfo.Display
+    'DRIVES_STORAGE'   = $Cmd_LogicalDrives.Display
+    'ENVIRONMENT_VARIABLES' = $Cmd_interestingenv.Display
+    'HOTFIXES' = $Cmd_Hotfixes.Display
+    'INSTALLED_SOFTWARE' = $Cmd_InstalledApps.Display
+    'WINDOWS_DEFENDER_STATUS' = $Cmd_WinDefender.Display
 
-foreach ($file in $lnkFiles) {
-    $shortcut = $WshShell.CreateShortcut($file.FullName)
-}
-'@
-    'GROUP_POLICY_REPORT' = 'GPRESULT /H "$PSScriptRoot\$env:COMPUTERNAME\GPOReport.html" /F'
-    'WINPMEM_RAM_CAPTURE' = 'Start-Process -FilePath $winpmem -ArgumentList $rawPath -Wait -PassThru -NoNewWindow'
-    'NETWORK_TRACE' = @'
-pktmon start --capture --pkt-size 0 --log-mode circular --file-name $pcapPath
-Start-Sleep -Seconds $netshduration
-pktmon stop
-'@
-    'EVENT_LOGS' = @'
-foreach ($log in @("System", "Security", "Application")) {
-    wevtutil epl $log $destination
-}
-'@
-    'IIS_LOGS' = 'Copy-Item -Path "C:\inetpub\logs\*" -Destination "$PSScriptRoot\$env:COMPUTERNAME\IISLogs" -Recurse'
-    'TOMCAT_LOGS' = 'Copy-Item -Path "$sourceDirectory\*.log" -Destination $destinationDirectory -Force -Recurse'
-    'LOG4J' = 'Get-ChildItem $Drive -Recurse -Force -Include *.jar -ErrorAction 0 | ForEach-Object { Select-String ''JndiLookup.class'' $_ } | Select-Object -ExpandProperty Path'
-    'BITLOCKER_DRIVES' = @'
-Get-BitLockerVolume -ErrorAction SilentlyContinue
+    # Processes
+    'PROCESSES' = $Cmd_Processes.Display
+    'STARTUP_PROGRAMS' = $Cmd_StartupProgs.Display
 
-manage-bde -protectors -get $drive
-manage-bde -status $drive
-'@
-    'LOCAL_GROUP_MEMBERSHIP' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id @(4798, 4799)'
-    'RDP_LOGIN_ACTIVITIES' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id @(4624, 4778)'
-    'ALL_RDP_LOGIN_HISTORY' = 'Get-ForensicWinEvent -LogName ''Microsoft-Windows-TerminalServices-RemoteConnectionManager/Operational'' -Id 1149'
-    'ALL_OUTGOING_RDP_CONNECTION_HISTORY' = 'Get-ForensicWinEvent -LogName ''Microsoft-Windows-TerminalServices-RDPClient/Operational'' -Id 1102 | Select-Object $properties'
-    'USER_CREATION_ACTIVITY' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id 4720'
-    'PASSWORD_RESET_ACTIVITIES' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id 4724'
-    'USERS_ADDED_TO_GROUP' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id @(4732, 4728)'
-    'USER_ENABLING_ACTIVITIES' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id 4722'
-    'USER_DISABLING_ACTIVITIES' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id 4723'
-    'USER_DELETION_ACTIVITIES' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id 4726'
-    'USER_LOCKOUT_ACTIVITIES' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id 4740'
-    'CREDMAN_BACKUP_ACTIVITY' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id 5376'
-    'CREDMAN_RESTORE_ACTIVITY' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id 5377'
-    'SUCCESSFUL_LOGON_EVENTS' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id 4624'
+    # Network
+    'TCP_CONNECTIONS' = $Cmd_NetTCPConnect.Display
+    'LISTENING_PORTS'   = $Cmd_ListeningPorts.Display
+    'DNS_CACHE' = $Cmd_DnsCache.Display
+    'IP_CONFIGURATION' = $Cmd_IPConfiguration.Display
+    'NET_IP_ADDRESS' = $Cmd_NetIPAddress.Display
+    'NETWORK_CONNECTION_PROFILE' = $Cmd_NetConnectProfile.Display
+    'NET_INTERFACES' = $Cmd_NetAdapter.Display
+    'NET_NEIGBOUR' = $Cmd_NetNeighbor.Display
+    'WIFI_PASSWORDS' = $Cmd_WlanPasswords.Display
+    'NETWORK_SHARES' = $Cmd_SMBShares.Display
+    'NETWORK_ADAPTERS' = $Cmd_NetworkAdapter.Display
+    'FIREWALL_RULES' = $Cmd_FirewallRule.Display
+    'OUTBOUND_SMB_SESSIONS' = $Cmd_OutboundSmbSessions.Display
+    'ALL_SMB_SESSIONS' = $Cmd_SMBSessions.Display
+    'NETWORK_HOPS' = $Cmd_NetHops.Display
+    'ADAPTER_HOPS' = $Cmd_AdaptHops.Display
+    'IP_HOPS' = $Cmd_IpHops.Display    
+
+    # Services
+    'SERVICES' = $Cmd_Services.Display
+
+    # Scheduled Tasks
+    'SCHEDULED_TASK' = $Cmd_ScheduledTasks.Display
+
+    # Event Logs
+    'GROUP_ENUMERATION' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id @(4798, 4799)'
+    'RDP_LOGINS' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id @(4624, 4778)'
+    'RDP_AUTHS' = 'Get-ForensicWinEvent -LogName ''Microsoft-Windows-TerminalServices-RemoteConnectionManager/Operational'' -Id 1149'
+    'OUTGOING_RDP_CONNECTIONS' = 'Get-ForensicWinEvent -LogName ''Microsoft-Windows-TerminalServices-RDPClient/Operational'' -Id 1102 | Select-Object $properties'
+    'CREATED_USERS' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id 4720'
+    'PASSWORD_RESETS' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id 4724'
+    'ADDED_USERS_TO_GROUPS' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id @(4732, 4728)'
+    'ENABLED_USERS' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id 4722'
+    'DISABLED_USERS' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id 4723'
+    'DELETED_USERS' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id 4726'
+    'LOCKED_OUT_USERS' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id 4740'
+    'CREDENTIAL_MANAGER_BACKUP' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id 5376'
+    'CREDENTIAL_MANAGER_RESTORE' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id 5377'
+    'LOGON_EVENTS' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id 4624'
     'FAILED_LOGON_EVENTS' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id 4625'
     'OBJECT_ACCESS_EVENTS' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id @(4656, 4663)'
     'PROCESS_EXECUTION_EVENTS' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id 4688'
-    'RANSOMWARE_NOTES' = 'Get-ChildItem $scanPath -Recurse -File -Force -ErrorAction SilentlyContinue | Where-Object { $ransomNoteSet.Contains($_.Name) }'
-    'RANSOMWARE_EXTENSION' = 'Get-ChildItem $scanPath -Recurse -File -Force -ErrorAction SilentlyContinue | Where-Object { $ransomExtensionSet.Count -gt 0 -and $ransomExtensionSet.Contains($_.Extension.ToLower()) }'
-    'HIGH_ENTROPY_FILES' = @'
-Get-ChildItem $scanPath -Recurse -File -Force -ErrorAction SilentlyContinue |
-    Where-Object { $_.Length -gt 10240 -and -not $excludedEntropyExtensions.Contains($_.Extension.ToLower()) } |
-    ForEach-Object { Get-FileEntropy $_.FullName $_.Length }
-'@
-    'SHADOW_COPY_DELETION' = @'
-Get-ForensicWinEvent -LogName 'Security' -ProviderName 'Microsoft-Windows-Security-Auditing' -Id 4688
-Get-ForensicWinEvent -LogName 'Microsoft-Windows-PowerShell/Operational' -Id 4104
-& bcdedit /enum {current}
-Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'vssadmin.*delete|wmic.*shadowcopy.*delete|wbadmin.*delete|diskshadow' }
-'@
-    'SIGMA_RULES' = 'Invoke-SigmaScan @sigmaScanParams'
+
+    # Files & USB
+    'USB_DEVICES' = $Cmd_USBDevices.Display
+    'IMAGE_DEVICES' = $Cmd_Imagedevice.Display
+    'UPNP_DEVICES' = $Cmd_UPNPDevices.Display
+    'UNKNOWN_DRIVES' = $Cmd_UnknownDrives.Display
+    'RECENT_FILES'    = $Cmd_NewFiles.Display
+    'LINK_FILES' = $Cmd_LinkFiles.Display
+    'EXECUTABLES_IN_UNUSUAL_LOCATIONS' = $Cmd_HiddenExecs2.Display
+    'POWERSHELL_COMMAND_HISTORY' = $Cmd_PSHistory.Display
+    'BITLOCKER_DRIVES' = $Cmd_BitLocker.Display
+
+    'REGRUN' = 'Get-RegistryHtml "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run"'
+    'REGRUNONCE' = 'Get-RegistryHtml "HKLM:\Software\Microsoft\Windows\CurrentVersion\RunOnce"'
+    'REGRUNONCEEX' = 'Get-RegistryHtml "HKLM:\Software\Microsoft\Windows\CurrentVersion\RunOnceEx"'
+
   }
 }
 
@@ -5385,384 +5507,346 @@ $ForensicatorDetectionCommandsJson = Get-ForensicatorDetectionCommandsMap | Conv
 $Global:FI_Scripts = @'
 <script>
 
+// ── BASE URL ──────────────────────────────────────────────────────────────────
+const FI_BASE = "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/";
+
 const ForensicatorDocs = {
 
+  // ── USER ACCOUNTS ────────────────────────────────────────────────────────────
   "LOCAL_USER_ACCOUNTS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/user-accounts.json",
+    "url": FI_BASE + "user-accounts.json",
     "title": "Local User Accounts"
   },
-  "ADMIN_GROUP_MEMBERS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/user-accounts.json",
-    "title": "Administrative Group Members"
-  },
   "ACTIVE_LOGON_SESSIONS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/user-accounts.json",
+    "url": FI_BASE + "user-accounts.json",
     "title": "Active Logon Sessions"
   },
-  "USERS_GROUPS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/user-accounts.json",
-    "title": "Important Users & Groups"
+  "ADMIN_GROUP_MEMBERS": {
+    "url": FI_BASE + "user-accounts.json",
+    "title": "Administrator Group Members"
   },
-  "HISTORICAL_USERS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/user-accounts.json",
+  "IMPORTANT_USERS_GROUPS": {
+    "url": FI_BASE + "user-accounts.json",
+    "title": "Important User Groups"
+  },
+  "HISTORICAL_USER_PRESENCE": {
+    "url": FI_BASE + "user-accounts.json",
     "title": "Historical User Presence"
   },
-  "OS_DETAILS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/system-information.json",
-    "title": "Operating System Details"
+
+
+  // ── SYSTEM INFORMATION ───────────────────────────────────────────────────────
+  "OPERATING_SYSTEM_INFORMATION": {
+    "url": FI_BASE + "system-information.json",
+    "title": "Operating System Information"
   },
   "DRIVES_STORAGE": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/system-information.json",
+    "url": FI_BASE + "system-information.json",
     "title": "Drives & Storage"
   },
   "ENVIRONMENT_VARIABLES": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/system-information.json",
+    "url": FI_BASE + "system-information.json",
     "title": "Environment Variables"
   },
   "HOTFIXES": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/system-information.json",
-    "title": "Hotfixes (Patches)"
+    "url": FI_BASE + "system-information.json",
+    "title": "Installed Hotfixes (Patches)"
   },
   "INSTALLED_SOFTWARE": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/system-information.json",
+    "url": FI_BASE + "system-information.json",
     "title": "Installed Software"
   },
-  "WINDOWS_DEFENDER": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/system-information.json",
+  "WINDOWS_DEFENDER_STATUS": {
+    "url": FI_BASE + "system-information.json",
     "title": "Windows Defender Status"
   },
-  "PROCESS_LIST": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/system-processes.json",
-    "title": "Process List"
+
+  // ── SYSTEM PROCESSES ─────────────────────────────────────────────────────────
+  "PROCESSES": {
+    "url": FI_BASE + "system-processes.json",
+    "title": "Processes"
   },
   "STARTUP_PROGRAMS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/system-processes.json",
+    "url": FI_BASE + "system-processes.json",
     "title": "Startup Programs"
   },
+
+
+  // ── NETWORK INFORMATION ──────────────────────────────────────────────────────
   "TCP_CONNECTIONS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/network-information.json",
+    "url": FI_BASE + "network-information.json",
     "title": "TCP Connections"
   },
-  "LISTENING_PORTS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/network-information.json",
+    "LISTENING_PORTS": {
+    "url": FI_BASE + "network-information.json",
     "title": "Listening Ports"
   },
   "DNS_CACHE": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/network-information.json",
+    "url": FI_BASE + "network-information.json",
     "title": "DNS Cache"
   },
   "IP_CONFIGURATION": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/network-information.json",
+    "url": FI_BASE + "network-information.json",
     "title": "IP Configuration"
   },
   "NET_IP_ADDRESS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/network-information.json",
+    "url": FI_BASE + "network-information.json",
     "title": "Net IP Address Information"
   },
-  "IP_CONFIGURATION": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/network-information.json",
-    "title": "IP Configuration"
+  "NETWORK_CONNECTION_PROFILE": {
+    "url": FI_BASE + "network-information.json",
+    "title": "Network Connection Profiles"
   },
-  "NET_CONNECTIONS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/network-information.json",
-    "title": "Network Connections"
+  "NET_INTERFACES": {
+    "url": FI_BASE + "network-information.json",
+    "title": "Network Interfaces"
   },
-  "NET_NEIGHBOURS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/network-information.json",
-    "title": "Net Neighbours (ARP Cache)"
+  "NET_NEIGBOUR": {
+    "url": FI_BASE + "network-information.json",
+    "title": "Net Neighbour Information"
   },
-  "WIFI_PASSWORD": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/network-information.json",
+  "WIFI_PASSWORDS": {
+    "url": FI_BASE + "network-information.json",
     "title": "WiFi Passwords"
   },
   "NETWORK_SHARES": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/network-information.json",
+    "url": FI_BASE + "network-information.json",
     "title": "Network Shares"
   },
   "NETWORK_ADAPTERS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/network-information.json",
-    "title": "Current IP Configuration"
+    "url": FI_BASE + "network-information.json",
+    "title": "Network Adapters"
   },
   "FIREWALL_RULES": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/network-information.json",
+    "url": FI_BASE + "network-information.json",
     "title": "Firewall Rules"
   },
   "OUTBOUND_SMB_SESSIONS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/network-information.json",
+    "url": FI_BASE + "network-information.json",
     "title": "Outbound SMB Sessions"
   },
   "ALL_SMB_SESSIONS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/network-information.json",
+    "url": FI_BASE + "network-information.json",
     "title": "All SMB Sessions"
   },
   "NETWORK_HOPS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/network-information.json",
+    "url": FI_BASE + "network-information.json",
     "title": "Network Hops"
   },
   "ADAPTER_HOPS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/network-information.json",
+    "url": FI_BASE + "network-information.json",
     "title": "Adapter Hops"
   },
   "IP_HOPS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/network-information.json",
+    "url": FI_BASE + "network-information.json",
     "title": "IP Hops"
   },
-  "SERVICES_LIST": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/services.json",
-    "title": "Services List"
+  // ── SERVICES ───────────────────────────────────────────────────────
+
+  "SERVICES": {
+    "url": FI_BASE + "services.json",
+    "title": "Services"
   },
+  // ── SCHEDULED TASKS ───────────────────────────────────────────────────────
+
   "SCHEDULED_TASKS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/scheduled-tasks.json",
+    "url": FI_BASE + "scheduled-tasks.json",
     "title": "Scheduled Tasks"
   },
-  "GROUP_ENUMERATION_EVENTS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/event-log-analysis.json",
-    "title": "Group Enumeration Events (Security Log)"
+
+  // ── EVENT LOG ANALYSIS ───────────────────────────────────────────────────────
+  "GROUP_ENUMERATION": {
+    "url": FI_BASE + "event-log-analysis.json",
+    "title": "User and Group Enumeration (Security Log)"
   },
-  "RDP_LOGINS_EVENTS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/event-log-analysis.json",
-    "title": "RDP Logins Events (Security Log)"
+  "RDP_LOGINS": {
+    "url": FI_BASE + "event-log-analysis.json",
+    "title": "RDP Logins (Security Log)"
   },
-  "RDP_AUTH_EVENTS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/event-log-analysis.json",
+  "RDP_AUTHS": {
+    "url": FI_BASE + "event-log-analysis.json",
     "title": "RDP Authentication Events (Security Log)"
   },
-  "OUTGOING_RDP_CONN_EVENTS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/event-log-analysis.json",
-    "title": "Outgoing RDP Connection Events (Security Log)"
+  "OUTGOING_RDP_CONNECTIONS": {
+    "url": FI_BASE + "event-log-analysis.json",
+    "title": "Outgoing RDP Connections (Security Log)"
   },
-  "USER_CREATION_EVENTS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/event-log-analysis.json",
-    "title": "User Creation Events (Security Log)"
+  "CREATED_USERS": {
+    "url": FI_BASE + "event-log-analysis.json",
+    "title": "Created User Accounts (Security Log)"
   },
-  "PASSWORD_RESET_EVENTS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/event-log-analysis.json",
+  "PASSWORD_RESETS": {
+    "url": FI_BASE + "event-log-analysis.json",
     "title": "Password Reset Events (Security Log)"
   },
-  "USER_ADDED_GROUP_EVENTS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/event-log-analysis.json",
-    "title": "User Added to Group Events (Security Log)"
+  "ADDED_USERS_TO_GROUPS": {
+    "url": FI_BASE + "event-log-analysis.json",
+    "title": "Added Users to Groups (Security Log)"
   },
-  "ENABLED_USER_EVENTS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/event-log-analysis.json",
-    "title": "Enabled User Events (Security Log)"
+  "ENABLED_USERS": {
+    "url": FI_BASE + "event-log-analysis.json",
+    "title": "Enabled User Accounts (Security Log)"
   },
-  "DISABLED_USER_EVENTS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/event-log-analysis.json",
-    "title": "Disabled User Events (Security Log)"
+  "DISABLED_USERS": {
+    "url": FI_BASE + "event-log-analysis.json",
+    "title": "Disabled User Accounts (Security Log)"
   },
-  "DELETED_USER_EVENTS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/event-log-analysis.json",
-    "title": "Deleted User Events (Security Log)"
+  "DELETED_USERS": {
+    "url": FI_BASE + "event-log-analysis.json",
+    "title": "Deleted User Accounts (Security Log)"
   },
-  "LOCKED_OUT_USER_EVENTS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/event-log-analysis.json",
-    "title": "Locked Out User Events (Security Log)"
+  "LOCKED_OUT_USERS": {
+    "url": FI_BASE + "event-log-analysis.json",
+    "title": "Locked Out User Accounts (Security Log)"
   },
-  "USER_CREATION_EVENTS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/event-log-analysis.json",
-    "title": "User Creation Events (Security Log)"
-  },
-  "CREDENTIAL_MANAGER_BACKUP_EVENTS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/event-log-analysis.json",
+  "CREDENTIAL_MANAGER_BACKUP": {
+    "url": FI_BASE + "event-log-analysis.json",
     "title": "Credential Manager Backup Events (Security Log)"
   },
-  "CREDENTIAL_MANAGER_RESTORE_EVENTS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/event-log-analysis.json",
+  "CREDENTIAL_MANAGER_RESTORE": {
+    "url": FI_BASE + "event-log-analysis.json",
     "title": "Credential Manager Restore Events (Security Log)"
   },
   "LOGON_EVENTS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/event-log-analysis.json",
+    "url": FI_BASE + "event-log-analysis.json",
     "title": "Logon Events (Security Log)"
   },
   "FAILED_LOGON_EVENTS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/event-log-analysis.json",
+    "url": FI_BASE + "event-log-analysis.json",
     "title": "Failed Logon Events (Security Log)"
   },
   "OBJECT_ACCESS_EVENTS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/event-log-analysis.json",
+    "url": FI_BASE + "event-log-analysis.json",
     "title": "Object Access Events (Security Log)"
   },
-  "PROCESS_EXEC_EVENTS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/event-log-analysis.json",
+  "PROCESS_EXECUTION_EVENTS": {
+    "url": FI_BASE + "event-log-analysis.json",
     "title": "Process Execution Events (Security Log)"
   },
+
+  // ── FILES & USB ─────────────────────────────────────────────────────────────
   "USB_DEVICES": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/files-usb.json",
+    "url": FI_BASE + "files-usb.json",
     "title": "USB Devices"
   },
   "IMAGE_DEVICES": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/files-usb.json",
+    "url": FI_BASE + "files-usb.json",
     "title": "Image Devices"
   },
   "UPNP_DEVICES": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/files-usb.json",
+    "url": FI_BASE + "files-usb.json",
     "title": "UPnP Devices"
   },
   "UNKNOWN_DRIVES": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/files-usb.json",
+    "url": FI_BASE + "files-usb.json",
     "title": "Unknown Drives"
   },
   "RECENT_FILES": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/files-usb.json",
-    "title": "Recent Files"
+    "url": FI_BASE + "files-usb.json",
+    "title": "Recent Files (180 days)"
   },
   "LINK_FILES": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/files-usb.json",
-    "title": "Link Files"
+    "url": FI_BASE + "files-usb.json",
+    "title": "All Link Files Created in the last 180days"
   },
-  "EXECS_IN_DOWNLOADS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/files-usb.json",
-    "title": "Executables in Downloads"
+  "EXECUTABLES_IN_UNUSUAL_LOCATIONS": {
+    "url": FI_BASE + "files-usb.json",
+    "title": "Executables in Unusual Locations"
   },
-  "EXECTS_IN_TEMPS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/files-usb.json",
-    "title": "Executables in Temp"
+  "POWERSHELL_COMMAND_HISTORY": {
+    "url": FI_BASE + "files-usb.json",
+    "title": "PowerShell Command History"
   },
-  "EXECS_IN_SYS_TEMP": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/files-usb.json",
-    "title": "Executables in System Temp"
-  },
-  "EXECS_IN_PERFLOGS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/files-usb.json",
-    "title": "Executables in PerfLogs"
-  },
-  "EXECS_IN_DOC_FOLDER": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/files-usb.json",
-    "title": "Executables in Document Folder"
-  },
-  "POWERSHELL_HISTORY": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/files-usb.json",
-    "title": "PowerShell History"
-  },
-  "BITLOCKER_KEY": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/files-usb.json",
-    "title": "BitLocker Key"
-  },
-  "GPO_REPORT": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/forensicator-extras.json",
-    "title": "Group Policy Report (GPOReport.html)"
-  },
-  "RAM_CAPTURE": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/forensicator-extras.json",
-    "title": "WINPMEM RAM CAPTURE (/RAM)"
-  },
-  "HASH_MATCHES": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/forensicator-extras.json",
-    "title": "Hash Matches (/HASH_MATCHES)"
-  },
-  "NETWORK_CAPTURE": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/forensicator-extras.json",
-    "title": "Network Capture (/PCAP)"
-  },
-  "EVTX_LOGS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/forensicator-extras.json",
-    "title": "EVTX Logs (/EVTX)"
-  },
-  "IIS_LOGS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/forensicator-extras.json",
-    "title": "IIS Logs (/IIS)"
-  },
-  "TOMCAT_LOGS": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/forensicator-extras.json",
-    "title": "Tomcat Logs (/TOMCAT)"
-  },
-  "LOG4J": {
-    "url": "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/forensicator-extras.json",
-    "title": "Log4j (/LOG4J)"
-  },
+  "BITLOCKER_DRIVES": {
+    "url": FI_BASE + "files-usb.json",
+    "title": "BitLocker Drives"
+  }
 
 
 };
 
+// ── FORENSICATOR DOC ALIASES ─────────────────────────────────────────────────
+// Maps all input keys (script variable names, event keys, etc.) to
+// canonical ForensicatorDocs keys above.
 const ForensicatorDocAliases = {
-  "CURRENT_USER_INFORMATION": "CURRENT_USER_INFORMATION",
-  "SYSTEM_DETAILS": "SYSTEM_DETAILS",
-  "LOGON_SESSIONS": "LOGON_SESSIONS",
-  "USER_PROCESSES": "USER_PROCESSES",
-  "USER_PROFILE": "USER_PROFILES",
-  "USER_PROFILES": "USER_PROFILES",
-  "ADMINISTRATOR_ACCOUNTS": "ADMINISTRATOR_ACCOUNTS",
-  "LOCAL_GROUPS": "LOCAL_GROUPS",
-  "INSTALLED_PROGRAMS": "INSTALLED_PROGRAMS",
-  "INSTALLED_PROGRAMS_REGISTRY": "INSTALLED_PROGRAMS",
-  "ENVIRONMENT_VARIABLES": "ENVIRONMENT_VARIABLES",
-  "SYSTEM_INFORMATION": "OPERATING_SYSTEM_INFORMATION",
-  "OPERATING_SYSTEM_INFORMATION": "OPERATING_SYSTEM_INFORMATION",
-  "HOTFIXES": "HOTFIXES",
-  "WINDOWS_DEFENDER_STATUS": "WINDOWS_DEFENDER_STATUS",
-  "PROCESSES": "PROCESSES",
-  "STARTUP_PROGRAMS": "STARTUP_PROGRAMS",
-  "SCHEDULED_TASK": "SCHEDULED_TASKS",
-  "SCHEDULED_TASK_STATE": "SCHEDULED_TASKS",
-  "SERVICES": "SERVICES",
-  "REGRUN": "REGISTRY_PERSISTENCE",
-  "REGRUNONCE": "REGISTRY_PERSISTENCE",
-  "REGRUNONCEEX": "REGISTRY_PERSISTENCE",
-  "DNS_CACHE": "DNS_CACHE",
-  "NETWORK_ADAPTERS": "NETWORK_ADAPTERS",
-  "IP_CONFIGURATION": "IP_CONFIGURATION",
-  "NETWORK_ADAPTER_IP_ADDRESS": "IP_CONFIGURATION",
-  "NETWORK_CONNECTION_PROFILE": "IP_CONFIGURATION",
-  "NETWORK_ADAPTERS_BANDWIDTH": "IP_CONFIGURATION",
-  "ARP_CACHE": "ARP_CACHE",
-  "TCP_CONNECTIONS": "NETWORK_CONNECTIONS_AND_SESSIONS",
-  "LOCAL_ADDRESS": "NETWORK_CONNECTIONS_AND_SESSIONS",
-  "SMB_SESSIONS": "SMB_SESSIONS",
-  "SMB_SHARES": "SMB_SHARES",
-  "FIREWALL_RULES": "FIREWALL_RULES",
-  "WIFI_NETWORKS_PASSWORDS": "WIRELESS_NETWORKS",
-  "IP_ROUTE_NON_LOCAL": "IP_ROUTING_INFORMATION",
-  "NETWORK_ADAPTERS_IP_ROUTE": "IP_ROUTING_INFORMATION",
-  "IP_HOPS": "IP_ROUTING_INFORMATION",
-  "GROUP_POLICY_REPORT": "GPO_REPORT",
-  "WINPMEM_RAM_CAPTURE": "RAM_CAPTURE",
-  "BROWSING_HISTORY_DUMP": "BROWSING_HISTORY",
-  "NETWORK_TRACE": "NETWORK_TRACE",
-  "EVENT_LOGS": "OTHER_COLLECTIONS",
-  "IIS_LOGS": "OTHER_COLLECTIONS",
-  "TOMCAT_LOGS": "OTHER_COLLECTIONS",
-  "LOG4J": "OTHER_COLLECTIONS",
-  "MATCHED_HASHES": "OTHER_COLLECTIONS",
-  "SIGMA_RULES": "SIGMA_RULES",
-  "MALICIOUS_HASH_CHECK": "MALICIOUS_HASH_CHECK",
-  "RANSOMWARE_NOTES": "RANSOMWARE_ARTIFACTS",
-  "HIGH_ENTROPY_FILES": "RANSOMWARE_ARTIFACTS",
-  "RANSOMWARE_EXTENSION": "RANSOMWARE_ARTIFACTS",
-  "SHADOW_COPY_DELETION": "RANSOMWARE_ARTIFACTS",
-  "RDP_LOGIN_ACTIVITIES": "LOGON_EVENTS",
-  "ALL_RDP_LOGIN_HISTORY": "LOGON_EVENTS",
-  "ALL_OUTGOING_RDP_CONNECTION_HISTORY": "LOGON_EVENTS",
-  "SUCCESSFUL_LOGON_EVENTS": "LOGON_EVENTS",
-  "FAILED_LOGON_EVENTS": "LOGON_EVENTS",
-  "LOCAL_GROUP_MEMBERSHIP": "USER_AND_GROUP_MANAGEMENT_EVENTS",
-  "USER_CREATION_ACTIVITY": "USER_AND_GROUP_MANAGEMENT_EVENTS",
-  "PASSWORD_RESET_ACTIVITIES": "USER_AND_GROUP_MANAGEMENT_EVENTS",
-  "USERS_ADDED_TO_GROUP": "USER_AND_GROUP_MANAGEMENT_EVENTS",
-  "USER_ENABLING_ACTIVITIES": "USER_AND_GROUP_MANAGEMENT_EVENTS",
-  "USER_DISABLING_ACTIVITIES": "USER_AND_GROUP_MANAGEMENT_EVENTS",
-  "USER_DELETION_ACTIVITIES": "USER_AND_GROUP_MANAGEMENT_EVENTS",
-  "USER_LOCKOUT_ACTIVITIES": "USER_LOCKOUT_ACTIVITIES",
-  "CREDMAN_BACKUP_ACTIVITY": "CREDENTIAL_MANAGER_ACTIVITIES",
-  "CREDMAN_RESTORE_ACTIVITY": "CREDENTIAL_MANAGER_ACTIVITIES",
-  "PROCESS_EXECUTION_EVENTS": "PROCESS_EXECUTION_EVENTS",
-  "OBJECT_ACCESS_EVENTS": "OBJECT_ACCESS_EVENTS",
-  "DEVICE_AND_DRIVE_INFORMATION": "DEVICE_AND_DRIVE_INFORMATION",
-  "LOGICAL_DRIVES": "DEVICE_AND_DRIVE_INFORMATION",
-  "USB_DEVICES": "DEVICE_AND_DRIVE_INFORMATION",
-  "WEBCAMS": "DEVICE_AND_DRIVE_INFORMATION",
-  "UPNP_DEVICES": "DEVICE_AND_DRIVE_INFORMATION",
-  "PREVIOUSLY_CONNECTED_DRIVES": "DEVICE_AND_DRIVE_INFORMATION",
-  "BITLOCKER_DRIVES": "DEVICE_AND_DRIVE_INFORMATION",
-  "POWERSHELL_COMMAND_HISTORY": "POWERSHELL_COMMAND_HISTORY",
-  "POWERSHELL_HISTORY": "POWERSHELL_COMMAND_HISTORY",
-  "EXECUTABLES_IN_UNUSUAL_LOCATIONS": "EXECUTABLES_IN_UNUSUAL_LOCATIONS",
-  "DOWNLOADS": "EXECUTABLES_IN_UNUSUAL_LOCATIONS",
-  "APPDATA": "EXECUTABLES_IN_UNUSUAL_LOCATIONS",
-  "EXECS_IN_TEMP": "EXECUTABLES_IN_UNUSUAL_LOCATIONS",
-  "PERFLOGS": "EXECUTABLES_IN_UNUSUAL_LOCATIONS",
-  "DOCUMENTS": "EXECUTABLES_IN_UNUSUAL_LOCATIONS",
-  "LINK_FILES": "LINK_FILES"
+
+  // User accounts
+  "LOCAL_USER_ACCOUNT":                   "LOCAL_USER_ACCOUNTS",
+  "ACTIVE_LOGON_SESSIONS":                "ACTIVE_LOGON_SESSIONS",
+  "ADMIN_GROUP_MEMBERS":                  "ADMIN_GROUP_MEMBERS",
+  "HISTORICAL_USER_PRESENCE":             "HISTORICAL_USER_PRESENCE",
+  "IMPORTANT_USERS_GROUPS":               "IMPORTANT_USERS_GROUPS",
+
+  // System information
+  "OPERATING_SYSTEM_INFORMATION":         "OPERATING_SYSTEM_INFORMATION",
+  "DRIVES_STORAGE":                       "DRIVES_STORAGE",
+  "ENVIRONMENT_VARIABLES":                "ENVIRONMENT_VARIABLES",
+  "HOTFIXES":                             "HOTFIXES",
+  "INSTALLED_SOFTWARE":                   "INSTALLED_SOFTWARE",
+  "WINDOWS_DEFENDER_STATUS":              "WINDOWS_DEFENDER_STATUS",
+
+  // System Processes
+  "PROCESSES":                            "PROCESSES",
+  "STARTUP_PROGRAMS":                     "STARTUP_PROGRAMS",
+
+  // Network
+  "TCP_CONNECTIONS":                      "TCP_CONNECTIONS",
+  "LISTENING_PORTS":                      "LISTENING_PORTS",
+  "DNS_CACHE":                            "DNS_CACHE",
+  "IP_CONFIGURATION":                     "IP_CONFIGURATION",
+  "NET_IP_ADDRESS":                       "NET_IP_ADDRESS",
+  "NETWORK_CONNECTION_PROFILE":           "NETWORK_CONNECTION_PROFILE",
+  "NET_INTERFACES":                       "NET_INTERFACES",
+  "NET_NEIGBOUR":                         "NET_NEIGBOUR",
+  "WIFI_PASSWORDS":                       "WIFI_PASSWORDS",
+  "NETWORK_SHARES":                       "NETWORK_SHARES",
+  "NETWORK_ADAPTERS":                     "NETWORK_ADAPTERS",
+  "FIREWALL_RULES":                       "FIREWALL_RULES",
+  "OUTBOUND_SMB_SESSIONS":                "OUTBOUND_SMB_SESSIONS",
+  "ALL_SMB_SESSIONS":                     "ALL_SMB_SESSIONS",
+  "NETWORK_HOPS":                         "NETWORK_HOPS",
+  "ADAPTER_HOPS":                         "ADAPTER_HOPS",
+  "IP_HOPS":                              "IP_HOPS",
+
+  // Services
+  "SERVICES":                             "SERVICES",
+
+  // Scheduled Tasks
+  "SCHEDULED_TASKS":                      "SCHEDULED_TASKS",
+
+  // Event log analysis
+  "GROUP_ENUMERATION":                    "GROUP_ENUMERATION",
+  "RDP_LOGINS":                           "RDP_LOGINS",
+  "RDP_AUTHS":                            "RDP_AUTHS",
+  "OUTGOING_RDP_CONNECTIONS":             "OUTGOING_RDP_CONNECTIONS",
+  "CREATED_USERS":                        "CREATED_USERS",
+  "PASSWORD_RESETS":                      "PASSWORD_RESETS",
+  "ADDED_USERS_TO_GROUPS":                "ADDED_USERS_TO_GROUPS",
+  "ENABLED_USERS":                        "ENABLED_USERS",
+  "DISABLED_USERS":                       "DISABLED_USERS",
+  "DELETED_USERS":                        "DELETED_USERS",
+  "LOCKED_OUT_USERS":                     "LOCKED_OUT_USERS",
+  "CREDENTIAL_MANAGER_BACKUP":            "CREDENTIAL_MANAGER_BACKUP",
+  "CREDENTIAL_MANAGER_RESTORE":           "CREDENTIAL_MANAGER_RESTORE",
+  "LOGON_EVENTS":                         "LOGON_EVENTS",
+  "FAILED_LOGON_EVENTS":                  "FAILED_LOGON_EVENTS",
+  "PROCESS_EXECUTION_EVENTS":             "PROCESS_EXECUTION_EVENTS",
+  "OBJECT_ACCESS_EVENTS":                 "OBJECT_ACCESS_EVENTS",
+  "PROCESS_EXECUTION_EVENTS":             "PROCESS_EXECUTION_EVENTS",
+
+
+  // Files & USB
+  "USB_DEVICES":                          "USB_DEVICES",
+  "IMAGE_DEVICES":                        "IMAGE_DEVICES",
+  "UPNP_DEVICES":                         "UPNP_DEVICES",
+  "UNKNOWN_DRIVES":                       "UNKNOWN_DRIVES",
+  "RECENT_FILES":                         "RECENT_FILES",
+  "LINK_FILES":                           "LINK_FILES",
+  "EXECUTABLES_IN_UNUSUAL_LOCATIONS":     "EXECUTABLES_IN_UNUSUAL_LOCATIONS",
+  "POWERSHELL_COMMAND_HISTORY":           "POWERSHELL_COMMAND_HISTORY",
+  "BITLOCKER_DRIVES":                     "BITLOCKER_DRIVES",
+
+
 };
 
 const ForensicatorDetectionCommands = __FI_DETECTION_COMMANDS__;
@@ -6014,12 +6098,14 @@ function renderPanelState(title, tabs, fallbackHtml) {
 function showPanelMessage(title, html) {
   const panel = document.getElementById("fi-panel");
   panel.classList.add("open");
+  document.getElementById("fi-backdrop").classList.add("open");
   renderPanelState(title, [], html);
 }
 
 async function openPanelFromJSON(url, title, key) {
   const panel = document.getElementById("fi-panel");
   panel.classList.add("open");
+  document.getElementById("fi-backdrop").classList.add("open");
   renderPanelState(title, [], "Loading...");
 
   try {
@@ -6054,10 +6140,13 @@ async function openPanelFromJSON(url, title, key) {
 
 function closePanel() {
   document.getElementById("fi-panel").classList.remove("open");
+  document.getElementById("fi-backdrop").classList.remove("open");
 }
 
 // Global click handler (NO HARDCODING IN HTML)
 document.addEventListener("click", function(e) {
+  if (e.target.id === "fi-backdrop") { closePanel(); return; }
+
   const copyButton = e.target.closest(".fi-copy-btn");
   if (copyButton) {
     const codeNode = copyButton.closest(".fi-block")?.querySelector(".fi-code code");
@@ -6145,6 +6234,113 @@ if (document.readyState === "loading") {
   }
 }());
 
+// ── FI AUTO-ICON INJECTION ─────────────────────────────────────────────────────
+// Maps substrings of .panel-title text to ForensicatorDocs canonical keys.
+// Icons are injected automatically — no HTML data-attributes needed.
+// Values are canonical ForensicatorDocs keys (or aliases that resolve to them)
+const FI_TITLE_MAP = [
+  // Users & accounts
+  ['Local User Account',         'LOCAL_USER_ACCOUNTS'],
+  ['Active Logon Sessions',      'ACTIVE_LOGON_SESSIONS'],
+  ['Admin Group Members',        'ADMIN_GROUP_MEMBERS'],
+  ['Important Users & Groups',   'IMPORTANT_USERS_GROUPS'],
+  ['Historical User Presence',   'HISTORICAL_USER_PRESENCE'],
+
+  // System info
+  ['OS Details',                 'OPERATING_SYSTEM_INFORMATION'],
+  ['Drives & Storage',           'DRIVES_STORAGE'],
+  ['Environment Variables',      'ENVIRONMENT_VARIABLES'],
+  ['Hotfix',                     'HOTFIXES'],
+  ['Installed Software',         'INSTALLED_SOFTWARE'],
+  ['Windows Defender Status',    'WINDOWS_DEFENDER_STATUS'],
+
+  // Processes
+  ['Process List',               'PROCESSES'],
+  ['Startup Programs',           'STARTUP_PROGRAMS'],
+
+  // Network
+  ['TCP Connection',             'TCP_CONNECTIONS'],
+  ['Listening Ports',            'LISTENING_PORTS'],
+  ['DNS Cache',                  'DNS_CACHE'],
+  ['IP Configuration',           'IP_CONFIGURATION'],
+  ['Net IP Address',             'NET_IP_ADDRESS'],
+  ['Network Connection Profile', 'NETWORK_CONNECTION_PROFILE'],
+  ['Network Interface',          'NET_INTERFACES'],
+  ['Net Neigbour',               'NET_NEIGBOUR'],
+  ['WIFI Passwords',             'WIFI_PASSWORDS'],
+  ['Network Share',              'NETWORK_SHARES'],
+  ['Network Adapters',           'NETWORK_ADAPTERS'],
+  ['Firewall Rules',             'FIREWALL_RULES'],
+  ['Outbound SMB Sessions',      'OUTBOUND_SMB_SESSIONS'],
+  ['All SMB Sessions',           'ALL_SMB_SESSIONS'],
+  ['Network Hops',               'NETWORK_HOPS'],
+  ['Adapter Hops',               'ADAPTER_HOPS'],
+  ['IP Hops',                    'IP_HOPS'],
+
+  // Services
+  ['Service List',               'SERVICES'],
+
+  // Scheduled Tasks
+  ['Task List',                  'SCHEDULED_TASKS'],
+
+  // Event log analysis
+  ['Group Enumeration',          'GROUP_ENUMERATION'],
+  ['RDP Logins',                 'RDP_LOGINS'],
+  ['RDP Auths',  'RDP_AUTHS'],
+  ['Outgoing RDP Connections',   'OUTGOING_RDP_CONNECTIONS'],
+  ['Created Users',              'CREATED_USERS'],
+  ['Password Resets',             'PASSWORD_RESETS'],
+  ['Added users to Group',        'ADDED_USERS_TO_GROUPS'],
+  ['Enabled Users',               'ENABLED_USERS'],
+  ['Disabled Users',              'DISABLED_USERS'],
+  ['Deleted Users',               'DELETED_USERS'],
+  ['Locked Out Users',            'LOCKED_OUT_USERS'],
+  ['Credential Manager Backup',   'CREDENTIAL_MANAGER_BACKUP'],
+  ['Logon Events',                'LOGON_EVENTS'],
+  ['Failed Logon Events',         'FAILED_LOGON_EVENTS'],
+  ['Object Access Events',        'OBJECT_ACCESS_EVENTS'],
+  ['Process Execution Events',    'PROCESS_EXECUTION_EVENTS'],
+
+  // Devices & files
+  ['USB Devices',                 'USB_DEVICES'],
+  ['Image Devices',               'IMAGE_DEVICES'],
+  ['UPnP Devices',                'UPNP_DEVICES'],
+  ['Unknown Drives',              'UNKNOWN_DRIVES'],
+  ['Recent Files',                'RECENT_FILES'],
+  ['Link Files',                  'LINK_FILES'],
+  ['Executables in',             'EXECUTABLES_IN_UNUSUAL_LOCATIONS'],
+  ['PowerShell History',         'POWERSHELL_COMMAND_HISTORY'],
+  ['BitLocker',                  'BITLOCKER_DRIVES']
+
+];
+
+function injectFiIcons() {
+  document.querySelectorAll('.panel-title').forEach(function(el) {
+    if (el.querySelector('.fd-info-trigger')) return;
+    var text = el.textContent || '';
+    var matchedKey = null;
+    for (var i = 0; i < FI_TITLE_MAP.length; i++) {
+      if (text.toLowerCase().indexOf(FI_TITLE_MAP[i][0].toLowerCase()) !== -1) {
+        matchedKey = FI_TITLE_MAP[i][1];
+        break;
+      }
+    }
+    if (!matchedKey) return;
+    var icon = document.createElement('span');
+    icon.className = 'fd-info-trigger';
+    icon.dataset.detection = matchedKey;
+    icon.title = 'View investigation guidance';
+    icon.textContent = 'ⓘ';
+    el.appendChild(icon);
+  });
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', injectFiIcons);
+} else {
+  injectFiIcons();
+}
+
 </script>
 '@
 
@@ -6156,8 +6352,6 @@ function New-FIIcon {
 
     return "<span class='fd-info-trigger' data-detection='$Key' data-tooltip='View investigation guidance'>ⓘ</span>"
 }
-
-#>
 
 
 
@@ -6921,15 +7115,213 @@ table.std {
 .pg-select:focus { border-color: var(--blue); }
 
 
+/* ── FORENSICATOR INFO PANEL ─────────────────────────────────────────────────── */
+#fi-backdrop {
+  position: fixed; inset: 0;
+  z-index: 499;
+  background: rgba(0,0,0,.4);
+  display: none;
+}
+#fi-backdrop.open { display: block; }
+
+#fi-panel {
+  position: fixed;
+  top: var(--topbar-h);
+  right: -500px;
+  bottom: 0;
+  width: 480px;
+  max-width: calc(100vw - 40px);
+  background: var(--surface2);
+  border-left: 1px solid var(--border);
+  z-index: 500;
+  display: flex;
+  flex-direction: column;
+  transition: right .28s cubic-bezier(.4,0,.2,1);
+  overflow: hidden;
+}
+#fi-panel.open { right: 0; }
+
+#fi-panel-header {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0; gap: 10px;
+  background: var(--surface3);
+}
+
+#fi-panel-title {
+  font-size: 12px; font-weight: 700;
+  color: var(--text);
+  flex: 1; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+  letter-spacing: -.1px;
+}
+
+#fi-panel-close {
+  background: none;
+  border: 1px solid var(--border2);
+  color: var(--text2);
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  flex-shrink: 0;
+  transition: border-color .15s, color .15s;
+}
+#fi-panel-close:hover { border-color: var(--blue); color: var(--blue); }
+
+#fi-panel-tabs {
+  display: flex; gap: 0;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--surface2);
+}
+
+.fi-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text2);
+  cursor: pointer;
+  font-family: var(--font);
+  font-size: 11px; font-weight: 500;
+  padding: 8px 12px 10px;
+  transition: color .15s, border-color .15s;
+  white-space: nowrap;
+}
+.fi-tab.active  { color: var(--blue); border-bottom-color: var(--blue); }
+.fi-tab:hover:not(.active) { color: var(--text); }
+
+#fi-panel-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border2) transparent;
+}
+.fi-tab-panel          { display: none; }
+.fi-tab-panel.active   { display: block; }
+
+.fi-block              { margin-bottom: 20px; }
+.fi-block:last-child   { margin-bottom: 0; }
+
+.fi-block h3 {
+  font-size: 10px; font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--text3);
+  margin-bottom: 8px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--border);
+}
+
+.fi-block p {
+  font-size: 12px;
+  color: var(--text2);
+  line-height: 1.7;
+}
+
+.fi-block ul {
+  padding-left: 14px; margin: 0;
+}
+.fi-block ul li {
+  font-size: 12px;
+  color: var(--text2);
+  line-height: 1.65;
+  margin-bottom: 5px;
+}
+.fi-block ul li strong { color: var(--text); }
+
+.fi-block-header {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.fi-block-header h3 { margin-bottom: 0; border: none; padding: 0; }
+
+.fi-code {
+  background: var(--surface3);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 10px 12px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: #7dd3fc;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: 1.55;
+}
+
+.fi-copy-btn {
+  background: var(--surface3);
+  border: 1px solid var(--border);
+  color: var(--text2);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  transition: border-color .15s, color .15s;
+}
+.fi-copy-btn:hover  { border-color: var(--blue); color: var(--blue); }
+.fi-copy-btn.copied { color: var(--low); border-color: var(--low); }
+
+.fi-message {
+  font-size: 12px;
+  color: var(--text3);
+  padding: 24px 0;
+  text-align: center;
+}
+
+/* ── TRIGGER ICON ───────────────────────────────────────────────────────────── */
+.fd-info-trigger {
+  display: inline-flex;
+  align-items: center; justify-content: center;
+  width: 15px; height: 15px;
+  margin-left: 7px;
+  border-radius: 50%;
+  background: rgba(59,130,246,.12);
+  border: 1px solid rgba(59,130,246,.22);
+  color: var(--blue);
+  font-size: 9px;
+  cursor: pointer;
+  vertical-align: middle;
+  flex-shrink: 0;
+  transition: background .15s, border-color .15s;
+  font-style: normal;
+  line-height: 1;
+  user-select: none;
+}
+.fd-info-trigger:hover {
+  background: rgba(59,130,246,.28);
+  border-color: var(--blue);
+}
+
 </style>
 </head>
 <body>
 
+<!-- ── FORENSICATOR INFO PANEL ─────────────────────────────────────────────── -->
+<div id="fi-backdrop"></div>
+<div id="fi-panel">
+  <div id="fi-panel-header">
+    <span id="fi-panel-title">Detection Details</span>
+    <button id="fi-panel-close" onclick="closePanel()">✕ Close</button>
+  </div>
+  <div id="fi-panel-tabs"></div>
+  <div id="fi-panel-content"></div>
+</div>
+
 <script id="forensicator-data">
 /* ── INLINE DATA — injected by PowerShell at report generation time ── */
-var SIGMA_DATA = $($script:sigmaJsonSafe);
-var HASH_DATA  = $($script:hashJsonSafe);
-var IOC_DATA   = $($script:iocJsonSafe);
+var SIGMA_DATA      = $($script:sigmaJsonSafe);
+var HASH_DATA       = $($script:hashJsonSafe);
+var IOC_DATA        = $($script:iocJsonSafe);
+var EVTLOG_COUNTS   = $($script:evtlogCountsJson);
+var TOP_EVENT_IDS   = $($script:topEventIdsJson);
 </script>
 <script defer src="forensicator-runtime.js"></script>
 
@@ -6953,7 +7345,7 @@ var IOC_DATA   = $($script:iocJsonSafe);
   </div>
 
   <div class="topbar-right">
-    <span class="version-pill">v4.1.2</span>
+    <span class="version-pill">$MyVersion</span>
     <button class="btn" onclick="window.print()">🖨 Print</button>
   </div>
 </header>
@@ -7462,7 +7854,7 @@ window.nav = window.nav || function(id) {
 
     <div class="grid-2">
     <div class="panel" id="net-neighbor">
-      <div class="panel-head"><div class="panel-title">👂 IP Configuration</div></div>
+      <div class="panel-head"><div class="panel-title">👂 Net Connection Profiles</div></div>
       <div class="tbl-wrap">
         <table class="std">
           <thead><tr><th>Name</th><th>Interface Alias</th><th>Network Category</th><th>IPv4 Connectivity</th><th>IPv6 Connectivity</th></tr></thead>
@@ -7472,7 +7864,7 @@ window.nav = window.nav || function(id) {
     </div>
 
     <div class="panel">
-      <div class="panel-head"><div class="panel-title">🗃 Net IP Address</div></div>
+      <div class="panel-head"><div class="panel-title">🗃 Net Interfaces</div></div>
       <div class="tbl-wrap">
         <table class="std">
           <thead><tr><th>Name</th><th>Interface Description</th><th>Status</th><th>MAC Address</th><th>Link Speed</th></tr></thead>
@@ -9290,9 +9682,36 @@ function renderSimpleDetectTable(data, tbodyId, countId, col4Label, col4Field) {
   refreshPagination(tbodyId);
 }
 
+/* ── EVENT LOG BAR CHARTS ───────────────────────────────────────────────────── */
+function buildEventLogBarCharts() {
+  // Skip if dynamic SAMPLE_EVTLOG_DATA is available — renderEventLog() handles it
+  if (typeof SAMPLE_EVTLOG_DATA !== 'undefined' && Array.isArray(SAMPLE_EVTLOG_DATA) && SAMPLE_EVTLOG_DATA.length > 0) return;
+
+  // ── Category bars: use PowerShell-injected counts (reliable, no DOM scraping) ──
+  var cats = {};
+  if (typeof EVTLOG_COUNTS === 'object' && EVTLOG_COUNTS !== null) {
+    Object.keys(EVTLOG_COUNTS).forEach(function(label) {
+      var n = EVTLOG_COUNTS[label];
+      if (n > 0) cats[label] = n;
+    });
+  }
+  buildBars('evtlog-category-bars', cats, {});
+
+  // ── Event ID bars: use PowerShell-injected top event IDs (reliable, no DOM scraping) ──
+  var evids = {};
+  if (typeof TOP_EVENT_IDS === 'object' && TOP_EVENT_IDS !== null) {
+    Object.keys(TOP_EVENT_IDS).forEach(function(label) {
+      var n = TOP_EVENT_IDS[label];
+      if (n > 0) evids[label] = n;
+    });
+  }
+  buildBars('evtlog-evid-bars', evids, {});
+}
+
 /* ── BOOT ─────────────────────────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', function() {
   try { normalizeEventLogPanels(); } catch(e) { console.error('[Forensicator] normalizeEventLogPanels:', e); }
+  try { buildEventLogBarCharts(); } catch(e) { console.error('[Forensicator] buildEventLogBarCharts:', e); }
   try { buildOverview(); } catch(e) { console.error('[Forensicator] buildOverview:', e); }
   try { renderDetections(); } catch(e) { console.error('[Forensicator] renderDetections:', e); }
   if (typeof SAMPLE_EVTLOG_DATA !== 'undefined' && Array.isArray(SAMPLE_EVTLOG_DATA) && SAMPLE_EVTLOG_DATA.length > 0) {
@@ -9387,6 +9806,9 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 </template>
+
+$($Global:FI_Scripts)
+
 </body>
 </html>
 
@@ -9397,6 +9819,56 @@ document.addEventListener('DOMContentLoaded', function() {
 "@
 }
 
+
+# ── EVTLOG BAR CHART COUNTS ─────────────────────────────────────────────────
+# Count real data rows in each event log fragment (excludes colspan/empty rows)
+function Get-EvtlogRowCount {
+  param([string]$Frag)
+  if ([string]::IsNullOrEmpty($Frag)) { return 0 }
+  $tr   = ([regex]::Matches($Frag, '<tr>')).Count
+  $span = ([regex]::Matches($Frag, 'colspan')).Count
+  return [Math]::Max(0, $tr - $span)
+}
+
+$evtlogCountsObj = [ordered]@{
+  'Group Enumeration'        = Get-EvtlogRowCount ([string]$GroupMembershipFragment)
+  'RDP Logins'               = Get-EvtlogRowCount ([string]$RDPLoginsFragment)
+  'RDP Auths'                = Get-EvtlogRowCount ([string]$RDPAuthsFragment)
+  'Outgoing RDP'             = Get-EvtlogRowCount ([string]$OutRDPFragment)
+  'Created Users'            = Get-EvtlogRowCount ([string]$CreatedUsersFragment)
+  'Password Resets'          = Get-EvtlogRowCount ([string]$PassResetFragment)
+  'Added to Group'           = Get-EvtlogRowCount ([string]$AddedUsersFragment)
+  'Enabled Users'            = Get-EvtlogRowCount ([string]$EnabledUsersFragment)
+  'Disabled Users'           = Get-EvtlogRowCount ([string]$DisabledUsersFragment)
+  'Deleted Users'            = Get-EvtlogRowCount ([string]$DeletedUsersFragment)
+  'Locked Out Users'         = Get-EvtlogRowCount ([string]$LockOutFragment)
+  'Cred Manager Backup'      = Get-EvtlogRowCount ([string]$CredManBackupFragment)
+  'Cred Manager Restore'     = Get-EvtlogRowCount ([string]$CredManRestoreFragment)
+  'Logon Events'             = Get-EvtlogRowCount ([string]$logonEventsFragment)
+  'Failed Logon Events'      = Get-EvtlogRowCount ([string]$logonEventsFailedFragment)
+  'Object Access Events'     = Get-EvtlogRowCount ([string]$ObjectHtmlTable1)
+  'Process Execution Events' = Get-EvtlogRowCount ([string]$ObjectHtmlTable2)
+}
+$script:evtlogCountsJson = $evtlogCountsObj | ConvertTo-Json -Compress
+
+# ── Top Event IDs: count occurrences of each Windows event ID across all collected fragments ──
+$topEventIdsRaw = @{}
+foreach ($fragment in @($GroupMembershipFragment, $RDPLoginsFragment, $RDPAuthsFragment, $OutRDPFragment,
+                         $CreatedUsersFragment, $PassResetFragment, $AddedUsersFragment,
+                         $EnabledUsersFragment, $DisabledUsersFragment, $DeletedUsersFragment,
+                         $LockOutFragment, $CredManBackupFragment, $CredManRestoreFragment,
+                         $logonEventsFragment, $logonEventsFailedFragment,
+                         $ObjectHtmlTable1, $ObjectHtmlTable2)) {
+    if (-not $fragment) { continue }
+    [regex]::Matches($fragment, '(?<=<td>)(\d{4,5})(?=</td>)') | ForEach-Object {
+        $n = [int]$_.Value
+        if ($n -ge 1000 -and $n -le 65535) {
+            $k = 'EID ' + $_.Value
+            $topEventIdsRaw[$k] = ($topEventIdsRaw[$k] -as [int]) + 1
+        }
+    }
+}
+$script:topEventIdsJson = if ($topEventIdsRaw.Count -gt 0) { $topEventIdsRaw | ConvertTo-Json -Compress } else { '{}' }
 
 HTMLFiles | Out-File -FilePath $HTMLFiles
 
@@ -9746,4 +10218,3 @@ try{
 catch{ }
 
 Write-ForensicLog "Done - Happy Investigation" -Level SUCCESS -Section "CORE"
-

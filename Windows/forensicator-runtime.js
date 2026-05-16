@@ -679,9 +679,63 @@ function renderSimpleDetectTable(data, tbodyId, countId, col4Label, col4Field) {
   refreshPagination(tbodyId);
 }
 
+/* ── EVENT LOG BAR CHARTS ───────────────────────────────────────────────────── */
+/* Known mapping: EVTLOG_COUNTS category name → Windows Event IDs */
+var EVTLOG_EID_MAP = {
+  'Group Enumeration':        [4798, 4799],
+  'RDP Logins':               [4624, 4778],
+  'RDP Auths':                [1149],
+  'Outgoing RDP':             [1102],
+  'Created Users':            [4720],
+  'Password Resets':          [4724],
+  'Added to Group':           [4732, 4728],
+  'Enabled Users':            [4722],
+  'Disabled Users':           [4723],
+  'Deleted Users':            [4726],
+  'Locked Out Users':         [4740],
+  'Cred Manager Backup':      [5376],
+  'Cred Manager Restore':     [5377],
+  'Logon Events':             [4624],
+  'Failed Logon Events':      [4625],
+  'Object Access Events':     [4656, 4663],
+  'Process Execution Events': [4688]
+};
+
+function buildEventLogBarCharts() {
+  var defaultColors = ['#3b82f6','#f97316','#ef4444','#eab308','#22c55e','#a855f7','#ec4899','#14b8a6'];
+
+  // ── Category bars: from EVTLOG_COUNTS ──
+  var cats = {};
+  if (typeof EVTLOG_COUNTS === 'object' && EVTLOG_COUNTS !== null) {
+    Object.keys(EVTLOG_COUNTS).forEach(function(label) {
+      var n = EVTLOG_COUNTS[label];
+      if (n > 0) cats[label] = n;
+    });
+  }
+  buildBars('evtlog-category-bars', cats, {});
+
+  // ── Event ID bars: sum counts per event ID from the known mapping ──
+  var evids = {};
+  if (typeof EVTLOG_COUNTS === 'object' && EVTLOG_COUNTS !== null) {
+    Object.keys(EVTLOG_COUNTS).forEach(function(label) {
+      var count = EVTLOG_COUNTS[label];
+      if (!count || count <= 0) return;
+      var ids = EVTLOG_EID_MAP[label];
+      if (!ids) return;
+      var perId = Math.floor(count / ids.length);
+      ids.forEach(function(eid) {
+        var k = 'EID ' + eid;
+        evids[k] = (evids[k] || 0) + perId;
+      });
+    });
+  }
+  buildBars('evtlog-evid-bars', evids, {});
+}
+
 /* ── BOOT ─────────────────────────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', function() {
   try { normalizeEventLogPanels(); } catch(e) { console.error('[Forensicator] normalizeEventLogPanels:', e); }
+  try { buildEventLogBarCharts(); } catch(e) { console.error('[Forensicator] buildEventLogBarCharts:', e); }
   try { buildOverview(); } catch(e) { console.error('[Forensicator] buildOverview:', e); }
   try { renderDetections(); } catch(e) { console.error('[Forensicator] renderDetections:', e); }
   if (typeof SAMPLE_EVTLOG_DATA !== 'undefined' && Array.isArray(SAMPLE_EVTLOG_DATA) && SAMPLE_EVTLOG_DATA.length > 0) {
