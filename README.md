@@ -172,7 +172,7 @@ Forensicator identifies suspicious activity through:
 
 </details>
 
-<summary>HTML Dashboard Info Panel</summary>
+<details><summary>HTML Dashboard Info Panel</summary>
 
 <img width="1708" height="632" alt="image" src="https://github.com/user-attachments/assets/4b2f6555-65d0-431d-8722-b85c28d18e79" />
 
