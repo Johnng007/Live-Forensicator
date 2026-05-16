@@ -172,6 +172,16 @@ Forensicator identifies suspicious activity through:
 
 </details>
 
+<summary>HTML Dashboard Info Panel</summary>
+
+<img width="1708" height="632" alt="image" src="https://github.com/user-attachments/assets/4b2f6555-65d0-431d-8722-b85c28d18e79" />
+
+<img width="1707" height="646" alt="image" src="https://github.com/user-attachments/assets/9660fc50-74ae-4802-a338-847aab339d00" />
+
+
+</details>
+
+
 ---
 
 # ✨ Changelog
@@ -180,9 +190,9 @@ Full changelog:
 👉 https://forensicator.io/changelog.html
 
 ```bash
-Windows: v4.1.3 (May 2026)
+Windows: v4.1.4 (May 2026)
 - NEW: Improved Dashboard UI/UX.
-- IMPROVED: Sigma Rule Support.
+- IMPROVED: Minor Bug Fixes.
 - IMPROVED: Script Readability.
 
 ```
