@@ -19,7 +19,7 @@ ___________                                .__               __
  \___  / \____/|__|    \___  >___|  /____  >__|\___  >____  /__|  \____/|__|   
      \/                    \/     \/     \/        \/     \/                    
 
-                                                                        v4.1.3
+                                                                        v4.1.5
 ```
 
 <p align="center">
@@ -180,10 +180,10 @@ Full changelog:
 👉 https://forensicator.io/changelog.html
 
 ```bash
-Windows: v4.1.3 (May 2026)
-- NEW: Improved Dashboard UI/UX.
-- IMPROVED: Sigma Rule Support.
-- IMPROVED: Script Readability.
+Windows: v4.1.5 (May 2026)
+- NEW: Added custom rules support.
+- NEW: Project output structure.
+- NEW: JSON output for upload in forensicator cloud.
 
 ```
 
