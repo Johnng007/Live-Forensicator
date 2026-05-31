@@ -1255,7 +1255,7 @@ $Finding = @{
     finding_type = "TCP Connections"
     category     = "Network Activity"
     findingtags  = @("network-recon", "data-exfiltration", "lateral-movement", "live-response")
-    severity     = "Medium"
+    severity     = "Interesting"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{
         collector = "Get-NetTCPConnection"
@@ -1349,7 +1349,7 @@ $Finding = @{
     finding_type = "Listening Ports (TCP + UDP)"
     category     = "Network Activity"
     findingtags  = @("network-recon", "data-exfiltration", "lateral-movement", "live-response")
-    severity     = "Medium"
+    severity     = "Interesting"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{
         collector = "Get-NetTCPConnection -State Listen / Get-NetUDPEndpoint"
@@ -1406,7 +1406,7 @@ $Finding = @{
     finding_type = "Wi-Fi Saved Passwords"
     category     = "Credential Access"
     findingtags  = @("credential-access", "network-recon", "live-response")
-    severity     = "High"
+    severity     = "Notable"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{
         collector = "netsh wlan show profiles / netsh wlan show profile key=clear"
@@ -1467,7 +1467,7 @@ $Finding = @{
     finding_type = "Firewall Rules"
     category     = "Defense Evasion"
     findingtags  = @("defense-evasion", "network-recon", "live-response")
-    severity     = "Medium"
+    severity     = "Interesting"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{
         collector = "Get-NetFirewallRule"
@@ -1539,7 +1539,7 @@ $Finding = @{
     finding_type = "Outbound SMB Sessions"
     category     = "Lateral Movement"
     findingtags  = @("lateral-movement", "data-exfiltration", "live-response")
-    severity     = "High"
+    severity     = "Notable"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{
         collector = "Get-NetTCPConnection (LocalPort 445, State Established)"
@@ -1609,7 +1609,7 @@ $Finding = @{
     finding_type = "Active SMB Sessions"
     category     = "Lateral Movement"
     findingtags  = @("lateral-movement", "network-recon", "live-response")
-    severity     = "High"
+    severity     = "Notable"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{
         collector = "Get-SmbSession"
@@ -1673,7 +1673,7 @@ $Finding = @{
     finding_type = "SMB Network Shares"
     category     = "Network Activity"
     findingtags  = @("network-recon", "data-exfiltration", "lateral-movement", "live-response")
-    severity     = "Medium"
+    severity     = "Interesting"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{
         collector = "Get-SmbShare"
@@ -1952,7 +1952,7 @@ $Finding = @{
     finding_type = "Local User Accounts"
     category     = "User Accounts"
     findingtags  = @("insider-threat", "credential-access", "live-response")
-    severity     = "Medium"
+    severity     = "Interesting"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{
         collector = "Get-LocalUser"
@@ -2025,7 +2025,7 @@ $Finding = @{
     finding_type = "Local Administrators Group Members"
     category     = "Privilege Escalation"
     findingtags  = @("insider-threat", "credential-access", "privilege-escalation", "live-response")
-    severity     = "High"
+    severity     = "Notable"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{
         collector = 'Get-LocalGroupMember -Group "Administrators"'
@@ -2087,7 +2087,7 @@ $Finding = @{
     finding_type = "Active Logon Sessions"
     category     = "User Accounts"
     findingtags  = @("insider-threat", "credential-access", "live-response")
-    severity     = "Medium"
+    severity     = "Interesting"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{
         collector = "quser"
@@ -2217,7 +2217,7 @@ $Finding = @{
     finding_type = "Important Local Group Members"
     category     = "Privilege Escalation"
     findingtags  = @("insider-threat", "credential-access", "privilege-escalation", "live-response")
-    severity     = "High"
+    severity     = "Notable"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{
         collector = "Get-LocalGroupMember (Administrators, Remote Desktop Users, Backup Operators, Power Users)"
@@ -2645,7 +2645,7 @@ $Finding = @{
     finding_type = "Windows Defender Status"
     category     = "Defense Evasion"
     findingtags  = @("malware", "defense-evasion", "live-response")
-    severity     = "High"
+    severity     = "Notable"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{
         collector = "Get-MpComputerStatus"
@@ -2780,7 +2780,7 @@ $Finding = @{
     finding_type = "Running Processes"
     category     = "Execution"
     findingtags  = @("malware", "ransomware", "live-response")
-    severity     = "Medium"
+    severity     = "Interesting"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{
         collector = "Get-CimInstance Win32_Process + Get-Process + Get-AuthenticodeSignature"
@@ -2843,7 +2843,7 @@ $Finding = @{
     finding_type = "Startup Programs"
     category     = "Persistence"
     findingtags  = @("malware", "persistence", "live-response")
-    severity     = "High"
+    severity     = "Notable"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{
         collector = "Get-CimInstance Win32_StartupCommand"
@@ -2936,7 +2936,7 @@ $Finding = @{
     finding_type = "Windows Services"
     category     = "Persistence"
     findingtags  = @("malware", "persistence", "live-response")
-    severity     = "High"
+    severity     = "Notable"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{
         collector = "Get-CimInstance Win32_Service"
@@ -3033,7 +3033,7 @@ $Finding = @{
     finding_type = "Scheduled Tasks"
     category     = "Persistence"
     findingtags  = @("malware", "persistence", "live-response")
-    severity     = "High"
+    severity     = "Notable"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{
         collector = "Get-ScheduledTask / Get-ScheduledTaskInfo"
@@ -3144,7 +3144,7 @@ $Finding = @{
     finding_type = "USB Devices"
     category     = "External Device"
     findingtags  = @("usb-activity", "insider-threat", "data-exfiltration", "live-response")
-    severity     = "High"
+    severity     = "Notable"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{
         collector = "Get-ItemProperty HKLM USB Registry"
@@ -3211,7 +3211,7 @@ $Finding = @{
     finding_type = "Imaging Devices"
     category     = "External Device"
     findingtags  = @("usb-activity", "live-response")
-    severity     = "Medium"
+    severity     = "Interesting"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{
         collector = "Get-CimInstance Win32_PnPEntity"
@@ -3343,7 +3343,7 @@ $Finding = @{
     finding_type = "Historical USB Storage Devices"
     category     = "External Device"
     findingtags  = @("usb-activity", "data-exfiltration", "live-response")
-    severity     = "High"
+    severity     = "Notable"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{
         collector = "Get-ItemProperty HKLM USBSTOR Registry"
@@ -3428,7 +3428,7 @@ if ($shortcuts) {
         finding_type = "Link Files (Shortcuts)"
         category     = "Persistence"
         findingtags  = @("usb-activity", "insider-threat", "live-response")
-        severity     = "Medium"
+        severity     = "Interesting"
         host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
         source = @{
             collector = "Get-ChildItem + WScript.Shell.CreateShortcut"
@@ -3500,7 +3500,7 @@ $Finding = @{
     finding_type = "PowerShell Command History"
     category     = "Execution"
     findingtags  = @("malware", "credential-access", "live-response")
-    severity     = "High"
+    severity     = "Notable"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{
         collector = "Get-History + PSReadLine ConsoleHost_history.txt"
@@ -3583,7 +3583,7 @@ $Finding = @{
     finding_type = "Recently Created Executables"
     category     = "Execution"
     findingtags  = @("malware", "ransomware", "live-response")
-    severity     = "High"
+    severity     = "Notable"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{
         collector = "Get-ChildItem (multi-path)"
@@ -3643,7 +3643,7 @@ $Finding = @{
     finding_type = "Executable Downloads"
     category     = "Execution"
     findingtags  = @("malware", "live-response")
-    severity     = "High"
+    severity     = "Notable"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{
         collector = "Get-ChildItem C:\\Users\\*\\Downloads"
@@ -3712,7 +3712,7 @@ $Finding = @{
     finding_type = "Executables in Temp Folder"
     category     = "Execution"
     findingtags  = @("malware", "ransomware", "live-response")
-    severity     = "High"
+    severity     = "Notable"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{
         collector = "Get-ChildItem C:\\Users\\*\\AppData\\Local\\Temp"
@@ -3781,7 +3781,7 @@ $Finding = @{
     finding_type = "Executables in C:\\Temp"
     category     = "Execution"
     findingtags  = @("malware", "ransomware", "live-response")
-    severity     = "High"
+    severity     = "Notable"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{
         collector = "Get-ChildItem C:\\Temp"
@@ -3850,7 +3850,7 @@ $Finding = @{
     finding_type = "Executables in C:\\PerfLogs"
     category     = "Execution"
     findingtags  = @("malware", "ransomware", "live-response")
-    severity     = "High"
+    severity     = "Notable"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{
         collector = "Get-ChildItem C:\\PerfLogs"
@@ -3919,7 +3919,7 @@ $Finding = @{
     finding_type = "Executables in User Documents"
     category     = "Execution"
     findingtags  = @("malware", "ransomware", "live-response")
-    severity     = "High"
+    severity     = "Notable"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{
         collector = "Get-ChildItem C:\\Users\\*\\Documents"
@@ -5015,7 +5015,7 @@ $BrowserFinding = @{
     finding_type = "Browser History"
     category     = "Collection"
     findingtags  = @("insider-threat", "data-exfiltration", "malware", "live-response")
-    severity     = "High"
+    severity     = "Notable"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{
         collector = "SQLite (Chrome/Edge/Brave/Opera) + FF places.sqlite + IE TypedURLs"
@@ -6365,7 +6365,7 @@ $Finding = @{
     finding_type = "Group Membership Enumeration"
     category     = "Discovery"
     findingtags  = @("credential-access", "insider-threat", "live-response")
-    severity     = "Medium"
+    severity     = "Interesting"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{ collector = "Get-ForensicWinEvent Security 4798/4799"; artifact = "Group Membership Enumeration Events"; command = "Get-WinEvent -Id @(4798,4799)" }
     summary = @{ title = "Forensicator Group Enumeration Events"; description = "Collected group membership enumeration events (4798/4799) from the Security log."; total_entries = ($GroupMembership | Measure-Object).Count }
@@ -6452,7 +6452,7 @@ $Finding = @{
     finding_type = "RDP Login Events"
     category     = "Lateral Movement"
     findingtags  = @("lateral-movement", "credential-access", "live-response")
-    severity     = "High"
+    severity     = "Notable"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{ collector = "Get-ForensicWinEvent Security 4624/4778"; artifact = "RDP Login Events"; command = "Get-WinEvent -Id @(4624,4778) FilterLogonType 3,10" }
     summary = @{ title = "Forensicator RDP Login Events"; description = "Collected RDP login events (4624 LogonType 10, 4778) from the Security log."; total_entries = ($RDPLogins | Measure-Object).Count }
@@ -6525,7 +6525,7 @@ try {
             finding_type = "RDP Authentication History"
             category     = "Lateral Movement"
             findingtags  = @("lateral-movement", "credential-access", "live-response")
-            severity     = "High"
+            severity     = "Notable"
             host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
             source = @{ collector = "Get-ForensicWinEvent TerminalServices-RemoteConnectionManager 1149"; artifact = "RDP Authentication History (Event 1149)"; command = "Get-WinEvent -LogName Microsoft-Windows-TerminalServices-RemoteConnectionManager/Operational -Id 1149" }
             summary = @{ title = "Forensicator RDP Authentication History"; description = "Collected RDP authentication history events (1149) from the endpoint."; total_entries = ($EventData | Measure-Object).Count }
@@ -6582,7 +6582,7 @@ $OutRDPFinding = @{
     finding_type = "Outgoing RDP Connections"
     category     = "Lateral Movement"
     findingtags  = @("lateral-movement", "live-response")
-    severity     = "High"
+    severity     = "Notable"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{ collector = "Get-ForensicWinEvent TerminalServices-RDPClient 1102"; artifact = "Outgoing RDP Connection Events"; command = "Get-WinEvent -LogName Microsoft-Windows-TerminalServices-RDPClient/Operational -Id 1102" }
     summary = @{ title = "Forensicator Outgoing RDP Connections"; description = "Collected outgoing RDP connection events (1102) from the endpoint."; total_entries = ($OutRDP | Measure-Object).Count }
@@ -6647,7 +6647,7 @@ $Finding = @{
     finding_type = "User Creation Events"
     category     = "Persistence"
     findingtags  = @("insider-threat", "credential-access", "persistence", "live-response")
-    severity     = "High"
+    severity     = "Notable"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{ collector = "Get-ForensicWinEvent Security 4720"; artifact = "User Creation Events"; command = "Get-WinEvent -Id 4720" }
     summary = @{ title = "Forensicator User Creation Events"; description = "Collected user account creation events (4720) from the Security log."; total_entries = ($CreatedUsers | Measure-Object).Count }
@@ -6703,7 +6703,7 @@ $Finding = @{
     finding_type = "Password Reset Events"
     category     = "Credential Access"
     findingtags  = @("insider-threat", "credential-access", "live-response")
-    severity     = "High"
+    severity     = "Notable"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{ collector = "Get-ForensicWinEvent Security 4724"; artifact = "Password Reset Events"; command = "Get-WinEvent -Id 4724" }
     summary = @{ title = "Forensicator Password Reset Events"; description = "Collected password reset events (4724) from the Security log."; total_entries = ($PassReset | Measure-Object).Count }
@@ -6774,7 +6774,7 @@ try {
             finding_type = "Group Membership Change Events"
             category     = "Privilege Escalation"
             findingtags  = @("insider-threat", "privilege-escalation", "credential-access", "live-response")
-            severity     = "High"
+            severity     = "Notable"
             host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
             source = @{ collector = "Get-ForensicWinEvent Security 4728/4732"; artifact = "Group Membership Change Events"; command = "Get-WinEvent -Id @(4728,4732)" }
             summary = @{ title = "Forensicator Group Membership Changes"; description = "Collected group membership change events (4728/4732) from the Security log."; total_entries = ($AddedUsers | Measure-Object).Count }
@@ -6834,7 +6834,7 @@ $Finding = @{
     finding_type = "User Account Enabled Events"
     category     = "Persistence"
     findingtags  = @("insider-threat", "credential-access", "live-response")
-    severity     = "High"
+    severity     = "Notable"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{ collector = "Get-ForensicWinEvent Security 4722"; artifact = "User Account Enabled Events"; command = "Get-WinEvent -Id 4722" }
     summary = @{ title = "Forensicator Enabled Users Events"; description = "Collected user account enabled events (4722) from the Security log."; total_entries = ($EnabledUsers | Measure-Object).Count }
@@ -6888,7 +6888,7 @@ $Finding = @{
     finding_type = "User Account Disabled Events"
     category     = "Defense Evasion"
     findingtags  = @("insider-threat", "defense-evasion", "live-response")
-    severity     = "Medium"
+    severity     = "Interesting"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{ collector = "Get-ForensicWinEvent Security 4723"; artifact = "User Account Disabled Events"; command = "Get-WinEvent -Id 4723" }
     summary = @{ title = "Forensicator Disabled Users Events"; description = "Collected user account disabled events (4723) from the Security log."; total_entries = ($DisabledUsers | Measure-Object).Count }
@@ -6942,7 +6942,7 @@ $Finding = @{
     finding_type = "User Account Deleted Events"
     category     = "Defense Evasion"
     findingtags  = @("insider-threat", "defense-evasion", "live-response")
-    severity     = "High"
+    severity     = "Notable"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{ collector = "Get-ForensicWinEvent Security 4726"; artifact = "User Account Deleted Events"; command = "Get-WinEvent -Id 4726" }
     summary = @{ title = "Forensicator Deleted Users Events"; description = "Collected user account deletion events (4726) from the Security log."; total_entries = ($DeletedUsers | Measure-Object).Count }
@@ -6996,7 +6996,7 @@ $Finding = @{
     finding_type = "Account Lockout Events"
     category     = "Credential Access"
     findingtags  = @("credential-access", "malware", "live-response")
-    severity     = "High"
+    severity     = "Notable"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{ collector = "Get-ForensicWinEvent Security 4740"; artifact = "Account Lockout Events"; command = "Get-WinEvent -Id 4740" }
     summary = @{ title = "Forensicator Account Lockout Events"; description = "Collected account lockout events (4740) from the Security log."; total_entries = ($LockOut | Measure-Object).Count }
@@ -7054,7 +7054,7 @@ $Finding = @{
     finding_type = "Credential Manager Backup Events"
     category     = "Credential Access"
     findingtags  = @("credential-access", "data-exfiltration", "live-response")
-    severity     = "High"
+    severity     = "Notable"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{ collector = "Get-ForensicWinEvent Security 5376"; artifact = "Credential Manager Backup Events"; command = "Get-WinEvent -Id 5376" }
     summary = @{ title = "Forensicator Credential Manager Backup Events"; description = "Collected credential manager backup events (5376) from the Security log."; total_entries = ($CredManBackup | Measure-Object).Count }
@@ -7109,7 +7109,7 @@ $Finding = @{
     finding_type = "Credential Manager Restore Events"
     category     = "Credential Access"
     findingtags  = @("credential-access", "live-response")
-    severity     = "High"
+    severity     = "Notable"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{ collector = "Get-ForensicWinEvent Security 5377"; artifact = "Credential Manager Restore Events"; command = "Get-WinEvent -Id 5377" }
     summary = @{ title = "Forensicator Credential Manager Restore Events"; description = "Collected credential manager restore events (5377) from the Security log."; total_entries = ($CredManRestore | Measure-Object).Count }
@@ -7270,7 +7270,7 @@ $FindingFailedLogon = @{
     finding_type = "Failed Logon Events"
     category     = "Credential Access"
     findingtags  = @("credential-access", "malware", "live-response")
-    severity     = "High"
+    severity     = "Notable"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{ collector = "Get-ForensicWinEvent Security 4625"; artifact = "Failed Logon Events (4625)"; command = "Get-WinEvent -Id 4625" }
     summary = @{ title = "Forensicator Failed Logon Events"; description = "Collected failed logon events (4625) from the Security log."; total_entries = ($logonDetails | Measure-Object).Count }
@@ -7449,7 +7449,7 @@ if($canReadLog){
         finding_type = "Object Access Events"
         category     = "Collection"
         findingtags  = @("data-exfiltration", "insider-threat", "live-response")
-        severity     = "Medium"
+        severity     = "Interesting"
         host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
         source = @{ collector = "Get-WinEvent Security 4656/4663"; artifact = "Object Access Events (4656/4663)"; command = "Get-WinEvent FilterXml Security 4656/4663" }
         summary = @{ title = "Forensicator Object Access Events"; description = "Collected object access events (4656/4663) from the Security log."; total_entries = $ObjectAccessData.Count }
@@ -7593,7 +7593,7 @@ $FindingProcExec = @{
     finding_type = "Process Execution Events"
     category     = "Execution"
     findingtags  = @("malware", "ransomware", "live-response")
-    severity     = "High"
+    severity     = "Notable"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{ collector = "Get-ForensicWinEvent Security 4688"; artifact = "Process Creation Events (4688)"; command = "Get-WinEvent -Id 4688 Security" }
     summary = @{ title = "Forensicator Process Execution Events"; description = "Collected process creation events (4688) from the Security log."; total_entries = $ProcessExecData.Count }
@@ -7894,7 +7894,7 @@ $FindingBitLocker = @{
     finding_type = "BitLocker Encryption Status"
     category     = "Defense Evasion"
     findingtags  = @("ransomware", "data-exfiltration", "live-response")
-    severity     = "High"
+    severity     = "Notable"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{ collector = "Get-BitLockerVolume / manage-bde / WMI"; artifact = "BitLocker Volume Encryption Status and Recovery Keys"; command = $Cmd_BitLocker.Display }
     summary = @{ title = "Forensicator BitLocker Status"; description = "Collected BitLocker encryption status and recovery keys from the endpoint."; total_entries = ($BitLockerResults | Measure-Object).Count }
@@ -8216,7 +8216,7 @@ $sigmaJsonFindings = @{
     finding_type = "Sigma Rule Matches"
     category     = "Detection"
     findingtags  = @("malware", "ransomware", "credential-access", "lateral-movement", "live-response")
-    severity     = "Varies (see individual findings)"
+    severity     = "Notable"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{
         collector = "Sigma Runtime Scan"
@@ -8248,11 +8248,13 @@ foreach ($sigmaHit in $sigmaFindings) {
         rule_id      = if ($sigmaHit.RuleId)      { "$($sigmaHit.RuleId)" }      else { "" }
         rule_title   = if ($sigmaHit.RuleTitle)   { "$($sigmaHit.RuleTitle)" }   else { "" }
         rule_level   = if ($sigmaHit.RuleLevel)   { "$($sigmaHit.RuleLevel)" }   else { "" }
+        rule_tags    = if ($sigmaHit.RuleTags)    { "$($sigmaHit.RuleTags)" }    else { "" }
+        rule_file    = if ($sigmaHit.RuleFile)    { "$($sigmaHit.RuleFile)" }    else { "" }
         event_id     = if ($sigmaHit.EventId)     { "$($sigmaHit.EventId)" }     else { "" }
         log_name     = if ($sigmaHit.LogName)     { "$($sigmaHit.LogName)" }     else { "" }
         user         = if ($sigmaHit.User)        { "$($sigmaHit.User)" }        else { "" }
         process      = if ($sigmaHit.Process)     { "$($sigmaHit.Process)" }     else { "" }
-        message      = if ($sigmaHit.Message)     { "$($sigmaHit.Message)" }     else { "" }
+        command_line = if ($sigmaHit.CommandLine) { "$($sigmaHit.CommandLine)" } else { "" }
     }
 }
 
@@ -8290,7 +8292,7 @@ $hashJsonFindings = @{
     finding_type = "Malicious Hash Matches"
     category     = "Defense Evasion"
     findingtags  = @("malware", "ransomware", "live-response")
-    severity     = "Critical"
+    severity     = "Important"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{
         collector = "Hash Match Scanner"
@@ -8357,7 +8359,7 @@ $iocJsonFindings = @{
     finding_type = "Malicious URL / IOC Hits"
     category     = "Command and Control"
     findingtags  = @("malware", "data-exfiltration", "lateral-movement", "live-response")
-    severity     = "High"
+    severity     = "Notable"
     host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
     source = @{
         collector = "Browser History IOC Scanner"
