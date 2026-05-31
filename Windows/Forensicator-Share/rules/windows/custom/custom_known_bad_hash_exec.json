@@ -1,0 +1,62 @@
+﻿{
+  "metadata": [
+    {
+      "title": "Known Malicious Process Hash Execution (Operator Template)",
+      "author": "Forensicator.",
+      "rule_id": "forensicator-custom-known-bad-hash-exec",
+      "date": "2026-01-31",
+      "description": "TEMPLATE RULE — Detects execution of processes whose Sysmon-logged SHA256 or MD5 hash matches known malicious samples. Edit the values arrays under selection_sha256 and selection_md5 to add your IOC hashes. Sysmon logs hashes in the format SHA256=<hash> or MD5=<hash>,SHA256=<hash>,IMPHASH=<hash> so partial match via contains is used. NOTE: The Forensicator hash scanner (md5hashes.txt + custom_hashes.txt) provides broader and faster hash-based detection across ALL files on disk. This Sigma rule targets ONLY live process executions captured by Sysmon.",
+      "references": [
+        "https://attack.mitre.org/techniques/T1204/002/"
+      ]
+    }
+  ],
+  "title": "Known Malicious Process Hash Execution (Operator Template)",
+  "rule_id": "forensicator-custom-known-bad-hash-exec",
+  "level": "critical",
+  "status": "stable",
+  "enabled": true,
+  "tags": [
+    "attack.execution",
+    "attack.defense-evasion",
+    "attack.t1204.002"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/custom/custom_known_bad_hash_exec.json",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_sha256": {
+      "type": "field",
+      "field": "Hashes",
+      "operator": "contains",
+      "values": [
+        "_REPLACE_WITH_SHA256_HASH_1_",
+        "_REPLACE_WITH_SHA256_HASH_2_"
+      ],
+      "match": "any",
+      "windash": false,
+      "ignore_case": true
+    },
+    "selection_md5": {
+      "type": "field",
+      "field": "Hashes",
+      "operator": "contains",
+      "values": [
+        "_REPLACE_WITH_MD5_HASH_1_",
+        "_REPLACE_WITH_MD5_HASH_2_"
+      ],
+      "match": "any",
+      "windash": false,
+      "ignore_case": true
+    }
+  },
+  "condition": {
+    "type": "any",
+    "children": [
+      { "type": "item_ref", "name": "selection_sha256" },
+      { "type": "item_ref", "name": "selection_md5" }
+    ]
+  }
+}

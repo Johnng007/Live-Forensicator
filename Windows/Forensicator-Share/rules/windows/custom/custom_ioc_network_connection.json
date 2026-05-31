@@ -1,0 +1,104 @@
+{
+  "metadata": [
+    {
+      "title": "Outbound Connection to Known-Bad Host or IP (Operator IOC)",
+      "author": "Forensicator.",
+      "rule_id": "custom-net-ioc-001",
+      "date": "2026-01-31",
+      "description": "Detects outbound network connections from suspicious processes to operator-defined malicious hostnames, IPs, or CIDR ranges. The bad_hostname and bad_ip values are auto-synced from custom_iocs.txt at scan time — edit that file to manage your IOC list.",
+      "references": [
+        "https://attack.mitre.org/techniques/T1071/001/",
+        "https://attack.mitre.org/techniques/T1041/"
+      ]
+    }
+  ],
+  "title": "Outbound Connection to Known-Bad Host or IP (Operator IOC)",
+  "rule_id": "custom-net-ioc-001",
+  "level": "high",
+  "status": "stable",
+  "enabled": true,
+  "tags": [
+    "attack.command_and_control",
+    "attack.t1071.001",
+    "attack.exfiltration",
+    "attack.t1041"
+  ],
+  "category": "network_connection",
+  "rule_file": "rules/windows/custom/custom_ioc_network_connection.json",
+  "sources": [
+    "sysmon_network_connection"
+  ],
+  "items": {
+    "bad_hostname": {
+      "type": "field",
+      "field": "DestinationHostname",
+      "operator": "contains",
+      "ignore_case": true,
+      "values": [
+        "meet.google.com"
+      ]
+    },
+    "bad_ip": {
+      "type": "field",
+      "field": "DestinationIp",
+      "operator": "exact",
+      "ignore_case": false,
+      "values": [
+        "10.0.0.131"
+      ]
+    },
+    "bad_ip_range": {
+      "type": "field",
+      "field": "DestinationIp",
+      "operator": "cidr",
+      "values": [
+        "192.0.2.0/24"
+      ]
+    },
+    "non_browser_process": {
+      "type": "field",
+      "field": "Image",
+      "operator": "contains",
+      "ignore_case": true,
+      "values": [
+        "\\powershell.exe",
+        "\\pwsh.exe",
+        "\\wscript.exe",
+        "\\cscript.exe",
+        "\\mshta.exe",
+        "\\certutil.exe",
+        "\\bitsadmin.exe",
+        "\\curl.exe",
+        "\\wget.exe",
+        "\\rundll32.exe",
+        "\\regsvr32.exe"
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "any",
+        "children": [
+          {
+            "type": "item_ref",
+            "name": "bad_hostname"
+          },
+          {
+            "type": "item_ref",
+            "name": "bad_ip"
+          },
+          {
+            "type": "item_ref",
+            "name": "bad_ip_range"
+          }
+        ]
+      },
+      {
+        "type": "item_ref",
+        "name": "non_browser_process"
+      }
+    ]
+  }
+}

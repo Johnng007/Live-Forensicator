@@ -1,0 +1,90 @@
+﻿{
+  "metadata": [
+    {
+      "title": "Persistence via Registry Run Keys",
+      "author": "Forensicator.",
+      "rule_id": "forensicator-custom-persistence-run-keys",
+      "date": "2026-01-31",
+      "description": "Detects writing to common autostart registry run keys via reg.exe, regedit, or PowerShell. Run key persistence is one of the most common persistence mechanisms used across commodity malware, APT tooling, and ransomware pre-loaders.",
+      "references": [
+        "https://attack.mitre.org/techniques/T1547/001/"
+      ]
+    }
+  ],
+  "title": "Persistence via Registry Run Keys",
+  "rule_id": "forensicator-custom-persistence-run-keys",
+  "level": "high",
+  "status": "stable",
+  "enabled": true,
+  "tags": [
+    "attack.persistence",
+    "attack.t1547.001"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/custom/custom_persistence_run_keys.json",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_reg_add": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [ "\\reg.exe" ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [ "add" ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "\\CurrentVersion\\Run",
+            "\\CurrentVersion\\RunOnce",
+            "\\CurrentVersion\\RunOnceEx",
+            "\\CurrentVersion\\RunServices",
+            "\\CurrentVersion\\RunServicesOnce"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_ps_run_key": {
+      "type": "field",
+      "field": "ScriptBlockText",
+      "operator": "contains",
+      "values": [
+        "HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+        "HKLM:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+        "HKCU:SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run",
+        "HKLM:SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+      ],
+      "match": "any",
+      "windash": false,
+      "ignore_case": true
+    }
+  },
+  "condition": {
+    "type": "any",
+    "children": [
+      { "type": "item_ref", "name": "selection_reg_add" },
+      { "type": "item_ref", "name": "selection_ps_run_key" }
+    ]
+  }
+}

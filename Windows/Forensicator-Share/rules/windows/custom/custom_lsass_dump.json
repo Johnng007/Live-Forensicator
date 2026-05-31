@@ -1,0 +1,108 @@
+﻿{
+  "metadata": [
+    {
+      "title": "LSASS Memory Dump Attempt via Native or Common Tools",
+      "author": "Forensicator.",
+      "rule_id": "forensicator-custom-lsass-dump",
+      "date": "2026-01-31",
+      "description": "Detects attempts to dump LSASS process memory using common attacker tools and LOLBINs including ProcDump, comsvcs.dll MiniDump, rundll32, and taskmgr-style access. This is the most common credential harvesting technique after initial access.",
+      "references": [
+        "https://attack.mitre.org/techniques/T1003/001/"
+      ]
+    }
+  ],
+  "title": "LSASS Memory Dump Attempt via Native or Common Tools",
+  "rule_id": "forensicator-custom-lsass-dump",
+  "level": "critical",
+  "status": "stable",
+  "enabled": true,
+  "tags": [
+    "attack.credential-access",
+    "attack.t1003.001"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/custom/custom_lsass_dump.json",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_procdump": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [ "\\procdump.exe", "\\procdump64.exe" ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [ "lsass" ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_comsvcs": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [ "\\rundll32.exe" ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [ "comsvcs", "MiniDump", "minidump" ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_sqldumper": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [ "\\SQLDumper.exe" ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [ "lsass" ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "any",
+    "children": [
+      { "type": "item_ref", "name": "selection_procdump" },
+      { "type": "item_ref", "name": "selection_comsvcs" },
+      { "type": "item_ref", "name": "selection_sqldumper" }
+    ]
+  }
+}

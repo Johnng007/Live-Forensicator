@@ -1,0 +1,117 @@
+﻿{
+  "metadata": [
+    {
+      "title": "Active Directory and Domain Reconnaissance",
+      "author": "Forensicator.",
+      "rule_id": "forensicator-custom-ad-recon",
+      "date": "2026-01-31",
+      "description": "Detects Active Directory and domain reconnaissance activity using built-in Windows tools including nltest, net group/user /domain, dsquery, ldifde, and csvde. These commands are universally used in the early post-compromise discovery phase to understand domain structure and identify high-value targets.",
+      "references": [
+        "https://attack.mitre.org/techniques/T1069/002/",
+        "https://attack.mitre.org/techniques/T1087/002/",
+        "https://attack.mitre.org/techniques/T1482/"
+      ]
+    }
+  ],
+  "title": "Active Directory and Domain Reconnaissance",
+  "rule_id": "forensicator-custom-ad-recon",
+  "level": "medium",
+  "status": "stable",
+  "enabled": true,
+  "tags": [
+    "attack.discovery",
+    "attack.t1069.002",
+    "attack.t1087.002",
+    "attack.t1482"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/custom/custom_ad_recon.json",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_nltest": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [ "\\nltest.exe" ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "/domain_trusts",
+            "/dclist:",
+            "/dsgetdc:",
+            "/trusted_domains",
+            "/enumerate_domains",
+            "/server:"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_net_domain": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [ "\\net.exe", "\\net1.exe" ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "/domain",
+            "domain admins",
+            "enterprise admins",
+            "schema admins",
+            "Domain Controllers"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_dsquery": {
+      "type": "field",
+      "field": "Image",
+      "operator": "endswith",
+      "values": [
+        "\\dsquery.exe",
+        "\\dsget.exe",
+        "\\ldifde.exe",
+        "\\csvde.exe",
+        "\\adfind.exe"
+      ],
+      "match": "any",
+      "windash": false,
+      "ignore_case": true
+    }
+  },
+  "condition": {
+    "type": "any",
+    "children": [
+      { "type": "item_ref", "name": "selection_nltest" },
+      { "type": "item_ref", "name": "selection_net_domain" },
+      { "type": "item_ref", "name": "selection_dsquery" }
+    ]
+  }
+}

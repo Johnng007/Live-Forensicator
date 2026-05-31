@@ -1,0 +1,79 @@
+﻿{
+  "metadata": [
+    {
+      "title": "PowerShell Download Cradle Detected",
+      "author": "Forensicator.",
+      "rule_id": "forensicator-custom-ps-download-cradle",
+      "date": "2026-01-31",
+      "description": "Detects PowerShell script blocks or command lines containing download cradle patterns including IEX, Invoke-Expression, Invoke-WebRequest, DownloadString, WebClient, and BitsTransfer. These are primary delivery mechanisms for stage-2 payloads.",
+      "references": [
+        "https://attack.mitre.org/techniques/T1059/001/",
+        "https://attack.mitre.org/techniques/T1105/"
+      ]
+    }
+  ],
+  "title": "PowerShell Download Cradle Detected",
+  "rule_id": "forensicator-custom-ps-download-cradle",
+  "level": "high",
+  "status": "stable",
+  "enabled": true,
+  "tags": [
+    "attack.execution",
+    "attack.t1059.001",
+    "attack.t1105"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/custom/custom_ps_download_cradle.json",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection_iex": {
+      "type": "field",
+      "field": "ScriptBlockText",
+      "operator": "contains",
+      "values": [ "IEX(", "IEX (", "Invoke-Expression", "iex(" ],
+      "match": "any",
+      "windash": false,
+      "ignore_case": true
+    },
+    "selection_download": {
+      "type": "field",
+      "field": "ScriptBlockText",
+      "operator": "contains",
+      "values": [
+        "DownloadString",
+        "DownloadFile",
+        "Invoke-WebRequest",
+        "WebClient",
+        "Net.WebClient",
+        "Start-BitsTransfer",
+        "bitsadmin",
+        "Invoke-RestMethod"
+      ],
+      "match": "any",
+      "windash": false,
+      "ignore_case": true
+    },
+    "filter_legit_admin": {
+      "type": "field",
+      "field": "Path",
+      "operator": "contains",
+      "values": [ ":\\Windows\\system32\\WindowsPowerShell\\v1.0\\Modules\\" ],
+      "match": "any",
+      "windash": false,
+      "ignore_case": true
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      { "type": "item_ref", "name": "selection_iex" },
+      { "type": "item_ref", "name": "selection_download" },
+      {
+        "type": "not",
+        "child": { "type": "item_ref", "name": "filter_legit_admin" }
+      }
+    ]
+  }
+}

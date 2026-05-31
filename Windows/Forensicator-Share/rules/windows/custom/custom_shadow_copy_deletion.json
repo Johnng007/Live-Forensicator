@@ -1,0 +1,157 @@
+﻿{
+  "metadata": [
+    {
+      "title": "Shadow Copy Deletion - Ransomware Pre-Stage Indicator",
+      "author": "Forensicator.",
+      "rule_id": "forensicator-custom-shadow-copy-deletion",
+      "date": "2026-01-31",
+      "description": "Detects deletion of volume shadow copies via vssadmin, wmic, wbadmin, or diskshadow. Shadow copy deletion is a near-universal ransomware pre-encryption step and also used by destructive wipers. Any hit on this rule should be treated as critical.",
+      "references": [
+        "https://attack.mitre.org/techniques/T1490/"
+      ]
+    }
+  ],
+  "title": "Shadow Copy Deletion - Ransomware Pre-Stage Indicator",
+  "rule_id": "forensicator-custom-shadow-copy-deletion",
+  "level": "critical",
+  "status": "stable",
+  "enabled": true,
+  "tags": [
+    "attack.defense-evasion",
+    "attack.impact",
+    "attack.t1490"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/custom/custom_shadow_copy_deletion.json",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_vssadmin": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [ "\\vssadmin.exe" ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [ "delete", "Delete" ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_wmic": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [ "\\wmic.exe" ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [ "shadowcopy", "ShadowCopy" ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_wbadmin": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [ "\\wbadmin.exe" ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [ "delete", "catalog" ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_diskshadow": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [ "\\diskshadow.exe" ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [ "delete" ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_bcdedit": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [ "\\bcdedit.exe" ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [ "recoveryenabled", "bootstatuspolicy" ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "any",
+    "children": [
+      { "type": "item_ref", "name": "selection_vssadmin" },
+      { "type": "item_ref", "name": "selection_wmic" },
+      { "type": "item_ref", "name": "selection_wbadmin" },
+      { "type": "item_ref", "name": "selection_diskshadow" },
+      { "type": "item_ref", "name": "selection_bcdedit" }
+    ]
+  }
+}

@@ -1,0 +1,94 @@
+﻿{
+  "metadata": [
+    {
+      "title": "Lateral Movement via PsExec / WMI / DCOM / WinRM",
+      "author": "Forensicator.",
+      "rule_id": "forensicator-custom-lateral-movement-tools",
+      "date": "2026-01-31",
+      "description": "Detects lateral movement execution patterns via PsExec, WMIC with node arguments, Invoke-WMIMethod, and WinRM tools. These are the most common lateral movement paths observed in enterprise incidents.",
+      "references": [
+        "https://attack.mitre.org/techniques/T1021/003/",
+        "https://attack.mitre.org/techniques/T1021/006/",
+        "https://attack.mitre.org/techniques/T1047/"
+      ]
+    }
+  ],
+  "title": "Lateral Movement via PsExec / WMI / DCOM / WinRM",
+  "rule_id": "forensicator-custom-lateral-movement-tools",
+  "level": "high",
+  "status": "stable",
+  "enabled": true,
+  "tags": [
+    "attack.lateral-movement",
+    "attack.t1021.003",
+    "attack.t1021.006",
+    "attack.t1047"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/custom/custom_lateral_movement.json",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_psexec": {
+      "type": "field",
+      "field": "Image",
+      "operator": "endswith",
+      "values": [ "\\psexec.exe", "\\psexec64.exe", "\\PsExec.exe" ],
+      "match": "any",
+      "windash": false,
+      "ignore_case": true
+    },
+    "selection_wmic_remote": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [ "\\wmic.exe" ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [ "/node:", "process call create" ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_winrm": {
+      "type": "field",
+      "field": "Image",
+      "operator": "endswith",
+      "values": [ "\\winrs.exe" ],
+      "match": "any",
+      "windash": false,
+      "ignore_case": true
+    },
+    "selection_impacket": {
+      "type": "field",
+      "field": "CommandLine",
+      "operator": "contains",
+      "values": [ "smbexec", "wmiexec", "atexec", "dcomexec" ],
+      "match": "any",
+      "windash": false,
+      "ignore_case": true
+    }
+  },
+  "condition": {
+    "type": "any",
+    "children": [
+      { "type": "item_ref", "name": "selection_psexec" },
+      { "type": "item_ref", "name": "selection_wmic_remote" },
+      { "type": "item_ref", "name": "selection_winrm" },
+      { "type": "item_ref", "name": "selection_impacket" }
+    ]
+  }
+}

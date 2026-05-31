@@ -1,0 +1,24 @@
+# ============================================================
+# Forensicator - Custom Operator Hash List
+# ============================================================
+# Add MD5 or SHA256 hashes of known malicious files here.
+# One hash per line. Lines starting with # are ignored.
+#
+# This file is NEVER overwritten by the auto-download refresh
+# of md5hashes.txt from abuse.ch. Safe to append at any time.
+#
+# Format:
+#   <md5_or_sha256_hash>
+#
+# Examples:
+#   d41d8cd98f00b204e9800998ecf8427e
+#   e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+#
+# Sources to check for IOC hashes:
+#   https://bazaar.abuse.ch/browse/
+#   https://www.virustotal.com/
+#   https://any.run/
+#   https://www.hybrid-analysis.com/
+#   https://otx.alienvault.com/
+# ============================================================
+

@@ -1,0 +1,101 @@
+﻿{
+  "metadata": [
+    {
+      "title": "AMSI or PowerShell Security Bypass in Script Block",
+      "author": "Forensicator.",
+      "rule_id": "forensicator-custom-amsi-ps-bypass",
+      "date": "2026-01-31",
+      "description": "Detects PowerShell script blocks containing common AMSI bypass techniques, -ExecutionPolicy Bypass flags, reflection-based security disablement, and script block logging disablement. These are almost universally the first or second action taken after obtaining a PowerShell foothold.",
+      "references": [
+        "https://attack.mitre.org/techniques/T1562/001/",
+        "https://attack.mitre.org/techniques/T1059/001/"
+      ]
+    }
+  ],
+  "title": "AMSI or PowerShell Security Bypass in Script Block",
+  "rule_id": "forensicator-custom-amsi-ps-bypass",
+  "level": "high",
+  "status": "stable",
+  "enabled": true,
+  "tags": [
+    "attack.defense-evasion",
+    "attack.t1562.001",
+    "attack.t1059.001"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/custom/custom_amsi_ps_bypass.json",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection_amsi_patch": {
+      "type": "field",
+      "field": "ScriptBlockText",
+      "operator": "contains",
+      "values": [
+        "AmsiScanBuffer",
+        "AmsiInitialize",
+        "amsiContext",
+        "amsi.dll",
+        "[Ref].Assembly.GetType('System.Management.Automation.AmsiUtils')",
+        "amsiInitFailed"
+      ],
+      "match": "any",
+      "windash": false,
+      "ignore_case": true
+    },
+    "selection_reflection_bypass": {
+      "type": "field",
+      "field": "ScriptBlockText",
+      "operator": "contains",
+      "values": [
+        "Reflection.Assembly",
+        "System.Runtime.InteropServices",
+        "VirtualProtect",
+        "WriteProcessMemory",
+        "GetDelegateForFunctionPointer"
+      ],
+      "match": "any",
+      "windash": false,
+      "ignore_case": true
+    },
+    "selection_logging_disable": {
+      "type": "field",
+      "field": "ScriptBlockText",
+      "operator": "contains",
+      "values": [
+        "ScriptBlockLogging",
+        "EnableScriptBlockLogging",
+        "DisableScriptBlockLogging",
+        "GPO\\Microsoft\\Windows\\PowerShell"
+      ],
+      "match": "any",
+      "windash": false,
+      "ignore_case": true
+    },
+    "selection_exec_policy": {
+      "type": "field",
+      "field": "ScriptBlockText",
+      "operator": "contains",
+      "values": [
+        "-ExecutionPolicy Bypass",
+        "-ep bypass",
+        "-exec bypass",
+        "Set-ExecutionPolicy Unrestricted",
+        "Set-ExecutionPolicy Bypass"
+      ],
+      "match": "any",
+      "windash": false,
+      "ignore_case": true
+    }
+  },
+  "condition": {
+    "type": "any",
+    "children": [
+      { "type": "item_ref", "name": "selection_amsi_patch" },
+      { "type": "item_ref", "name": "selection_reflection_bypass" },
+      { "type": "item_ref", "name": "selection_logging_disable" },
+      { "type": "item_ref", "name": "selection_exec_policy" }
+    ]
+  }
+}

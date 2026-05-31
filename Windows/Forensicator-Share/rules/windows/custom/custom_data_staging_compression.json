@@ -1,0 +1,117 @@
+﻿{
+  "metadata": [
+    {
+      "title": "Data Staging via Compression with Password - Exfil Preparation",
+      "author": "Forensicator.",
+      "rule_id": "forensicator-custom-data-staging-compression",
+      "date": "2026-01-31",
+      "description": "Detects use of 7-Zip, WinRAR, or built-in compress utilities with flags commonly used during data staging before exfiltration: password-protected archives (-p flag), splitting archives (-v), and output to suspicious locations. Operators can add specific archive names or output paths relevant to their environment.",
+      "references": [
+        "https://attack.mitre.org/techniques/T1560/001/",
+        "https://attack.mitre.org/techniques/T1074/001/"
+      ]
+    }
+  ],
+  "title": "Data Staging via Compression with Password - Exfil Preparation",
+  "rule_id": "forensicator-custom-data-staging-compression",
+  "level": "high",
+  "status": "stable",
+  "enabled": true,
+  "tags": [
+    "attack.collection",
+    "attack.exfiltration",
+    "attack.t1560.001",
+    "attack.t1074.001"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/custom/custom_data_staging_compression.json",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_7zip_password": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [ "\\7z.exe", "\\7za.exe", "\\7zr.exe" ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "re",
+          "values": [ "\\s+-p\\S" ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_rar_password": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [ "\\rar.exe", "\\winrar.exe", "\\WinRAR.exe" ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "re",
+          "values": [ "\\s+-hp\\S", "\\s+-p\\S" ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_suspicious_output_path": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [ "\\7z.exe", "\\7za.exe", "\\rar.exe", "\\winrar.exe" ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "\\Temp\\",
+            "\\tmp\\",
+            "\\ProgramData\\",
+            "\\AppData\\Roaming\\",
+            "C:\\Users\\Public\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "any",
+    "children": [
+      { "type": "item_ref", "name": "selection_7zip_password" },
+      { "type": "item_ref", "name": "selection_rar_password" },
+      { "type": "item_ref", "name": "selection_suspicious_output_path" }
+    ]
+  }
+}

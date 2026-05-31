@@ -1,0 +1,75 @@
+{
+  "metadata": [
+    {
+      "title": "PowerShell Script Block References Known-Bad Domain or URL (Operator IOC)",
+      "author": "Forensicator.",
+      "rule_id": "custom-ps-ioc-scriptblock-001",
+      "date": "2026-01-31",
+      "description": "Detects PowerShell script blocks that contain both an operator-defined IOC (domain or IP) and a download verb. The ioc_in_script values are auto-synced from custom_iocs.txt at scan time — edit that file to manage your IOC list.",
+      "references": [
+        "https://attack.mitre.org/techniques/T1059/001/",
+        "https://attack.mitre.org/techniques/T1071/001/"
+      ]
+    }
+  ],
+  "title": "PowerShell Script Block References Known-Bad Domain or URL (Operator IOC)",
+  "rule_id": "custom-ps-ioc-scriptblock-001",
+  "level": "high",
+  "status": "stable",
+  "enabled": true,
+  "tags": [
+    "attack.execution",
+    "attack.t1059.001",
+    "attack.command_and_control",
+    "attack.t1071.001"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/custom/custom_ioc_scriptblock.json",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "ioc_in_script": {
+      "type": "field",
+      "field": "ScriptBlockText",
+      "operator": "contains",
+      "ignore_case": true,
+      "values": [
+        "meet.google.com",
+        "10.0.0.131"
+      ]
+    },
+    "download_verb": {
+      "type": "field",
+      "field": "ScriptBlockText",
+      "operator": "contains",
+      "ignore_case": true,
+      "windash": false,
+      "values": [
+        "Invoke-WebRequest",
+        "Invoke-RestMethod",
+        "DownloadString",
+        "DownloadFile",
+        "DownloadData",
+        "WebClient",
+        "Net.Http.HttpClient",
+        "Start-BitsTransfer",
+        "curl ",
+        "wget "
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "ioc_in_script"
+      },
+      {
+        "type": "item_ref",
+        "name": "download_verb"
+      }
+    ]
+  }
+}

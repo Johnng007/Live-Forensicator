@@ -1,0 +1,58 @@
+﻿{
+  "metadata": [
+    {
+      "title": "Security or System Event Log Cleared",
+      "author": "Forensicator.",
+      "rule_id": "forensicator-custom-event-log-cleared",
+      "date": "2026-01-31",
+      "description": "Detects clearing of the Security (1102) or System (104) event logs. Attackers clear logs to cover their tracks after compromise.",
+      "references": [
+        "https://attack.mitre.org/techniques/T1070/001/"
+      ]
+    }
+  ],
+  "title": "Security or System Event Log Cleared",
+  "rule_id": "forensicator-custom-event-log-cleared",
+  "level": "high",
+  "status": "stable",
+  "enabled": true,
+  "tags": [
+    "attack.defense-evasion",
+    "attack.t1070.001"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/custom/custom_event_log_cleared.json",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [ "\\wevtutil.exe" ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [ " cl ", " clear-log ", "/c:", " sl " ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

@@ -45,7 +45,8 @@ function Get-SigmaStructuredRuleSet {
         return $null
     }
 
-    $rules = [System.Collections.Generic.List[object]]::new()
+    $rules         = [System.Collections.Generic.List[object]]::new()
+    $disabledCount  = 0
 
     foreach($file in $ruleFiles){
         try{
@@ -57,12 +58,23 @@ function Get-SigmaStructuredRuleSet {
             if($parsed -is [System.Array]){
                 foreach($rule in $parsed){
                     if($null -ne $rule){
+                        # Skip only when enabled is explicitly set to false.
+                        # Missing field or true both pass through — this keeps
+                        # unmodified community rules working without any changes.
+                        if($rule.PSObject.Properties["enabled"] -and [string]$rule.enabled -eq "false"){
+                            $disabledCount++
+                            continue
+                        }
                         $rules.Add($rule)
                     }
                 }
             }
             else{
-                $rules.Add($parsed)
+                if($parsed.PSObject.Properties["enabled"] -and [string]$parsed.enabled -eq "false"){
+                    $disabledCount++
+                } else {
+                    $rules.Add($parsed)
+                }
             }
         }
         catch{
@@ -79,7 +91,7 @@ function Get-SigmaStructuredRuleSet {
         metadata = [PSCustomObject]@{
             generated_at_utc     = (Get-Date).ToUniversalTime().ToString("o", [System.Globalization.CultureInfo]::InvariantCulture)
             compiled_rule_count  = $rules.Count
-            skipped_rule_count   = 0
+            skipped_rule_count   = $disabledCount
             source               = "structured-json"
             rules_root           = $RulesRoot
         }
@@ -558,7 +570,8 @@ function Invoke-SigmaScan {
     }
 
     $bundleSource = [string]($bundle.metadata.source ?? "structured-json")
-    Write-ForensicLog "Loaded Sigma rule set" -Level INFO -Section "SIGMA" -Detail "Source: $bundleSource | Generated: $($bundle.metadata.generated_at_utc) | Rules: $($bundle.metadata.compiled_rule_count)"
+    $disabledLabel = if($bundle.metadata.skipped_rule_count -gt 0){ " | Disabled (enabled:false): $($bundle.metadata.skipped_rule_count)" } else { "" }
+    Write-ForensicLog "Loaded Sigma rule set" -Level INFO -Section "SIGMA" -Detail "Source: $bundleSource | Generated: $($bundle.metadata.generated_at_utc) | Rules: $($bundle.metadata.compiled_rule_count)$disabledLabel"
 
     $activeSources = @(
         @($bundle.sources) | Where-Object {

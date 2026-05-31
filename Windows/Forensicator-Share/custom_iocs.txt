@@ -1,0 +1,36 @@
+# ============================================================
+# Forensicator - Custom Operator IOC / Malicious URL List
+# ============================================================
+# Add known malicious domains, IPs, or full URLs here.
+# One entry per line. Lines starting with # are ignored.
+#
+# This file is NEVER overwritten by the auto-download refresh
+# of malicious_URLs.txt. Safe to append at any time.
+#
+# Matching logic:
+#   - Exact URL match
+#   - Exact domain match
+#   - Parent domain match (sub.evil.com matches evil.com)
+#
+# Supported entry formats:
+#   evil.example.com              <- domain
+#   192.168.99.50                 <- IP address
+#   http://malware-c2.net/stage2  <- full URL
+#   10.0.0.99                     <- internal suspect IP
+#
+# Use case examples:
+#   - Add your threat intel feed IOCs here
+#   - Add IPs/domains from a phishing report targeting your org
+#   - Add C2 infrastructure identified in a prior incident
+#   - Add domains from a sandbox analysis of a suspicious file
+#
+# Sources to check for malicious domains/IPs:
+#   https://otx.alienvault.com/
+#   https://threatfox.abuse.ch/
+#   https://urlhaus.abuse.ch/
+#   https://www.virustotal.com/
+#   https://isc.sans.edu/
+# ============================================================
+
+https://meet.google.com
+10.0.0.131

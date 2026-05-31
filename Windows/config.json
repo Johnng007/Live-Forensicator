@@ -98,7 +98,7 @@
     "max_events_per_source": 25000,
     "include_source_ids": [],
     "exclude_source_ids": [
-      "security_process_creation"
+      "sysmon_process_creation"
     ],
     "include_log_names": [],
     "exclude_log_names": [],

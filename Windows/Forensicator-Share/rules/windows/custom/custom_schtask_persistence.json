@@ -1,0 +1,113 @@
+﻿{
+  "metadata": [
+    {
+      "title": "Persistence via Scheduled Task Creation - Suspicious Patterns",
+      "author": "Forensicator.",
+      "rule_id": "forensicator-custom-schtask-persistence",
+      "date": "2026-01-31",
+      "description": "Detects suspicious scheduled task creation using schtasks.exe with indicators of malware persistence: tasks pointing to common staging directories, tasks running at logon/startup, tasks running as SYSTEM, and tasks with base64-encoded commands. Operators can append known-bad task names or paths to the values arrays.",
+      "references": [
+        "https://attack.mitre.org/techniques/T1053/005/"
+      ]
+    }
+  ],
+  "title": "Persistence via Scheduled Task Creation - Suspicious Patterns",
+  "rule_id": "forensicator-custom-schtask-persistence",
+  "level": "high",
+  "status": "stable",
+  "enabled": true,
+  "tags": [
+    "attack.persistence",
+    "attack.t1053.005"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/custom/custom_schtask_persistence.json",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_schtasks_create": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [ "\\schtasks.exe" ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [ "/create", "-create" ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_suspicious_path": {
+      "type": "field",
+      "field": "CommandLine",
+      "operator": "contains",
+      "values": [
+        "\\Temp\\",
+        "\\tmp\\",
+        "\\AppData\\Roaming\\",
+        "\\AppData\\Local\\Temp\\",
+        "\\ProgramData\\",
+        "C:\\Users\\Public\\",
+        "\\Windows\\Temp\\"
+      ],
+      "match": "any",
+      "windash": false,
+      "ignore_case": true
+    },
+    "selection_system_or_onlogon": {
+      "type": "field",
+      "field": "CommandLine",
+      "operator": "contains",
+      "values": [
+        "/ru SYSTEM",
+        "/ru \"NT AUTHORITY\\SYSTEM\"",
+        "/sc ONLOGON",
+        "/sc ONSTART",
+        "/sc ONIDLE"
+      ],
+      "match": "any",
+      "windash": false,
+      "ignore_case": true
+    },
+    "selection_powershell_in_task": {
+      "type": "field",
+      "field": "CommandLine",
+      "operator": "contains",
+      "values": [
+        "powershell", "pwsh", "cmd /c",
+        "wscript", "cscript", "mshta",
+        "regsvr32", "rundll32"
+      ],
+      "match": "any",
+      "windash": false,
+      "ignore_case": true
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      { "type": "item_ref", "name": "selection_schtasks_create" },
+      {
+        "type": "any",
+        "children": [
+          { "type": "item_ref", "name": "selection_suspicious_path" },
+          { "type": "item_ref", "name": "selection_system_or_onlogon" },
+          { "type": "item_ref", "name": "selection_powershell_in_task" }
+        ]
+      }
+    ]
+  }
+}
