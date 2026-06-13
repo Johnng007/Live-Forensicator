@@ -183,7 +183,7 @@ Full changelog:
 Windows: v4.1.5 (May 2026)
 - NEW: Added custom rules support.
 - NEW: Project output structure.
-- NEW: JSON output for upload in forensicator cloud.
+- NEW: JSON output for upload in Forensicator Enterprise.
 
 ```
 
