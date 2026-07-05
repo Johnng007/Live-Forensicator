@@ -91,6 +91,24 @@
   "eventlog": {
     "days_back": 30
   },
+  "new_files": {
+    "days_back": 1,
+    "excluded_dir_names": [
+      "node_modules",
+      ".git",
+      ".hg",
+      ".svn",
+      "vendor",
+      "dist",
+      "build",
+      "target",
+      "__pycache__",
+      "venv",
+      ".venv",
+      ".next",
+      ".nuxt"
+    ]
+  },
   "sigma": {
     "days_back": 30,
     "min_level": "medium",
@@ -98,8 +116,6 @@
     "max_events_per_source": 25000,
     "include_source_ids": [],
     "exclude_source_ids": [
-      "sysmon_process_creation",
-      "security_process_creation"
     ],
     "include_log_names": [],
     "exclude_log_names": [],

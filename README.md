@@ -19,7 +19,7 @@ ___________                                .__               __
  \___  / \____/|__|    \___  >___|  /____  >__|\___  >____  /__|  \____/|__|   
      \/                    \/     \/     \/        \/     \/                    
 
-                                                                        v4.1.5
+                                                                        v4.1.6
 ```
 
 <p align="center">
@@ -49,12 +49,12 @@ Forensicator:
 
 * Advanced Event Log analysis
 * Detection of suspicious activity via known Event IDs
-* Integration with Sigma rules
+* Sigma rule engine (1,400+ community rules) evaluated against Security/Sysmon Event Logs
 * Malware hash matching (e.g., abuse.ch feeds)
 * Browser history analysis with IOC matching
 * Optional artifact encryption (AES)
-* Detection Insight - A summary of the detection, why the detection matters, the detection logic code, what to look pout for in the detection and the Mitre Mapping.
-* Signma Rule Integration for malicious activity detection
+* Detection Insight - a summary of the detection, why it matters, the detection logic, what to look for, and its MITRE mapping
+* Investigation archive + structured JSON output for Forensicator Enterprise
 
 👉 https://github.com/Johnng007/Live-Forensicator/tree/main/Windows
 
@@ -62,34 +62,45 @@ Forensicator:
 
 ## 🍎 macOS (Shell)
 
-* Lightweight artifact collection
-* System and user activity inspection
+* Detection engine covering reverse shells, SIP/Gatekeeper/kext tampering, PATH hijacking, deleted-binary execution, credential timestomping, and more
+* Best-effort Sigma rule engine sourced from real SigmaHQ community rules, evaluated against the unified log
+* Malware hash matching and browser history IOC matching, with auto-updating abuse.ch/URLhaus feeds
+* FileVault, SIP, Gatekeeper, TCC, and Signed System Volume integrity checks
+* Application code-signature verification
+* Optional artifact encryption (AES)
+* Investigation archive + structured JSON output for Forensicator Enterprise
 
 👉 https://github.com/Johnng007/Live-Forensicator/tree/main/MacOS
+
+> ⚠️ Note: macOS restricts real process-creation telemetry to its Endpoint Security Framework, which a plain script cannot access — so Sigma coverage is narrower here than on Windows/Linux. See the [macOS README](./MacOS/README.md) for specifics.
 
 ---
 
 ## 🐧 Linux (Bash)
 
-* Cross-distro compatible Bash scripts
-* Uses native system utilities (no heavy dependencies)
-* Focus on portability and reliability
+* Cross-distro compatible Bash scripts, no non-native dependencies
+* Detection engine covering reverse shells, timestomping, PATH hijacking, deleted-binary execution, package integrity, and more
+* Sigma rule engine sourced from real SigmaHQ community rules, evaluated against auditd and journald where available
+* Malware hash matching and malicious URL matching, with auto-updating abuse.ch/URLhaus feeds
+* LUKS disk-encryption status and credential-file tampering timeline
+* Optional artifact encryption (AES)
+* Structured JSON output for Forensicator Enterprise
 
 👉 https://github.com/Johnng007/Live-Forensicator/tree/main/Linux
 
-> ⚠️ Note: Linux scripts are designed to avoid non-native utilities (e.g., `net-tools`) for maximum compatibility.
+> ⚠️ Note: Linux scripts are designed to avoid non-native utilities (e.g., `net-tools`) for maximum compatibility. Sigma coverage depends on whether `auditd` is already configured on the target box — see the [Linux README](./Linux/README.md).
 
 ---
 
 # 🔍 Key Features
 
 * Cross-platform forensic artifact collection
-* Detection of suspicious activity and anomalies
+* Detection of suspicious activity and anomalies on every platform
 * Event Log analysis (Windows)
-* Sigma rule integration
-* Malware hash and IOC matching
+* Sigma rule integration on all three platforms — coverage and data source vary by OS; see each platform's section below and its own README
+* Malware hash and IOC matching, with auto-updating threat-intel feeds
 * Structured HTML reporting (with dashboards)
-* Optional artifact encryption (Windows module)
+* Optional artifact encryption (Windows, Linux, and macOS)
 * Detection Insight with Mitre Mapping
 * Forensicator AI (Coming Soon!!!)
 
@@ -128,7 +139,7 @@ This is useful when:
 * Chain-of-custody concerns exist
 * Legal integrity of artifacts must be preserved
 
-> ⚠️ Currently available only in the Windows module
+> ⚠️ Available on Windows, Linux, and macOS
 > ⚠️ Not backward compatible prior to v4.1.1
 
 ---
@@ -180,11 +191,24 @@ Full changelog:
 👉 https://forensicator.io/changelog.html
 
 ```bash
-Windows: v4.1.5 (May 2026)
-- NEW: Added custom rules support.
-- NEW: Project output structure.
-- NEW: JSON output for upload in Forensicator Enterprise.
+Windows: v4.1.6 (May 2026)
+- NEW: Added support for PowerShell v5.
+- FIX: Improvements and bug fixes.
 
+Linux: v4.1.6
+- NEW: Sigma rule engine sourced from real SigmaHQ community rules, evaluated against auditd and journald.
+- NEW: Detection engine expanded with deleted-binary execution, credential-file timestomping, world-writable PATH, and package integrity checks.
+- NEW: Auto-updating malware hash and malicious URL feeds (abuse.ch, URLhaus).
+- NEW: LUKS disk-encryption status check.
+- NEW: JSON output for upload to Forensicator Enterprise.
+- FIX: Portability and performance fixes across full-disk scans, auth log parsing, and IOC matching.
+
+macOS: v4.1.6
+- NEW: Best-effort Sigma rule engine sourced from real SigmaHQ community rules, evaluated against the unified log.
+- NEW: Detection engine expanded with deleted-binary execution, kernel/kext integrity status, credential-file timestomping, world-writable PATH, and application code-signature verification checks.
+- NEW: Auto-updating malware hash and malicious URL feeds (abuse.ch, URLhaus).
+- NEW: Investigation archive + JSON output for upload to Forensicator Enterprise.
+- FIX: Portability fixes for BSD-native tooling (stat, shasum) and full-disk scans.
 ```
 
 ---

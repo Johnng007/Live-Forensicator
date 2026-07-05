@@ -1,0 +1,3630 @@
+[
+ {
+  "title": "MacOS Emond Launch Daemon",
+  "id": "23c43900-e732-45a4-8354-63e4a6c187ce",
+  "level": "medium",
+  "description": "Detects additions to the Emond Launch Daemon that adversaries may use to gain persistence and elevate privileges.",
+  "tags": [
+   "attack.persistence",
+   "attack.privilege-escalation",
+   "attack.t1546.014"
+  ],
+  "category": "file_event",
+  "source": "unified_log",
+  "condition": {
+   "type": "or",
+   "children": [
+    {
+     "type": "and",
+     "children": [
+      {
+       "type": "field",
+       "field": "TargetFilename",
+       "operator": "exact",
+       "value": "*/etc/emond.d/rules/*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "TargetFilename",
+       "operator": "exact",
+       "value": "*.plist",
+       "ignore_case": true
+      }
+     ]
+    },
+    {
+     "type": "field",
+     "field": "TargetFilename",
+     "operator": "contains",
+     "value": "*/private/var/db/emondClients/*",
+     "ignore_case": true
+    }
+   ]
+  }
+ },
+ {
+  "title": "Startup Item File Created - MacOS",
+  "id": "dfe8b941-4e54-4242-b674-6b613d521962",
+  "level": "low",
+  "description": "Detects the creation of a startup item plist file, that automatically get executed at boot initialization to establish persistence. Adversaries may use startup items automatically executed at boot initialization to establish persistence. Startup items execute during the final phase of the boot proce",
+  "tags": [
+   "attack.persistence",
+   "attack.privilege-escalation",
+   "attack.t1037.005"
+  ],
+  "category": "file_event",
+  "source": "unified_log",
+  "condition": {
+   "type": "and",
+   "children": [
+    {
+     "type": "or",
+     "children": [
+      {
+       "type": "field",
+       "field": "TargetFilename",
+       "operator": "exact",
+       "value": "/Library/StartupItems/*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "TargetFilename",
+       "operator": "exact",
+       "value": "/System/Library/StartupItems*",
+       "ignore_case": true
+      }
+     ]
+    },
+    {
+     "type": "field",
+     "field": "TargetFilename",
+     "operator": "exact",
+     "value": "*.plist",
+     "ignore_case": true
+    }
+   ]
+  }
+ },
+ {
+  "title": "Decode Base64 Encoded Text -MacOs",
+  "id": "719c22d7-c11a-4f2c-93a6-2cfdd5412f68",
+  "level": "low",
+  "description": "Detects usage of base64 utility to decode arbitrary base64-encoded text",
+  "tags": [
+   "attack.stealth",
+   "attack.t1027"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "and",
+   "children": [
+    {
+     "type": "field",
+     "field": "Image",
+     "operator": "exact",
+     "value": "/usr/bin/base64",
+     "ignore_case": true
+    },
+    {
+     "type": "field",
+     "field": "CommandLine",
+     "operator": "exact",
+     "value": "*-d*",
+     "ignore_case": true
+    }
+   ]
+  }
+ },
+ {
+  "title": "Binary Padding - MacOS",
+  "id": "95361ce5-c891-4b0a-87ca-e24607884a96",
+  "level": "high",
+  "description": "Adversaries may use binary padding to add junk data and change the on-disk representation of malware. This rule detect using dd and truncate to add a junk data to file.",
+  "tags": [
+   "attack.stealth",
+   "attack.t1027.001"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "or",
+   "children": [
+    {
+     "type": "and",
+     "children": [
+      {
+       "type": "field",
+       "field": "Image",
+       "operator": "exact",
+       "value": "*/truncate",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*-s +*",
+       "ignore_case": true
+      }
+     ]
+    },
+    {
+     "type": "and",
+     "children": [
+      {
+       "type": "field",
+       "field": "Image",
+       "operator": "exact",
+       "value": "*/dd",
+       "ignore_case": true
+      },
+      {
+       "type": "or",
+       "children": [
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*if=/dev/zero*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*if=/dev/random*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*if=/dev/urandom*",
+         "ignore_case": true
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "title": "File Time Attribute Change",
+  "id": "88c0f9d8-30a8-4120-bb6b-ebb54abcf2a0",
+  "level": "medium",
+  "description": "Detect file time attribute change to hide new or changes to existing files",
+  "tags": [
+   "attack.stealth",
+   "attack.t1070.006"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "and",
+   "children": [
+    {
+     "type": "field",
+     "field": "Image",
+     "operator": "exact",
+     "value": "*/touch",
+     "ignore_case": true
+    },
+    {
+     "type": "or",
+     "children": [
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*-t*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*-acmr*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*-d*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*-r*",
+       "ignore_case": true
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "title": "Hidden Flag Set On File/Directory Via Chflags - MacOS",
+  "id": "3b2c1059-ae5f-40b6-b5d4-6106d3ac20fe",
+  "level": "medium",
+  "description": "Detects the execution of the \"chflags\" utility with the \"hidden\" flag, in order to hide files on MacOS. When a file or directory has this hidden flag set, it becomes invisible to the default file listing commands and in graphical file browsers.",
+  "tags": [
+   "attack.credential-access",
+   "attack.command-and-control",
+   "attack.stealth",
+   "attack.t1218",
+   "attack.t1564.004",
+   "attack.t1552.001",
+   "attack.t1105"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "and",
+   "children": [
+    {
+     "type": "field",
+     "field": "Image",
+     "operator": "exact",
+     "value": "*/chflags",
+     "ignore_case": true
+    },
+    {
+     "type": "field",
+     "field": "CommandLine",
+     "operator": "exact",
+     "value": "*hidden *",
+     "ignore_case": true
+    }
+   ]
+  }
+ },
+ {
+  "title": "Indicator Removal on Host - Clear Mac System Logs",
+  "id": "acf61bd8-d814-4272-81f0-a7a269aa69aa",
+  "level": "medium",
+  "description": "Detects deletion of local audit logs",
+  "tags": [
+   "attack.defense-impairment",
+   "attack.t1685.006"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "and",
+   "children": [
+    {
+     "type": "or",
+     "children": [
+      {
+       "type": "field",
+       "field": "Image",
+       "operator": "exact",
+       "value": "*/rm",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "Image",
+       "operator": "exact",
+       "value": "*/unlink",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "Image",
+       "operator": "exact",
+       "value": "*/shred",
+       "ignore_case": true
+      }
+     ]
+    },
+    {
+     "type": "or",
+     "children": [
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "contains",
+       "value": "*/var/log*",
+       "ignore_case": true
+      },
+      {
+       "type": "and",
+       "children": [
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*/Users/*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*/Library/Logs/*",
+         "ignore_case": true
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "title": "Creation Of A Local User Account",
+  "id": "51719bf5-e4fd-4e44-8ba8-b830e7ac0731",
+  "level": "low",
+  "description": "Detects the creation of a new user account. Such accounts may be used for persistence that do not require persistent remote access tools to be deployed on the system.",
+  "tags": [
+   "attack.t1136.001",
+   "attack.persistence"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "or",
+   "children": [
+    {
+     "type": "and",
+     "children": [
+      {
+       "type": "field",
+       "field": "Image",
+       "operator": "exact",
+       "value": "*/dscl",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*create*",
+       "ignore_case": true
+      }
+     ]
+    },
+    {
+     "type": "and",
+     "children": [
+      {
+       "type": "field",
+       "field": "Image",
+       "operator": "exact",
+       "value": "*/sysadminctl",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*addUser*",
+       "ignore_case": true
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "title": "Hidden User Creation",
+  "id": "b22a5b36-2431-493a-8be1-0bae56c28ef3",
+  "level": "medium",
+  "description": "Detects creation of a hidden user account on macOS (UserID < 500) or with IsHidden option",
+  "tags": [
+   "attack.stealth",
+   "attack.t1564.002"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "or",
+   "children": [
+    {
+     "type": "and",
+     "children": [
+      {
+       "type": "and",
+       "children": [
+        {
+         "type": "field",
+         "field": "Image",
+         "operator": "exact",
+         "value": "*/dscl",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*create*",
+         "ignore_case": true
+        }
+       ]
+      },
+      {
+       "type": "and",
+       "children": [
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*UniqueID*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "SigmaRegularExpression(regexp=SigmaString(['([0-9]|[1-9][0-9]|[1-4][0-9]{2})']), flags=set())",
+         "ignore_case": true
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "and",
+     "children": [
+      {
+       "type": "and",
+       "children": [
+        {
+         "type": "field",
+         "field": "Image",
+         "operator": "exact",
+         "value": "*/dscl",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*create*",
+         "ignore_case": true
+        }
+       ]
+      },
+      {
+       "type": "and",
+       "children": [
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "contains",
+         "value": "*IsHidden*",
+         "ignore_case": true
+        },
+        {
+         "type": "or",
+         "children": [
+          {
+           "type": "field",
+           "field": "CommandLine",
+           "operator": "exact",
+           "value": "*true*",
+           "ignore_case": true
+          },
+          {
+           "type": "field",
+           "field": "CommandLine",
+           "operator": "exact",
+           "value": "*yes*",
+           "ignore_case": true
+          },
+          {
+           "type": "field",
+           "field": "CommandLine",
+           "operator": "exact",
+           "value": "*1*",
+           "ignore_case": true
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "title": "Credentials from Password Stores - Keychain",
+  "id": "b120b587-a4c2-4b94-875d-99c9807d6955",
+  "level": "medium",
+  "description": "Detects passwords dumps from Keychain",
+  "tags": [
+   "attack.credential-access",
+   "attack.t1555.001"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "or",
+   "children": [
+    {
+     "type": "and",
+     "children": [
+      {
+       "type": "field",
+       "field": "Image",
+       "operator": "exact",
+       "value": "/usr/bin/security",
+       "ignore_case": true
+      },
+      {
+       "type": "or",
+       "children": [
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*find-certificate*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "* export *",
+         "ignore_case": true
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "or",
+     "children": [
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "* dump-keychain *",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "* login-keychain *",
+       "ignore_case": true
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "title": "System Integrity Protection (SIP) Disabled",
+  "id": "3603f18a-ec15-43a1-9af2-d196c8a7fec6",
+  "level": "medium",
+  "description": "Detects the use of csrutil to disable the Configure System Integrity Protection (SIP). This technique is used in post-exploit scenarios.",
+  "tags": [
+   "attack.discovery",
+   "attack.t1518.001"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "and",
+   "children": [
+    {
+     "type": "field",
+     "field": "Image",
+     "operator": "exact",
+     "value": "*/csrutil",
+     "ignore_case": true
+    },
+    {
+     "type": "field",
+     "field": "CommandLine",
+     "operator": "exact",
+     "value": "*disable*",
+     "ignore_case": true
+    }
+   ]
+  }
+ },
+ {
+  "title": "System Integrity Protection (SIP) Enumeration",
+  "id": "53821412-17b0-4147-ade0-14faae67d54b",
+  "level": "low",
+  "description": "Detects the use of csrutil to view the Configure System Integrity Protection (SIP) status. This technique is used in post-exploit scenarios.",
+  "tags": [
+   "attack.discovery",
+   "attack.t1518.001"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "and",
+   "children": [
+    {
+     "type": "field",
+     "field": "Image",
+     "operator": "exact",
+     "value": "*/csrutil",
+     "ignore_case": true
+    },
+    {
+     "type": "field",
+     "field": "CommandLine",
+     "operator": "exact",
+     "value": "*status*",
+     "ignore_case": true
+    }
+   ]
+  }
+ },
+ {
+  "title": "Disable Security Tools",
+  "id": "ff39f1a6-84ac-476f-a1af-37fcdf53d7c0",
+  "level": "medium",
+  "description": "Detects disabling security tools",
+  "tags": [
+   "attack.defense-impairment",
+   "attack.t1685"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "or",
+   "children": [
+    {
+     "type": "and",
+     "children": [
+      {
+       "type": "and",
+       "children": [
+        {
+         "type": "field",
+         "field": "Image",
+         "operator": "exact",
+         "value": "/bin/launchctl",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*unload*",
+         "ignore_case": true
+        }
+       ]
+      },
+      {
+       "type": "or",
+       "children": [
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*com.objective-see.lulu.plist*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*com.objective-see.blockblock.plist*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*com.google.santad.plist*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*com.carbonblack.defense.daemon.plist*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*com.carbonblack.daemon.plist*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*at.obdev.littlesnitchd.plist*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*com.tenablesecurity.nessusagent.plist*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*com.opendns.osx.RoamingClientConfigUpdater.plist*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*com.crowdstrike.falcond.plist*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*com.crowdstrike.userdaemon.plist*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*osquery*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*filebeat*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*auditbeat*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*packetbeat*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*td-agent*",
+         "ignore_case": true
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "and",
+     "children": [
+      {
+       "type": "field",
+       "field": "Image",
+       "operator": "exact",
+       "value": "/usr/sbin/spctl",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*disable*",
+       "ignore_case": true
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "title": "User Added To Admin Group Via Dscl",
+  "id": "b743623c-2776-40e0-87b1-682b975d0ca5",
+  "level": "medium",
+  "description": "Detects attempts to create and add an account to the admin group via \"dscl\"",
+  "tags": [
+   "attack.persistence",
+   "attack.initial-access",
+   "attack.privilege-escalation",
+   "attack.stealth",
+   "attack.t1078.003"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "and",
+   "children": [
+    {
+     "type": "field",
+     "field": "Image",
+     "operator": "exact",
+     "value": "*/dscl",
+     "ignore_case": true
+    },
+    {
+     "type": "and",
+     "children": [
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "* -append *",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "* /Groups/admin *",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "* GroupMembership *",
+       "ignore_case": true
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "title": "User Added To Admin Group Via DseditGroup",
+  "id": "5d0fdb62-f225-42fb-8402-3dfe64da468a",
+  "level": "medium",
+  "description": "Detects attempts to create and/or add an account to the admin group, thus granting admin privileges.",
+  "tags": [
+   "attack.persistence",
+   "attack.initial-access",
+   "attack.privilege-escalation",
+   "attack.stealth",
+   "attack.t1078.003"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "and",
+   "children": [
+    {
+     "type": "field",
+     "field": "Image",
+     "operator": "exact",
+     "value": "*/dseditgroup",
+     "ignore_case": true
+    },
+    {
+     "type": "and",
+     "children": [
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "* -o edit *",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "* -a *",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "* -t user*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*admin*",
+       "ignore_case": true
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "title": "Root Account Enable Via Dsenableroot",
+  "id": "821bcf4d-46c7-4b87-bc57-9509d3ba7c11",
+  "level": "medium",
+  "description": "Detects attempts to enable the root account via \"dsenableroot\"",
+  "tags": [
+   "attack.privilege-escalation",
+   "attack.stealth",
+   "attack.t1078",
+   "attack.t1078.001",
+   "attack.t1078.003",
+   "attack.initial-access",
+   "attack.persistence"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "and",
+   "children": [
+    {
+     "type": "field",
+     "field": "Image",
+     "operator": "endswith",
+     "value": "*/dsenableroot",
+     "ignore_case": true
+    },
+    {
+     "type": "not",
+     "child": {
+      "type": "field",
+      "field": "CommandLine",
+      "operator": "contains",
+      "value": "* -d *",
+      "ignore_case": true
+     }
+    }
+   ]
+  }
+ },
+ {
+  "title": "File and Directory Discovery - MacOS",
+  "id": "089dbdf6-b960-4bcc-90e3-ffc3480c20f6",
+  "level": "informational",
+  "description": "Detects usage of system utilities to discover files and directories",
+  "tags": [
+   "attack.discovery",
+   "attack.t1083"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "or",
+   "children": [
+    {
+     "type": "and",
+     "children": [
+      {
+       "type": "field",
+       "field": "Image",
+       "operator": "exact",
+       "value": "/usr/bin/file",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "SigmaRegularExpression(regexp=SigmaString(['(.){200,}']), flags=set())",
+       "ignore_case": true
+      }
+     ]
+    },
+    {
+     "type": "and",
+     "children": [
+      {
+       "type": "field",
+       "field": "Image",
+       "operator": "exact",
+       "value": "/bin/ls",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*-R*",
+       "ignore_case": true
+      }
+     ]
+    },
+    {
+     "type": "field",
+     "field": "Image",
+     "operator": "exact",
+     "value": "/usr/bin/find",
+     "ignore_case": true
+    },
+    {
+     "type": "field",
+     "field": "Image",
+     "operator": "exact",
+     "value": "/usr/bin/mdfind",
+     "ignore_case": true
+    },
+    {
+     "type": "field",
+     "field": "Image",
+     "operator": "exact",
+     "value": "/tree",
+     "ignore_case": true
+    }
+   ]
+  }
+ },
+ {
+  "title": "Credentials In Files",
+  "id": "53b1b378-9b06-4992-b972-dde6e423d2b4",
+  "level": "high",
+  "description": "Detecting attempts to extract passwords with grep and laZagne",
+  "tags": [
+   "attack.credential-access",
+   "attack.t1552.001"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "or",
+   "children": [
+    {
+     "type": "and",
+     "children": [
+      {
+       "type": "field",
+       "field": "Image",
+       "operator": "exact",
+       "value": "*/grep",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*password*",
+       "ignore_case": true
+      }
+     ]
+    },
+    {
+     "type": "field",
+     "field": "CommandLine",
+     "operator": "contains",
+     "value": "*laZagne*",
+     "ignore_case": true
+    }
+   ]
+  }
+ },
+ {
+  "title": "GUI Input Capture - macOS",
+  "id": "60f1ce20-484e-41bd-85f4-ac4afec2c541",
+  "level": "low",
+  "description": "Detects attempts to use system dialog prompts to capture user credentials",
+  "tags": [
+   "attack.collection",
+   "attack.credential-access",
+   "attack.t1056.002"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "and",
+   "children": [
+    {
+     "type": "field",
+     "field": "Image",
+     "operator": "endswith",
+     "value": "*/osascript",
+     "ignore_case": true
+    },
+    {
+     "type": "and",
+     "children": [
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*-e*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*display*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*dialog*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*answer*",
+       "ignore_case": true
+      }
+     ]
+    },
+    {
+     "type": "or",
+     "children": [
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*admin*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*administrator*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*authenticate*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*authentication*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*credentials*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*pass*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*password*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*unlock*",
+       "ignore_case": true
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "title": "Disk Image Creation Via Hdiutil - MacOS",
+  "id": "1cf98dc2-fcb0-47c9-8aea-654c9284d1ae",
+  "level": "medium",
+  "description": "Detects the execution of the hdiutil utility in order to create a disk image.",
+  "tags": [
+   "attack.exfiltration"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "and",
+   "children": [
+    {
+     "type": "field",
+     "field": "Image",
+     "operator": "exact",
+     "value": "*/hdiutil",
+     "ignore_case": true
+    },
+    {
+     "type": "field",
+     "field": "CommandLine",
+     "operator": "exact",
+     "value": "*create*",
+     "ignore_case": true
+    }
+   ]
+  }
+ },
+ {
+  "title": "Disk Image Mounting Via Hdiutil - MacOS",
+  "id": "bf241472-f014-4f01-a869-96f99330ca8c",
+  "level": "medium",
+  "description": "Detects the execution of the hdiutil utility in order to mount disk images.",
+  "tags": [
+   "attack.initial-access",
+   "attack.collection",
+   "attack.t1566.001",
+   "attack.t1560.001"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "and",
+   "children": [
+    {
+     "type": "field",
+     "field": "Image",
+     "operator": "exact",
+     "value": "*/hdiutil",
+     "ignore_case": true
+    },
+    {
+     "type": "or",
+     "children": [
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*attach *",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*mount *",
+       "ignore_case": true
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "title": "System Information Discovery Using Ioreg",
+  "id": "2d5e7a8b-f484-4a24-945d-7f0efd52eab0",
+  "level": "medium",
+  "description": "Detects the use of \"ioreg\" which will show I/O Kit registry information. This process is used for system information discovery. It has been observed in-the-wild by calling this process directly or using bash and grep to look for specific strings.",
+  "tags": [
+   "attack.discovery",
+   "attack.t1082"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "and",
+   "children": [
+    {
+     "type": "or",
+     "children": [
+      {
+       "type": "field",
+       "field": "Image",
+       "operator": "exact",
+       "value": "*/ioreg",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*ioreg*",
+       "ignore_case": true
+      }
+     ]
+    },
+    {
+     "type": "or",
+     "children": [
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*-l*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*-c*",
+       "ignore_case": true
+      }
+     ]
+    },
+    {
+     "type": "or",
+     "children": [
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*AppleAHCIDiskDriver*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*IOPlatformExpertDevice*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*Oracle*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*Parallels*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*USB Vendor Name*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*VirtualBox*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*VMware*",
+       "ignore_case": true
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "title": "JAMF MDM Execution",
+  "id": "be2e3a5c-9cc7-4d02-842a-68e9cb26ec49",
+  "level": "low",
+  "description": "Detects execution of the \"jamf\" binary to create user accounts and run commands. For example, the binary can be abused by attackers on the system in order to bypass security controls or remove application control polices.",
+  "tags": [
+   "attack.execution"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "and",
+   "children": [
+    {
+     "type": "field",
+     "field": "Image",
+     "operator": "exact",
+     "value": "*/jamf",
+     "ignore_case": true
+    },
+    {
+     "type": "or",
+     "children": [
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*createAccount*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*manage*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*removeFramework*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*removeMdmProfile*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*resetPassword*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*setComputerName*",
+       "ignore_case": true
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "title": "JXA In-memory Execution Via OSAScript",
+  "id": "f1408a58-0e94-4165-b80a-da9f96cf6fc3",
+  "level": "high",
+  "description": "Detects possible malicious execution of JXA in-memory via OSAScript",
+  "tags": [
+   "attack.t1059.002",
+   "attack.t1059.007",
+   "attack.execution"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "and",
+   "children": [
+    {
+     "type": "and",
+     "children": [
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*osascript*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "* -e *",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*eval*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*NSData.dataWithContentsOfURL*",
+       "ignore_case": true
+      }
+     ]
+    },
+    {
+     "type": "or",
+     "children": [
+      {
+       "type": "and",
+       "children": [
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "* -l *",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*JavaScript*",
+         "ignore_case": true
+        }
+       ]
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*.js*",
+       "ignore_case": true
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "title": "Launch Agent/Daemon Execution Via Launchctl",
+  "id": "ae9d710f-dcd1-4f75-a0a5-93a73b5dda0e",
+  "level": "medium",
+  "description": "Detects the execution of programs as Launch Agents or Launch Daemons using launchctl on macOS.",
+  "tags": [
+   "attack.privilege-escalation",
+   "attack.execution",
+   "attack.persistence",
+   "attack.t1569.001",
+   "attack.t1543.001",
+   "attack.t1543.004"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "and",
+   "children": [
+    {
+     "type": "field",
+     "field": "Image",
+     "operator": "exact",
+     "value": "*/launchctl",
+     "ignore_case": true
+    },
+    {
+     "type": "or",
+     "children": [
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*submit*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*load*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*start*",
+       "ignore_case": true
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "title": "Local System Accounts Discovery - MacOs",
+  "id": "ddf36b67-e872-4507-ab2e-46bda21b842c",
+  "level": "low",
+  "description": "Detects enumeration of local systeam accounts on MacOS",
+  "tags": [
+   "attack.discovery",
+   "attack.t1087.001"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "or",
+   "children": [
+    {
+     "type": "and",
+     "children": [
+      {
+       "type": "field",
+       "field": "Image",
+       "operator": "exact",
+       "value": "*/dscl",
+       "ignore_case": true
+      },
+      {
+       "type": "and",
+       "children": [
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*list*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*/users*",
+         "ignore_case": true
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "and",
+     "children": [
+      {
+       "type": "field",
+       "field": "Image",
+       "operator": "exact",
+       "value": "*/dscacheutil",
+       "ignore_case": true
+      },
+      {
+       "type": "and",
+       "children": [
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*-q*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*user*",
+         "ignore_case": true
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "field",
+     "field": "CommandLine",
+     "operator": "contains",
+     "value": "*'x:0:'*",
+     "ignore_case": true
+    },
+    {
+     "type": "and",
+     "children": [
+      {
+       "type": "field",
+       "field": "Image",
+       "operator": "exact",
+       "value": "*/cat",
+       "ignore_case": true
+      },
+      {
+       "type": "or",
+       "children": [
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*/etc/passwd*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*/etc/sudoers*",
+         "ignore_case": true
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "field",
+     "field": "Image",
+     "operator": "endswith",
+     "value": "*/id",
+     "ignore_case": true
+    },
+    {
+     "type": "and",
+     "children": [
+      {
+       "type": "field",
+       "field": "Image",
+       "operator": "exact",
+       "value": "*/lsof",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*-u*",
+       "ignore_case": true
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "title": "Local Groups Discovery - MacOs",
+  "id": "89bb1f97-c7b9-40e8-b52b-7d6afbd67276",
+  "level": "informational",
+  "description": "Detects enumeration of local system groups",
+  "tags": [
+   "attack.discovery",
+   "attack.t1069.001"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "or",
+   "children": [
+    {
+     "type": "and",
+     "children": [
+      {
+       "type": "field",
+       "field": "Image",
+       "operator": "exact",
+       "value": "*/dscacheutil",
+       "ignore_case": true
+      },
+      {
+       "type": "and",
+       "children": [
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*-q*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*group*",
+         "ignore_case": true
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "and",
+     "children": [
+      {
+       "type": "field",
+       "field": "Image",
+       "operator": "exact",
+       "value": "*/cat",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*/etc/group*",
+       "ignore_case": true
+      }
+     ]
+    },
+    {
+     "type": "and",
+     "children": [
+      {
+       "type": "field",
+       "field": "Image",
+       "operator": "exact",
+       "value": "*/dscl",
+       "ignore_case": true
+      },
+      {
+       "type": "and",
+       "children": [
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*-list*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*/groups*",
+         "ignore_case": true
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "title": "MacOS Network Service Scanning",
+  "id": "84bae5d4-b518-4ae0-b331-6d4afd34d00f",
+  "level": "low",
+  "description": "Detects enumeration of local or remote network services.",
+  "tags": [
+   "attack.discovery",
+   "attack.t1046"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "or",
+   "children": [
+    {
+     "type": "and",
+     "children": [
+      {
+       "type": "or",
+       "children": [
+        {
+         "type": "field",
+         "field": "Image",
+         "operator": "exact",
+         "value": "*/nc",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "Image",
+         "operator": "exact",
+         "value": "*/netcat",
+         "ignore_case": true
+        }
+       ]
+      },
+      {
+       "type": "not",
+       "child": {
+        "type": "field",
+        "field": "CommandLine",
+        "operator": "contains",
+        "value": "*l*",
+        "ignore_case": true
+       }
+      }
+     ]
+    },
+    {
+     "type": "or",
+     "children": [
+      {
+       "type": "field",
+       "field": "Image",
+       "operator": "exact",
+       "value": "*/nmap",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "Image",
+       "operator": "exact",
+       "value": "*/telnet",
+       "ignore_case": true
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "title": "Network Sniffing - MacOs",
+  "id": "adc9bcc4-c39c-4f6b-a711-1884017bf043",
+  "level": "informational",
+  "description": "Detects the usage of tooling to sniff network traffic. An adversary may place a network interface into promiscuous mode to passively access data in transit over the network, or use span ports to capture a larger amount of data.",
+  "tags": [
+   "attack.discovery",
+   "attack.credential-access",
+   "attack.t1040"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "or",
+   "children": [
+    {
+     "type": "field",
+     "field": "Image",
+     "operator": "exact",
+     "value": "*/tcpdump",
+     "ignore_case": true
+    },
+    {
+     "type": "field",
+     "field": "Image",
+     "operator": "exact",
+     "value": "*/tshark",
+     "ignore_case": true
+    }
+   ]
+  }
+ },
+ {
+  "title": "File Download Via Nscurl - MacOS",
+  "id": "6d8a7cf1-8085-423b-b87d-7e880faabbdf",
+  "level": "medium",
+  "description": "Detects the execution of the nscurl utility in order to download files.",
+  "tags": [
+   "attack.command-and-control",
+   "attack.t1105"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "and",
+   "children": [
+    {
+     "type": "field",
+     "field": "Image",
+     "operator": "exact",
+     "value": "*/nscurl",
+     "ignore_case": true
+    },
+    {
+     "type": "or",
+     "children": [
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*--download *",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*--download-directory *",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*--output *",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*-dir *",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*-dl *",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*-ld*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*-o *",
+       "ignore_case": true
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "title": "OSACompile Run-Only Execution",
+  "id": "b9d9b652-d8ed-4697-89a2-a1186ee680ac",
+  "level": "high",
+  "description": "Detects potential suspicious run-only executions compiled using OSACompile",
+  "tags": [
+   "attack.t1059.002",
+   "attack.execution"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "and",
+   "children": [
+    {
+     "type": "field",
+     "field": "CommandLine",
+     "operator": "exact",
+     "value": "*osacompile*",
+     "ignore_case": true
+    },
+    {
+     "type": "field",
+     "field": "CommandLine",
+     "operator": "exact",
+     "value": "* -x *",
+     "ignore_case": true
+    },
+    {
+     "type": "field",
+     "field": "CommandLine",
+     "operator": "exact",
+     "value": "* -e *",
+     "ignore_case": true
+    }
+   ]
+  }
+ },
+ {
+  "title": "Payload Decoded and Decrypted via Built-in Utilities",
+  "id": "234dc5df-40b5-49d1-bf53-0d44ce778eca",
+  "level": "medium",
+  "description": "Detects when a built-in utility is used to decode and decrypt a payload after a macOS disk image (DMG) is executed. Malware authors may attempt to evade detection and trick users into executing malicious code by encoding and encrypting their payload and placing it in a disk image file. This behavior",
+  "tags": [
+   "attack.stealth",
+   "attack.t1059",
+   "attack.t1204",
+   "attack.execution",
+   "attack.t1140",
+   "attack.s0482",
+   "attack.s0402"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "and",
+   "children": [
+    {
+     "type": "field",
+     "field": "Image",
+     "operator": "exact",
+     "value": "*/openssl",
+     "ignore_case": true
+    },
+    {
+     "type": "and",
+     "children": [
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*/Volumes/*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*enc*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*-base64*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "* -d *",
+       "ignore_case": true
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "title": "Potential Persistence Via PlistBuddy",
+  "id": "65d506d3-fcfe-4071-b4b2-bcefe721bbbb",
+  "level": "high",
+  "description": "Detects potential persistence activity using LaunchAgents or LaunchDaemons via the PlistBuddy utility",
+  "tags": [
+   "attack.privilege-escalation",
+   "attack.persistence",
+   "attack.t1543.001",
+   "attack.t1543.004"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "and",
+   "children": [
+    {
+     "type": "field",
+     "field": "Image",
+     "operator": "exact",
+     "value": "*/PlistBuddy",
+     "ignore_case": true
+    },
+    {
+     "type": "and",
+     "children": [
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*RunAtLoad*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*true*",
+       "ignore_case": true
+      }
+     ]
+    },
+    {
+     "type": "or",
+     "children": [
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*LaunchAgents*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*LaunchDaemons*",
+       "ignore_case": true
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "title": "Remote Access Tool - Potential MeshAgent Execution - MacOS",
+  "id": "22c45af6-f590-4d44-bab3-b5b2d2a2b6d9",
+  "level": "medium",
+  "description": "Detects potential execution of MeshAgent which is a tool used for remote access. Historical data shows that threat actors rename MeshAgent binary to evade detection. Matching command lines with the '--meshServiceName' argument can indicate that the MeshAgent is being used for remote access.",
+  "tags": [
+   "attack.command-and-control",
+   "attack.t1219.002"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "field",
+   "field": "CommandLine",
+   "operator": "contains",
+   "value": "*--meshServiceName*",
+   "ignore_case": true
+  }
+ },
+ {
+  "title": "Macos Remote System Discovery",
+  "id": "10227522-8429-47e6-a301-f2b2d014e7ad",
+  "level": "informational",
+  "description": "Detects the enumeration of other remote systems.",
+  "tags": [
+   "attack.discovery",
+   "attack.t1018"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "or",
+   "children": [
+    {
+     "type": "and",
+     "children": [
+      {
+       "type": "field",
+       "field": "Image",
+       "operator": "exact",
+       "value": "*/arp",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*-a*",
+       "ignore_case": true
+      }
+     ]
+    },
+    {
+     "type": "and",
+     "children": [
+      {
+       "type": "field",
+       "field": "Image",
+       "operator": "exact",
+       "value": "*/ping",
+       "ignore_case": true
+      },
+      {
+       "type": "or",
+       "children": [
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "* 10.*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "* 192.168.*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "* 172.16.*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "* 172.17.*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "* 172.18.*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "* 172.19.*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "* 172.20.*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "* 172.21.*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "* 172.22.*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "* 172.23.*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "* 172.24.*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "* 172.25.*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "* 172.26.*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "* 172.27.*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "* 172.28.*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "* 172.29.*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "* 172.30.*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "* 172.31.*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "* 127.*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "* 169.254.*",
+         "ignore_case": true
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "title": "Scheduled Cron Task/Job - MacOs",
+  "id": "7c3b43d8-d794-47d2-800a-d277715aa460",
+  "level": "medium",
+  "description": "Detects abuse of the cron utility to perform task scheduling for initial or recurring execution of malicious code. Detection will focus on crontab jobs uploaded from the tmp folder.",
+  "tags": [
+   "attack.execution",
+   "attack.persistence",
+   "attack.privilege-escalation",
+   "attack.t1053.003"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "and",
+   "children": [
+    {
+     "type": "field",
+     "field": "Image",
+     "operator": "exact",
+     "value": "*/crontab",
+     "ignore_case": true
+    },
+    {
+     "type": "field",
+     "field": "CommandLine",
+     "operator": "exact",
+     "value": "*/tmp/*",
+     "ignore_case": true
+    }
+   ]
+  }
+ },
+ {
+  "title": "Screen Capture - macOS",
+  "id": "0877ed01-da46-4c49-8476-d49cdd80dfa7",
+  "level": "low",
+  "description": "Detects attempts to use screencapture to collect macOS screenshots",
+  "tags": [
+   "attack.collection",
+   "attack.t1113"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "field",
+   "field": "Image",
+   "operator": "exact",
+   "value": "/usr/sbin/screencapture",
+   "ignore_case": true
+  }
+ },
+ {
+  "title": "Security Software Discovery - MacOs",
+  "id": "0ed75b9c-c73b-424d-9e7d-496cd565fbe0",
+  "level": "medium",
+  "description": "Detects usage of system utilities (only grep for now) to discover security software discovery",
+  "tags": [
+   "attack.discovery",
+   "attack.t1518.001"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "and",
+   "children": [
+    {
+     "type": "field",
+     "field": "Image",
+     "operator": "exact",
+     "value": "/usr/bin/grep",
+     "ignore_case": true
+    },
+    {
+     "type": "or",
+     "children": [
+      {
+       "type": "or",
+       "children": [
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*nessusd*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*santad*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*CbDefense*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*falcond*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*td-agent*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*packetbeat*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*filebeat*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*auditbeat*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*osqueryd*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*BlockBlock*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*LuLu*",
+         "ignore_case": true
+        }
+       ]
+      },
+      {
+       "type": "and",
+       "children": [
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*Little*",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*Snitch*",
+         "ignore_case": true
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "title": "Space After Filename - macOS",
+  "id": "b6e2a2e3-2d30-43b1-a4ea-071e36595690",
+  "level": "low",
+  "description": "Detects attempts to masquerade as legitimate files by adding a space to the end of the filename.",
+  "tags": [
+   "attack.stealth",
+   "attack.t1036.006"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "or",
+   "children": [
+    {
+     "type": "field",
+     "field": "CommandLine",
+     "operator": "endswith",
+     "value": "* ",
+     "ignore_case": true
+    },
+    {
+     "type": "field",
+     "field": "Image",
+     "operator": "endswith",
+     "value": "* ",
+     "ignore_case": true
+    }
+   ]
+  }
+ },
+ {
+  "title": "Split A File Into Pieces",
+  "id": "7f2bb9d5-6395-4de5-969c-70c11fbe6b12",
+  "level": "low",
+  "description": "Detection use of the command \"split\" to split files into parts and possible transfer.",
+  "tags": [
+   "attack.exfiltration",
+   "attack.t1030"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "field",
+   "field": "Image",
+   "operator": "endswith",
+   "value": "*/split",
+   "ignore_case": true
+  }
+ },
+ {
+  "title": "Potential Discovery Activity Using Find - MacOS",
+  "id": "85de3a19-b675-4a51-bfc6-b11a5186c971",
+  "level": "medium",
+  "description": "Detects usage of \"find\" binary in a suspicious manner to perform discovery",
+  "tags": [
+   "attack.discovery",
+   "attack.t1083"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "and",
+   "children": [
+    {
+     "type": "field",
+     "field": "Image",
+     "operator": "exact",
+     "value": "*/find",
+     "ignore_case": true
+    },
+    {
+     "type": "or",
+     "children": [
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*-perm -4000*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*-perm -2000*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*-perm 0777*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*-perm -222*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*-perm -o w*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*-perm -o x*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*-perm -u=s*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*-perm -g=s*",
+       "ignore_case": true
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "title": "Suspicious History File Operations",
+  "id": "508a9374-ad52-4789-b568-fc358def2c65",
+  "level": "medium",
+  "description": "Detects commandline operations on shell history files",
+  "tags": [
+   "attack.credential-access",
+   "attack.t1552.003"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "or",
+   "children": [
+    {
+     "type": "field",
+     "field": "CommandLine",
+     "operator": "exact",
+     "value": "*.bash_history*",
+     "ignore_case": true
+    },
+    {
+     "type": "field",
+     "field": "CommandLine",
+     "operator": "exact",
+     "value": "*.zsh_history*",
+     "ignore_case": true
+    },
+    {
+     "type": "field",
+     "field": "CommandLine",
+     "operator": "exact",
+     "value": "*.zhistory*",
+     "ignore_case": true
+    },
+    {
+     "type": "field",
+     "field": "CommandLine",
+     "operator": "exact",
+     "value": "*.history*",
+     "ignore_case": true
+    },
+    {
+     "type": "field",
+     "field": "CommandLine",
+     "operator": "exact",
+     "value": "*.sh_history*",
+     "ignore_case": true
+    },
+    {
+     "type": "field",
+     "field": "CommandLine",
+     "operator": "exact",
+     "value": "*fish_history*",
+     "ignore_case": true
+    }
+   ]
+  }
+ },
+ {
+  "title": "Potential In-Memory Download And Compile Of Payloads",
+  "id": "13db8d2e-7723-4c2c-93c1-a4d36994f7ef",
+  "level": "medium",
+  "description": "Detects potential in-memory downloading and compiling of applets using curl and osacompile as seen used by XCSSET malware",
+  "tags": [
+   "attack.command-and-control",
+   "attack.execution",
+   "attack.t1059.007",
+   "attack.t1105"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "and",
+   "children": [
+    {
+     "type": "field",
+     "field": "CommandLine",
+     "operator": "exact",
+     "value": "*osacompile*",
+     "ignore_case": true
+    },
+    {
+     "type": "field",
+     "field": "CommandLine",
+     "operator": "exact",
+     "value": "*curl*",
+     "ignore_case": true
+    }
+   ]
+  }
+ },
+ {
+  "title": "Suspicious MacOS Firmware Activity",
+  "id": "7ed2c9f7-c59d-4c82-a7e2-f859aa676099",
+  "level": "medium",
+  "description": "Detects when a user manipulates with Firmward Password on MacOS. NOTE - this command has been disabled on silicon-based apple computers.",
+  "tags": [
+   "attack.impact"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "and",
+   "children": [
+    {
+     "type": "field",
+     "field": "Image",
+     "operator": "exact",
+     "value": "/usr/sbin/firmwarepasswd",
+     "ignore_case": true
+    },
+    {
+     "type": "or",
+     "children": [
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*setpasswd*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*full*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*delete*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*check*",
+       "ignore_case": true
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "title": "System Information Discovery Using sw_vers",
+  "id": "5de06a6f-673a-4fc0-8d48-bcfe3837b033",
+  "level": "medium",
+  "description": "Detects the use of \"sw_vers\" for system information discovery",
+  "tags": [
+   "attack.discovery",
+   "attack.t1082"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "and",
+   "children": [
+    {
+     "type": "field",
+     "field": "Image",
+     "operator": "endswith",
+     "value": "*/sw_vers",
+     "ignore_case": true
+    },
+    {
+     "type": "or",
+     "children": [
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*-buildVersion*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*-productName*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*-productVersion*",
+       "ignore_case": true
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "title": "User Added To Admin Group Via Sysadminctl",
+  "id": "652c098d-dc11-4ba6-8566-c20e89042f2b",
+  "level": "medium",
+  "description": "Detects attempts to create and add an account to the admin group via \"sysadminctl\"",
+  "tags": [
+   "attack.persistence",
+   "attack.initial-access",
+   "attack.privilege-escalation",
+   "attack.stealth",
+   "attack.t1078.003"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "and",
+   "children": [
+    {
+     "type": "field",
+     "field": "Image",
+     "operator": "exact",
+     "value": "*/sysadminctl",
+     "ignore_case": true
+    },
+    {
+     "type": "and",
+     "children": [
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "* -addUser *",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "* -admin *",
+       "ignore_case": true
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "title": "Guest Account Enabled Via Sysadminctl",
+  "id": "d7329412-13bd-44ba-a072-3387f804a106",
+  "level": "low",
+  "description": "Detects attempts to enable the guest account using the sysadminctl utility",
+  "tags": [
+   "attack.privilege-escalation",
+   "attack.persistence",
+   "attack.initial-access",
+   "attack.stealth",
+   "attack.t1078",
+   "attack.t1078.001"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "and",
+   "children": [
+    {
+     "type": "field",
+     "field": "Image",
+     "operator": "exact",
+     "value": "*/sysadminctl",
+     "ignore_case": true
+    },
+    {
+     "type": "and",
+     "children": [
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "* -guestAccount*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "* on*",
+       "ignore_case": true
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "title": "System Information Discovery Via Sysctl - MacOS",
+  "id": "6ff08e55-ea53-4f27-94a1-eff92e6d9d5c",
+  "level": "medium",
+  "description": "Detects the execution of \"sysctl\" with specific arguments that have been used by threat actors and malware. It provides system hardware information. This process is primarily used to detect and avoid virtualization and analysis environments.",
+  "tags": [
+   "attack.stealth",
+   "attack.t1497.001",
+   "attack.discovery",
+   "attack.t1082"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "and",
+   "children": [
+    {
+     "type": "or",
+     "children": [
+      {
+       "type": "field",
+       "field": "Image",
+       "operator": "exact",
+       "value": "*/sysctl",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*sysctl*",
+       "ignore_case": true
+      }
+     ]
+    },
+    {
+     "type": "or",
+     "children": [
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*hw.*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*kern.*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*machdep.*",
+       "ignore_case": true
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "title": "System Network Connections Discovery - MacOs",
+  "id": "9a7a0393-2144-4626-9bf1-7c2f5a7321db",
+  "level": "informational",
+  "description": "Detects usage of system utilities to discover system network connections",
+  "tags": [
+   "attack.discovery",
+   "attack.t1049"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "or",
+   "children": [
+    {
+     "type": "field",
+     "field": "Image",
+     "operator": "exact",
+     "value": "*/who",
+     "ignore_case": true
+    },
+    {
+     "type": "field",
+     "field": "Image",
+     "operator": "exact",
+     "value": "*/w",
+     "ignore_case": true
+    },
+    {
+     "type": "field",
+     "field": "Image",
+     "operator": "exact",
+     "value": "*/last",
+     "ignore_case": true
+    },
+    {
+     "type": "field",
+     "field": "Image",
+     "operator": "exact",
+     "value": "*/lsof",
+     "ignore_case": true
+    },
+    {
+     "type": "field",
+     "field": "Image",
+     "operator": "exact",
+     "value": "*/netstat",
+     "ignore_case": true
+    }
+   ]
+  }
+ },
+ {
+  "title": "System Information Discovery Using System_Profiler",
+  "id": "4809c683-059b-4935-879d-36835986f8cf",
+  "level": "medium",
+  "description": "Detects the execution of \"system_profiler\" with specific \"Data Types\" that have been seen being used by threat actors and malware. It provides system hardware and software configuration information. This process is primarily used for system information discovery. However, \"system_profiler\" can also ",
+  "tags": [
+   "attack.discovery",
+   "attack.stealth",
+   "attack.t1082",
+   "attack.t1497.001"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "and",
+   "children": [
+    {
+     "type": "or",
+     "children": [
+      {
+       "type": "field",
+       "field": "Image",
+       "operator": "exact",
+       "value": "*/system_profiler",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*system_profiler*",
+       "ignore_case": true
+      }
+     ]
+    },
+    {
+     "type": "or",
+     "children": [
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*SPApplicationsDataType*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*SPHardwareDataType*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*SPNetworkDataType*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*SPUSBDataType*",
+       "ignore_case": true
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "title": "System Shutdown/Reboot - MacOs",
+  "id": "40b1fbe2-18ea-4ee7-be47-0294285811de",
+  "level": "informational",
+  "description": "Adversaries may shutdown/reboot systems to interrupt access to, or aid in the destruction of, those systems.",
+  "tags": [
+   "attack.impact",
+   "attack.t1529"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "or",
+   "children": [
+    {
+     "type": "field",
+     "field": "Image",
+     "operator": "exact",
+     "value": "*/shutdown",
+     "ignore_case": true
+    },
+    {
+     "type": "field",
+     "field": "Image",
+     "operator": "exact",
+     "value": "*/reboot",
+     "ignore_case": true
+    },
+    {
+     "type": "field",
+     "field": "Image",
+     "operator": "exact",
+     "value": "*/halt",
+     "ignore_case": true
+    }
+   ]
+  }
+ },
+ {
+  "title": "Potential Base64 Decoded From Images",
+  "id": "09a910bf-f71f-4737-9c40-88880ba5913d",
+  "level": "high",
+  "description": "Detects the use of tail to extract bytes at an offset from an image and then decode the base64 value to create a new file with the decoded content. The detected execution is a bash one-liner.",
+  "tags": [
+   "attack.stealth",
+   "attack.t1140"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "and",
+   "children": [
+    {
+     "type": "field",
+     "field": "Image",
+     "operator": "endswith",
+     "value": "*/bash",
+     "ignore_case": true
+    },
+    {
+     "type": "and",
+     "children": [
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*tail*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*-c*",
+       "ignore_case": true
+      }
+     ]
+    },
+    {
+     "type": "and",
+     "children": [
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*base64*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*-d*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*>*",
+       "ignore_case": true
+      }
+     ]
+    },
+    {
+     "type": "or",
+     "children": [
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*.avif*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*.gif*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*.jfif*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*.jpeg*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*.jpg*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*.pjp*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*.pjpeg*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*.png*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*.svg*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*.webp*",
+       "ignore_case": true
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "title": "Time Machine Backup Deletion Attempt Via Tmutil - MacOS",
+  "id": "452df256-da78-427a-866f-49fa04417d74",
+  "level": "medium",
+  "description": "Detects deletion attempts of MacOS Time Machine backups via the native backup utility \"tmutil\". An adversary may perform this action before launching a ransonware attack to prevent the victim from restoring their files.",
+  "tags": [
+   "attack.impact",
+   "attack.t1490"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "and",
+   "children": [
+    {
+     "type": "or",
+     "children": [
+      {
+       "type": "field",
+       "field": "Image",
+       "operator": "exact",
+       "value": "*/tmutil",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*tmutil*",
+       "ignore_case": true
+      }
+     ]
+    },
+    {
+     "type": "field",
+     "field": "CommandLine",
+     "operator": "contains",
+     "value": "*delete*",
+     "ignore_case": true
+    }
+   ]
+  }
+ },
+ {
+  "title": "Time Machine Backup Disabled Via Tmutil - MacOS",
+  "id": "2c95fa8a-8b8d-4787-afce-7117ceb8e3da",
+  "level": "medium",
+  "description": "Detects disabling of Time Machine (Apple's automated backup utility software) via the native macOS backup utility \"tmutil\". An attacker can use this to prevent backups from occurring.",
+  "tags": [
+   "attack.impact",
+   "attack.t1490"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "and",
+   "children": [
+    {
+     "type": "or",
+     "children": [
+      {
+       "type": "field",
+       "field": "Image",
+       "operator": "exact",
+       "value": "*/tmutil",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*tmutil*",
+       "ignore_case": true
+      }
+     ]
+    },
+    {
+     "type": "field",
+     "field": "CommandLine",
+     "operator": "contains",
+     "value": "*disable*",
+     "ignore_case": true
+    }
+   ]
+  }
+ },
+ {
+  "title": "New File Exclusion Added To Time Machine Via Tmutil - MacOS",
+  "id": "9acf45ed-3a26-4062-bf08-56857613eb52",
+  "level": "medium",
+  "description": "Detects the addition of a new file or path exclusion to MacOS Time Machine via the \"tmutil\" utility. An adversary could exclude a path from Time Machine backups to prevent certain files from being backed up.",
+  "tags": [
+   "attack.impact",
+   "attack.t1490"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "and",
+   "children": [
+    {
+     "type": "or",
+     "children": [
+      {
+       "type": "field",
+       "field": "Image",
+       "operator": "exact",
+       "value": "*/tmutil",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*tmutil*",
+       "ignore_case": true
+      }
+     ]
+    },
+    {
+     "type": "field",
+     "field": "CommandLine",
+     "operator": "contains",
+     "value": "*addexclusion*",
+     "ignore_case": true
+    }
+   ]
+  }
+ },
+ {
+  "title": "Potential WizardUpdate Malware Infection",
+  "id": "f68c4a4f-19ef-4817-952c-50dce331f4b0",
+  "level": "high",
+  "description": "Detects the execution traces of the WizardUpdate malware. WizardUpdate is a macOS trojan that attempts to infiltrate macOS machines to steal data and it is associated with other types of malicious payloads, increasing the chances of multiple infections on a device.",
+  "tags": [
+   "attack.command-and-control"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "or",
+   "children": [
+    {
+     "type": "and",
+     "children": [
+      {
+       "type": "field",
+       "field": "Image",
+       "operator": "exact",
+       "value": "*/sh",
+       "ignore_case": true
+      },
+      {
+       "type": "and",
+       "children": [
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*=$(curl *",
+         "ignore_case": true
+        },
+        {
+         "type": "field",
+         "field": "CommandLine",
+         "operator": "exact",
+         "value": "*eval*",
+         "ignore_case": true
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "and",
+     "children": [
+      {
+       "type": "field",
+       "field": "Image",
+       "operator": "exact",
+       "value": "*/curl",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*_intermediate_agent_*",
+       "ignore_case": true
+      }
+     ]
+    }
+   ]
+  }
+ },
+ {
+  "title": "Gatekeeper Bypass via Xattr",
+  "id": "f5141b6d-9f42-41c6-a7bf-2a780678b29b",
+  "level": "low",
+  "description": "Detects macOS Gatekeeper bypass via xattr utility",
+  "tags": [
+   "attack.defense-impairment",
+   "attack.t1553.001"
+  ],
+  "category": "process_creation",
+  "source": "unified_log",
+  "condition": {
+   "type": "and",
+   "children": [
+    {
+     "type": "field",
+     "field": "Image",
+     "operator": "exact",
+     "value": "*/xattr",
+     "ignore_case": true
+    },
+    {
+     "type": "and",
+     "children": [
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*-d*",
+       "ignore_case": true
+      },
+      {
+       "type": "field",
+       "field": "CommandLine",
+       "operator": "exact",
+       "value": "*com.apple.quarantine*",
+       "ignore_case": true
+      }
+     ]
+    }
+   ]
+  }
+ }
+]

@@ -16,7 +16,7 @@ ___________                                .__               __
  \___  / \____/|__|    \___  >___|  /____  >__|\___  >____  /__|  \____/|__|   
      \/                    \/     \/     \/        \/     \/                    
 
-                                                                          v4.1.5
+                                                                          v4.1.6
 ```
 
 ---
@@ -145,6 +145,8 @@ Forensicator detects suspicious activity through:
 * Ransomware pattern detection
 * EVTX export
 * Detection Insight into each collected data with Mitre Mapping.
+* Structured per-check JSON output under `investigation/`, for Forensicator Enterprise upload
+* Investigation archive — a hashed, zipped copy of the investigation folder with a Readme pointing to Forensicator Enterprise for automated analysis
 
 ---
 

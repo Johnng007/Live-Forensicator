@@ -1,5 +1,16 @@
-if(-not $script:sigmaRulesRoot){
+﻿if(-not $script:sigmaRulesRoot){
     $script:sigmaRulesRoot = Join-Path $PSScriptRoot "rules"
+}
+
+function Get-SigmaFirstNonNull {
+    param([object[]]$Values)
+
+    foreach($value in $Values){
+        if($null -ne $value){
+            return $value
+        }
+    }
+    return $null
 }
 
 function Get-SigmaSeverityValue {
@@ -13,7 +24,7 @@ function Get-SigmaSeverityValue {
         "informational" = 1
     }
 
-    return ($levelMap[$Level.ToLowerInvariant()] ?? 0)
+    return (Get-SigmaFirstNonNull @($levelMap[$Level.ToLowerInvariant()], 0))
 }
 
 function Get-SigmaStructuredRuleSet {
@@ -30,7 +41,7 @@ function Get-SigmaStructuredRuleSet {
     }
 
     try{
-        $sources = @(Get-Content $sourcesPath -Raw -ErrorAction Stop | ConvertFrom-Json -Depth 100)
+        $sources = @(Get-Content $sourcesPath -Raw -ErrorAction Stop | ConvertFrom-Json)
     }
     catch{
         Write-ForensicLog "Failed to parse structured Sigma sources: $($_.Exception.Message)" -Level ERROR -Section "SIGMA" -Detail $sourcesPath
@@ -50,7 +61,7 @@ function Get-SigmaStructuredRuleSet {
 
     foreach($file in $ruleFiles){
         try{
-            $parsed = Get-Content $file.FullName -Raw -ErrorAction Stop | ConvertFrom-Json -Depth 100
+            $parsed = Get-Content $file.FullName -Raw -ErrorAction Stop | ConvertFrom-Json
             if($null -eq $parsed){
                 continue
             }
@@ -174,16 +185,22 @@ function Get-SigmaComparableValues {
         [bool]$Windash
     )
 
+    # Fast path: this runs per value/field/rule/event, and the overwhelming majority
+    # of calls are non-windash — skip the List+Where-Object+Select-Object -Unique
+    # pipeline machinery entirely when there's nothing to expand.
+    if(-not $Windash -or (-not $Value.Contains('-') -and -not $Value.Contains('/'))){
+        if([string]::IsNullOrEmpty($Value)){ return @() }
+        return ,@($Value)
+    }
+
     $values = [System.Collections.Generic.List[string]]::new()
     $values.Add($Value)
 
-    if($Windash){
-        if($Value.Contains('-')){
-            $values.Add(($Value -replace '-', '/'))
-        }
-        if($Value.Contains('/')){
-            $values.Add(($Value -replace '/', '-'))
-        }
+    if($Value.Contains('-')){
+        $values.Add(($Value -replace '-', '/'))
+    }
+    if($Value.Contains('/')){
+        $values.Add(($Value -replace '/', '-'))
     }
 
     return $values | Where-Object { $_ } | Select-Object -Unique
@@ -236,6 +253,30 @@ function Test-SigmaCidrMatch {
     }
 }
 
+# Sigma field matching re-tests the same handful of patterns (per rule/field/value)
+# across every candidate event in a source. [regex]::IsMatch() only has a small
+# (~15 entry) process-wide pattern cache, which thrashes once a scan is exercising
+# more distinct patterns than that — so compiled Regex objects are cached here for
+# the lifetime of the scan instead, keyed by the pattern + options.
+$script:SigmaRegexCache = @{}
+
+function Get-SigmaCachedRegex {
+    param(
+        [string]$Pattern,
+        [System.Text.RegularExpressions.RegexOptions]$Options
+    )
+
+    $cacheKey = "$([int]$Options)|$Pattern"
+    $cached = $script:SigmaRegexCache[$cacheKey]
+    if($null -ne $cached){
+        return $cached
+    }
+
+    $regex = [System.Text.RegularExpressions.Regex]::new($Pattern, $Options)
+    $script:SigmaRegexCache[$cacheKey] = $regex
+    return $regex
+}
+
 function Test-SigmaScalarMatch {
     param(
         [string]$Actual,
@@ -252,13 +293,15 @@ function Test-SigmaScalarMatch {
         return (Test-SigmaCidrMatch -Address $Actual -Cidr $Expected)
     }
 
+    $options = [System.Text.RegularExpressions.RegexOptions]::None
+    if($IgnoreCase){
+        $options = $options -bor [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
+    }
+
     if($Operator -eq "re"){
         try{
-            $options = [System.Text.RegularExpressions.RegexOptions]::None
-            if($IgnoreCase){
-                $options = $options -bor [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
-            }
-            return [regex]::IsMatch($Actual, $Expected, $options)
+            $regex = Get-SigmaCachedRegex -Pattern $Expected -Options $options
+            return $regex.IsMatch($Actual)
         }
         catch{
             return $false
@@ -266,12 +309,8 @@ function Test-SigmaScalarMatch {
     }
 
     $pattern = ConvertTo-SigmaWildcardRegex -Value $Expected -Mode $Operator
-    $options = [System.Text.RegularExpressions.RegexOptions]::None
-    if($IgnoreCase){
-        $options = $options -bor [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
-    }
-
-    return [regex]::IsMatch($Actual, $pattern, $options)
+    $regex = Get-SigmaCachedRegex -Pattern $pattern -Options $options
+    return $regex.IsMatch($Actual)
 }
 
 function Test-SigmaFieldMatcher {
@@ -281,7 +320,7 @@ function Test-SigmaFieldMatcher {
     )
 
     $fieldName = [string]$Matcher.field
-    $actual    = [string]($Context.Fields[$fieldName] ?? "")
+    $actual    = [string](Get-SigmaFirstNonNull @($Context.Fields[$fieldName], ""))
     $operator  = [string]$Matcher.operator
 
     if($operator -eq "is_null"){
@@ -441,7 +480,8 @@ function Test-SigmaExpression {
 function ConvertTo-SigmaEventContext {
     param(
         $Record,
-        $Source
+        $Source,
+        [bool]$NeedsRawText = $false
     )
 
     $xml = [xml]$Record.ToXml()
@@ -458,7 +498,7 @@ function ConvertTo-SigmaEventContext {
     $systemValues = @{
         EventID      = [string]$Record.Id
         Channel      = [string]$Record.LogName
-        ProviderName = [string]$xml.Event.System.Provider.Name
+        ProviderName = [string]$Record.ProviderName
     }
 
     $fields = @{}
@@ -477,19 +517,24 @@ function ConvertTo-SigmaEventContext {
         }
     }
 
+    # $Record.Message resolves the provider's message table for every call and is one
+    # of the slower EventLogRecord operations — only pay for it when a rule assigned
+    # to this source actually uses "raw" (free-text) matching against it.
     $rawText = ""
-    try{
-        $rawText = [string]$Record.Message
-    }
-    catch{
-        $rawText = ""
-    }
+    if($NeedsRawText){
+        try{
+            $rawText = [string]$Record.Message
+        }
+        catch{
+            $rawText = ""
+        }
 
-    if([string]::IsNullOrWhiteSpace($rawText)){
-        $rawText = $xml.OuterXml
-    }
-    else{
-        $rawText = $rawText + "`n" + $xml.OuterXml
+        if([string]::IsNullOrWhiteSpace($rawText)){
+            $rawText = $xml.OuterXml
+        }
+        else{
+            $rawText = $rawText + "`n" + $xml.OuterXml
+        }
     }
 
     return @{
@@ -508,6 +553,49 @@ function Test-SigmaRuleMatch {
 
     $itemResults = @{}
     return (Test-SigmaExpression -Expression $Rule.condition -Context $Context -ItemResults $itemResults -RuleItems $Rule.items)
+}
+
+# One-time (per rule, not per event) check for whether a rule's expression tree
+# contains a "raw" matcher anywhere — used to decide whether a source needs the
+# expensive $Record.Message resolution at all. Conservatively checks every item
+# regardless of whether the rule's condition actually references it.
+function Test-SigmaExpressionUsesRawText {
+    param($Expression)
+
+    if($null -eq $Expression){ return $false }
+
+    switch([string]$Expression.type){
+        "raw" { return $true }
+        "all" {
+            foreach($child in @($Expression.children)){
+                if(Test-SigmaExpressionUsesRawText -Expression $child){ return $true }
+            }
+            return $false
+        }
+        "any" {
+            foreach($child in @($Expression.children)){
+                if(Test-SigmaExpressionUsesRawText -Expression $child){ return $true }
+            }
+            return $false
+        }
+        "not" {
+            return (Test-SigmaExpressionUsesRawText -Expression $Expression.child)
+        }
+        default { return $false }
+    }
+}
+
+function Test-SigmaRuleUsesRawText {
+    param($Rule)
+
+    if($null -eq $Rule.items){ return $false }
+
+    foreach($property in $Rule.items.PSObject.Properties){
+        if(Test-SigmaExpressionUsesRawText -Expression $property.Value){
+            return $true
+        }
+    }
+    return $false
 }
 
 function ConvertTo-SigmaFilterXml {
@@ -569,7 +657,7 @@ function Invoke-SigmaScan {
         return ,$results
     }
 
-    $bundleSource = [string]($bundle.metadata.source ?? "structured-json")
+    $bundleSource = [string](Get-SigmaFirstNonNull @($bundle.metadata.source, "structured-json"))
     $disabledLabel = if($bundle.metadata.skipped_rule_count -gt 0){ " | Disabled (enabled:false): $($bundle.metadata.skipped_rule_count)" } else { "" }
     Write-ForensicLog "Loaded Sigma rule set" -Level INFO -Section "SIGMA" -Detail "Source: $bundleSource | Generated: $($bundle.metadata.generated_at_utc) | Rules: $($bundle.metadata.compiled_rule_count)$disabledLabel"
 
@@ -627,6 +715,21 @@ function Invoke-SigmaScan {
         }
     }
 
+    # Precomputed once per source (not per event): whether any rule assigned to this
+    # source needs $Record.Message at all, so the event loop can skip that resolution
+    # entirely for the common case where nothing uses "raw" matching.
+    $sourceNeedsRawText = @{}
+    foreach($sourceId in $rulesBySource.Keys){
+        $needsRaw = $false
+        foreach($rule in $rulesBySource[$sourceId]){
+            if(Test-SigmaRuleUsesRawText -Rule $rule){
+                $needsRaw = $true
+                break
+            }
+        }
+        $sourceNeedsRawText[$sourceId] = $needsRaw
+    }
+
     $sourceIds = @($rulesBySource.Keys | Sort-Object)
     $sourceIndex = 0
 
@@ -661,7 +764,7 @@ function Invoke-SigmaScan {
             $candidateCount = 0
             foreach($logRecord in Get-WinEvent @eventQueryParams){
                 $candidateCount++
-                $context = ConvertTo-SigmaEventContext -Record $logRecord -Source $source
+                $context = ConvertTo-SigmaEventContext -Record $logRecord -Source $source -NeedsRawText $sourceNeedsRawText[$sourceId]
 
                 foreach($rule in $rulesBySource[$sourceId]){
                     try{
@@ -682,7 +785,7 @@ function Invoke-SigmaScan {
                         continue
                     }
 
-                    $recordId = [string]($logRecord.RecordId ?? $logRecord.Id)
+                    $recordId = [string](Get-SigmaFirstNonNull @($logRecord.RecordId, $logRecord.Id))
                     $matchKey = "$sourceId|$([string]$rule.rule_file)|$recordId"
                     if(-not $seenMatches.Add($matchKey)){
                         continue
@@ -695,9 +798,9 @@ function Invoke-SigmaScan {
                         EventId     = $logRecord.Id
                         LogName     = [string]$logRecord.LogName
                         TimeCreated = $logRecord.TimeCreated.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
-                        User        = [string]($context.Fields["User"] ?? $context.EventData["SubjectUserName"] ?? $context.EventData["TargetUserName"] ?? "N/A")
-                        CommandLine = [string]($context.Fields["CommandLine"] ?? $context.Fields["ScriptBlockText"] ?? $context.Fields["Payload"] ?? "N/A")
-                        Process     = [string]($context.Fields["Image"] ?? $context.Fields["ImageLoaded"] ?? "N/A")
+                        User        = [string](Get-SigmaFirstNonNull @($context.Fields["User"], $context.EventData["SubjectUserName"], $context.EventData["TargetUserName"], "N/A"))
+                        CommandLine = [string](Get-SigmaFirstNonNull @($context.Fields["CommandLine"], $context.Fields["ScriptBlockText"], $context.Fields["Payload"], "N/A"))
+                        Process     = [string](Get-SigmaFirstNonNull @($context.Fields["Image"], $context.Fields["ImageLoaded"], "N/A"))
                         RuleFile    = [string]$rule.rule_file
                     })
 

@@ -5,7 +5,7 @@
       "author": "Forensicator.",
       "rule_id": "custom-net-ioc-001",
       "date": "2026-01-31",
-      "description": "Detects outbound network connections from suspicious processes to operator-defined malicious hostnames, IPs, or CIDR ranges. The bad_hostname and bad_ip values are auto-synced from custom_iocs.txt at scan time — edit that file to manage your IOC list.",
+      "description": "Detects outbound network connections from suspicious processes to operator-defined malicious hostnames, IPs, or CIDR ranges. The bad_hostname and bad_ip values are auto-synced from custom_iocs.txt at scan time â€” edit that file to manage your IOC list.",
       "references": [
         "https://attack.mitre.org/techniques/T1071/001/",
         "https://attack.mitre.org/techniques/T1041/"

@@ -16,7 +16,7 @@ ___________                                .__               __
  \___  / \____/|__|    \___  >___|  /____  >__|\___  >____  /__|  \____/|__|   
      \/                    \/     \/     \/        \/     \/                    
 
-                                                                          v4.1.1
+                                                                          v4.1.6
 ```
 
 ---
@@ -29,26 +29,37 @@ It enables:
 
 * Rapid triage of Linux systems
 * Collection of key forensic artifacts
+* Built-in MITRE ATT&CK-mapped detection logic, backed by a real Sigma rule engine
 * Detection of suspicious persistence mechanisms
 * Timeline-based log analysis
 
-Unlike the Windows module, this version focuses on:
+This version focuses on:
 
 * Lightweight execution
-* Cross-distribution compatibility
-* Investigator-driven analysis (no heavy built-in detection logic)
+* Cross-distribution compatibility (no non-native dependencies)
+* Config-driven detection, so operators can tune what's flagged without editing the script
 
 ---
 
 # ⚙️ Key Features
 
 * Cross-distro compatible Bash scripts
+* 25-rule MITRE ATT&CK-mapped detection engine (reverse shells, timestomping, PATH hijacking, deleted-binary execution, package integrity, and more)
+* Sigma rule engine sourced from real SigmaHQ community rules, evaluated against `auditd` (if configured) and `journald`
+* Malware hash matching and malicious URL/domain matching, with auto-updating abuse.ch/URLhaus feeds
+* LUKS disk-encryption status check
+* Credential-file tampering timeline (mtime vs. ctime on passwd/shadow/sudoers/authorized_keys)
+* Multi-user, multi-shell command history (bash/zsh/sh/fish)
 * Timeline-based log analysis
 * Network capture (PCAP)
-* Browser history extraction
+* Browser history extraction (Firefox/Chrome-family), with malicious-URL IOC matching
 * Ransomware extension detection
 * Persistence discovery (cron, systemd, init, etc.)
+* Optional artifact encryption (AES-256)
+* Structured per-check JSON output under `investigation/`, for Forensicator Enterprise upload
 * Structured HTML output
+
+> ⚠️ The Sigma engine requires `python3`. If it isn't present, that step is skipped cleanly and the rest of the collection is unaffected. Real-world Sigma hit rate depends heavily on whether `auditd` is already configured on the target box — most distros don't enable exec auditing by default, so `journald`-backed rules (sshd/sudo/cron) are the more consistently useful half of the ruleset.
 
 ---
 
@@ -59,6 +70,8 @@ For additional capabilities:
 ```bash
 avml        → RAM acquisition (https://github.com/microsoft/avml)
 sqlite3     → Browser history extraction
+python3     → Sigma rule engine
+debsums     → Package integrity verification on Debian/Ubuntu (rpm -Va is used on RHEL/Fedora, no extra install needed)
 ```
 
 > Forensicator works without these, but functionality will be limited.
@@ -110,14 +123,26 @@ chmod +x Forensicator.sh
 # Define custom log directory
 ./Forensicator.sh --logdir /custom/log/directory
 
-# Browser history extraction
+# Browser history extraction (also enables browser IOC matching)
 ./Forensicator.sh -b
+
+# Hash check running process executables against the malware hash feed
+./Forensicator.sh -H
 
 # RAM capture
 ./Forensicator.sh -r
 
+# Encrypt collected artifacts (AES-256)
+./Forensicator.sh -e
+
+# Decrypt a previously encrypted artifact
+./Forensicator.sh -d FILE
+
+# Check GitHub for a newer version
+./Forensicator.sh -z
+
 # Combined execution
-./Forensicator.sh -p -s -w --timeline '2024-06-01 00:00:00' '2024-06-07 23:59:59'
+./Forensicator.sh -p -s -w -H -e --timeline '2024-06-01 00:00:00' '2024-06-07 23:59:59'
 
 # Unattended mode
 ./Forensicator.sh -name "Analyst" -case 01123 -title "Incident" -loc "Location" -device HOSTNAME
@@ -131,6 +156,8 @@ chmod +x Forensicator.sh
 * Execution may trigger IDS/IPS alerts
 * Outputs are saved as structured HTML reports
 * Artifacts are stored locally in the working directory
+* IOC lists, hash/URL feed sources, Sigma engine settings, and package-integrity timeouts are all configurable via `config.json`
+* Operator-maintained hash/IOC lists (`Forensicator-Share/custom_hashes.txt`, `Forensicator-Share/custom_iocs.txt`) are never overwritten by the auto-download feed refresh
 
 ---
 
@@ -138,22 +165,27 @@ chmod +x Forensicator.sh
 
 ## 👤 User & Account Data
 
-* Active sessions
+* Active sessions & login history (successful and failed)
 * Users with login shells
 * SSH authorized keys
-* `/etc/passwd`, sudoers
+* `/etc/passwd`, sudoers, sudo group membership
+* Credential-file tampering timeline (mtime vs. ctime on passwd/shadow/sudoers/authorized_keys — flags forged modification times)
+* Multi-user, multi-shell command history (bash/zsh/sh/fish)
 
 ## 💻 System Information
 
-* Kernel & CPU details
+* Kernel, CPU, and OS details
 * Block devices & USB controllers
 * Hardware enumeration
+* LUKS disk-encryption status (encrypted volumes + unlocked dm-crypt mappings)
+* Kernel taint status (out-of-tree/unsigned module detection)
 
 ## 🌐 Network Information
 
 * Routing table
-* Active connections
-* Firewall rules
+* Active connections & listening ports
+* Firewall rules (iptables/nft/ufw, whichever is present)
+* ARP cache & DNS configuration
 * Hosts configuration
 
 ## ⚙️ Processes & Persistence
@@ -163,17 +195,30 @@ chmod +x Forensicator.sh
 * Cron jobs
 * Systemd persistence
 * Init scripts
+* Recently modified executables in config-driven search paths (single-pass, pruned — never a full `/` walk)
 
 ## 🔎 Security Checks
 
-* SetUID binaries
+* SetUID/SGID binaries
 * File capabilities
 * Suspicious persistence locations
+* World-writable directories/files on `$PATH` (PATH-hijack risk)
+* Processes running from deleted binaries (fileless/self-deleting malware indicator)
+* Package integrity verification (`debsums`/`rpm -Va`, config-driven timeout and output cap)
+* Config-driven IOC matching (suspicious executables and shell commands) against processes, cron, and persistence paths
+* Malware hash matching against a running process list, auto-downloaded and refreshed from the abuse.ch feed
+* Browser history IOC matching against a malicious-URL feed (URLhaus)
+
+## 🎯 Detection Engine & Sigma
+
+* 25-rule built-in detection engine, MITRE ATT&CK-mapped (reverse shells, attack tools, brute force, log clearing, container escape, SSH key implants, rootkit modules, LD_PRELOAD hijacking, timestomping, PATH hijacking, deleted-binary execution, package tampering, and more)
+* Sigma rule engine compiled from real SigmaHQ community rules, evaluated against `auditd` (process creation/network/file events, if configured) and `journald` (sshd/sudo/cron/syslog-backed rules)
+* All detections feed the same `DETECTIONS/findings.csv` and the HTML report's "Rule Detections" tab
 
 ## 📜 Timeline & Logs
 
-* Auth logs
-* System logs
+* Auth logs (SSH connections: accepted/failed logins, invalid users, disconnects — checked across `/var/log/auth.log`, `/var/log/secure`, and `journalctl -t sshd`)
+* System logs (journalctl)
 * Custom log timelines
 * Web server logs
 
@@ -183,6 +228,8 @@ chmod +x Forensicator.sh
 * RAM acquisition
 * Browser history analysis
 * Ransomware extension detection
+* Optional artifact encryption (AES-256)
+* Structured per-check JSON output under `investigation/`, for Forensicator Enterprise upload
 
 ---
 
@@ -193,6 +240,25 @@ Forensicator generates:
 * Structured HTML reports
 * Organized forensic artifacts
 * Timeline-based investigation data
+* Per-check JSON findings for Forensicator Enterprise
+
+---
+
+# ✨ Changelog
+
+```bash
+v4.1.6
+- NEW: Sigma rule engine sourced from real SigmaHQ community rules, evaluated against auditd and journald.
+- NEW: 25-rule detection engine (previously 20) — added deleted-binary execution, kernel taint, credential-file timestomping, and PATH-hijack checks.
+- NEW: Auto-updating malware hash and malicious URL feeds (abuse.ch, URLhaus), with operator-maintained custom lists that are never overwritten.
+- NEW: LUKS disk-encryption status check.
+- NEW: Package integrity verification (debsums/rpm -Va), config-driven timeout and output cap.
+- NEW: Multi-user, multi-shell command history collection (bash/zsh/sh/fish).
+- NEW: JSON output for upload to Forensicator Enterprise.
+- FIX: Auth log collection now reliably surfaces SSH connections (accepted/failed logins, disconnects) instead of silently returning nothing.
+- FIX: Ransomware/SUID/authorized_keys checks no longer re-walk the full filesystem per extension or per check.
+- FIX: CWD-independence, sudo guards, and full-disk-walk pruning across the collector.
+```
 
 ---
 
