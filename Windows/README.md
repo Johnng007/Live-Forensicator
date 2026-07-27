@@ -8,16 +8,7 @@ PowerShell-based Incident Response & Live Forensics Toolkit
 Advanced event log analysis, detection logic, and forensic artifact collection for Windows systems.
 </p>
 
-```bash
-___________                                .__               __                
-\_   _____/__________   ____   ____   _____|__| ____ _____ _/  |_  ___________ 
- |    __)/  _ \_  __ \_/ __ \ /    \ /  ___/  |/ ___\\__  \\   __\/  _ \_  __ \
- |     \(  <_> )  | \/\  ___/|   |  \\___ \|  \  \___ / __ \|  | (  <_> )  | \/
- \___  / \____/|__|    \___  >___|  /____  >__|\___  >____  /__|  \____/|__|   
-     \/                    \/     \/     \/        \/     \/                    
-
-                                                                          v4.1.6
-```
+<img width="1953" height="805" alt="forensicator logo" src="https://github.com/user-attachments/assets/bddffeb5-0352-4f30-9abd-55f80fbb1298" />
 
 ---
 
