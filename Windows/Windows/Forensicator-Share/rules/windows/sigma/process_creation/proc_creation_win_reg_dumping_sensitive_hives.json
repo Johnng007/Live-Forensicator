@@ -1,0 +1,126 @@
+{
+  "title": "Dumping of Sensitive Hives Via Reg.EXE",
+  "rule_id": "fd877b94-9bb5-4191-bb25-d79cbd93c167",
+  "description": "Detects the usage of \"reg.exe\" in order to dump sensitive registry hives. This includes SAM, SYSTEM and SECURITY hives.",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.credential-access",
+    "attack.t1003.002",
+    "attack.t1003.004",
+    "attack.t1003.005",
+    "car.2013-07-001"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_reg_dumping_sensitive_hives.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\reg.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "reg.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_cli_flag": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " save ",
+            " export ",
+            " \u02e2ave ",
+            " e\u02e3port "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_cli_hklm": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "hklm",
+            "hk\u02eam",
+            "hkey_local_machine",
+            "hkey_\u02eaocal_machine",
+            "hkey_loca\u02ea_machine",
+            "hkey_\u02eaoca\u02ea_machine"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_cli_hive": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "\\system",
+            "\\sam",
+            "\\security",
+            "\\\u02e2ystem",
+            "\\sy\u02e2tem",
+            "\\\u02e2y\u02e2tem",
+            "\\\u02e2am",
+            "\\\u02e2ecurity"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

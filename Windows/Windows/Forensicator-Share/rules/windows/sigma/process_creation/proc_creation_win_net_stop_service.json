@@ -1,0 +1,78 @@
+{
+  "title": "Stop Windows Service Via Net.EXE",
+  "rule_id": "88872991-7445-4a22-90b2-a3adadb0e827",
+  "description": "Detects the stopping of a Windows service via the \"net\" utility.",
+  "level": "low",
+  "status": "test",
+  "tags": [
+    "attack.impact",
+    "attack.t1489"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_net_stop_service.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "net.exe",
+                "net1.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\net.exe",
+                "\\net1.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_cli": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " stop "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

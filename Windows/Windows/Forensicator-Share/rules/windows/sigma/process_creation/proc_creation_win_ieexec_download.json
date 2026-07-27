@@ -1,0 +1,77 @@
+{
+  "title": "File Download And Execution Via IEExec.EXE",
+  "rule_id": "9801abb8-e297-4dbf-9fbd-57dde0e830ad",
+  "description": "Detects execution of the IEExec utility to download and execute files",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.command-and-control",
+    "attack.t1105"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_ieexec_download.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\IEExec.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "IEExec.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_cli": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "http://",
+            "https://"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

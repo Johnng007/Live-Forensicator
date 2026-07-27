@@ -1,0 +1,38 @@
+{
+  "title": "PCRE.NET Package Image Load",
+  "rule_id": "84b0a8f3-680b-4096-a45b-e9a89221727c",
+  "description": "Detects processes loading modules related to PCRE.NET package",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1059"
+  ],
+  "category": "image_load",
+  "rule_file": "rules/windows/image_load/image_load_dll_pcre_dotnet_dll_load.yml",
+  "sources": [
+    "sysmon_image_load"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ImageLoaded",
+          "operator": "contains",
+          "values": [
+            "\\AppData\\Local\\Temp\\ba9ea7344a4a5f591d6e5dc32a13494b\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

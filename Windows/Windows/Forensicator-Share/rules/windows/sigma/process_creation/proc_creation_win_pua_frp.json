@@ -1,0 +1,74 @@
+{
+  "title": "PUA - Fast Reverse Proxy (FRP) Execution",
+  "rule_id": "32410e29-5f94-4568-b6a3-d91a8adad863",
+  "description": "Detects the use of Fast Reverse Proxy. frp is a fast reverse proxy to help you expose a local server behind a NAT or firewall to the Internet.",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.command-and-control",
+    "attack.t1090"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_pua_frp.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\frpc.exe",
+            "\\frps.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_cli": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "\\frpc.ini"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_hashes": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Hashes",
+          "operator": "contains",
+          "values": [
+            "MD5=7D9C233B8C9E3F0EA290D2B84593C842",
+            "SHA1=06DDC9280E1F1810677935A2477012960905942F",
+            "SHA256=57B0936B8D336D8E981C169466A15A5FD21A7D5A2C7DAF62D5E142EE860E387C"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "any",
+    "pattern": "selection_*"
+  }
+}

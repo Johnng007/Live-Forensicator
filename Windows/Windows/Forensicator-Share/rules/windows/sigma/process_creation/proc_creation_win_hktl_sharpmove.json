@@ -1,0 +1,110 @@
+{
+  "title": "HackTool - SharpMove Tool Execution",
+  "rule_id": "055fb54c-a8f4-4aee-bd44-f74cf30a0d9d",
+  "description": "Detects the execution of SharpMove, a .NET utility performing multiple tasks such as \"Task Creation\", \"SCM\" query, VBScript execution using WMI via its PE metadata and command line options.\n",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.lateral-movement",
+    "attack.t1021.002"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_hktl_sharpmove.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\SharpMove.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "SharpMove.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_cli_computer": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "computername="
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_cli_actions": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "action=create",
+            "action=dcom",
+            "action=executevbs",
+            "action=hijackdcom",
+            "action=modschtask",
+            "action=modsvc",
+            "action=query",
+            "action=scm",
+            "action=startservice",
+            "action=taskscheduler"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "any",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection_img"
+      },
+      {
+        "type": "wildcard_ref",
+        "mode": "all",
+        "pattern": "selection_cli_*"
+      }
+    ]
+  }
+}

@@ -1,0 +1,130 @@
+{
+  "title": "HackTool - SharPersist Execution",
+  "rule_id": "26488ad0-f9fd-4536-876f-52fea846a2e4",
+  "description": "Detects the execution of the hacktool SharPersist - used to deploy various different kinds of persistence mechanisms",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.privilege-escalation",
+    "attack.execution",
+    "attack.persistence",
+    "attack.t1053"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_hktl_sharpersist.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\SharPersist.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Product",
+              "operator": "exact",
+              "values": [
+                "SharPersist"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_cli_1": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " -t schtask -c ",
+            " -t startupfolder -c "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_cli_2": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " -t reg -c ",
+            " -m add"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_cli_3": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " -t service -c ",
+            " -m add"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_cli_4": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " -t schtask -c ",
+            " -m add"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "any",
+    "pattern": "selection_*"
+  }
+}

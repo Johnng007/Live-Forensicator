@@ -1,0 +1,38 @@
+{
+  "title": "PowerShell Decompress Commands",
+  "rule_id": "1ddc1472-8e52-4f7d-9f11-eab14fc171f5",
+  "description": "A General detection for specific decompress commands in PowerShell logs. This could be an adversary decompressing files.",
+  "level": "informational",
+  "status": "test",
+  "tags": [
+    "attack.stealth",
+    "attack.t1140"
+  ],
+  "category": "ps_module",
+  "rule_file": "rules/windows/powershell/powershell_module/posh_pm_decompress_commands.yml",
+  "sources": [
+    "powershell_module_logging"
+  ],
+  "items": {
+    "selection_4103": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Payload",
+          "operator": "contains",
+          "values": [
+            "Expand-Archive"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection_4103"
+  }
+}

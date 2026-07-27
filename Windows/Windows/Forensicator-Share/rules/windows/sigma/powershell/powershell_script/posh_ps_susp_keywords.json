@@ -1,0 +1,47 @@
+{
+  "title": "Potential Suspicious PowerShell Keywords",
+  "rule_id": "1f49f2ab-26bc-48b3-96cc-dcffbc93eadf",
+  "description": "Detects potentially suspicious keywords that could indicate the use of a PowerShell exploitation framework",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1059.001"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_susp_keywords.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "System.Reflection.Assembly.Load($",
+            "[System.Reflection.Assembly]::Load($",
+            "[Reflection.Assembly]::Load($",
+            "System.Reflection.AssemblyName",
+            "Reflection.Emit.AssemblyBuilderAccess",
+            "Reflection.Emit.CustomAttributeBuilder",
+            "Runtime.InteropServices.UnmanagedType",
+            "Runtime.InteropServices.DllImportAttribute",
+            "SuspendThread",
+            "rundll32"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

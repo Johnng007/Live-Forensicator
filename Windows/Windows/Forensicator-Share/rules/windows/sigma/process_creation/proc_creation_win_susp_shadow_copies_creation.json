@@ -1,0 +1,85 @@
+{
+  "title": "Shadow Copies Creation Using Operating Systems Utilities",
+  "rule_id": "b17ea6f7-6e90-447e-a799-e6c0a493d6ce",
+  "description": "Shadow Copies creation using operating systems utilities, possible credential access",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.credential-access",
+    "attack.t1003",
+    "attack.t1003.002",
+    "attack.t1003.003"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_susp_shadow_copies_creation.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\powershell.exe",
+                "\\pwsh.exe",
+                "\\wmic.exe",
+                "\\vssadmin.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "PowerShell.EXE",
+                "pwsh.dll",
+                "wmic.exe",
+                "VSSADMIN.EXE"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_cli": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "shadow",
+            "create"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

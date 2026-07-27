@@ -1,0 +1,50 @@
+{
+  "title": "Audio Capture via SoundRecorder",
+  "rule_id": "83865853-59aa-449e-9600-74b9d89a6d6e",
+  "description": "Detect attacker collecting audio via SoundRecorder application.",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.collection",
+    "attack.t1123"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_soundrecorder_audio_capture.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\SoundRecorder.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "/FILE"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

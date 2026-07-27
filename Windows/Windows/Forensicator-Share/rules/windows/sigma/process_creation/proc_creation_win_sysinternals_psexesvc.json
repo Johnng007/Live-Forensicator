@@ -1,0 +1,58 @@
+{
+  "title": "PsExec Service Execution",
+  "rule_id": "fdfcbd78-48f1-4a4b-90ac-d82241e368c5",
+  "description": "Detects launch of the PSEXESVC service, which means that this system was the target of a psexec remote execution",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.execution"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_sysinternals_psexesvc.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "exact",
+              "values": [
+                "C:\\Windows\\PSEXESVC.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "psexesvc.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

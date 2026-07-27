@@ -1,0 +1,54 @@
+{
+  "title": "Obfuscated PowerShell OneLiner Execution",
+  "rule_id": "44e24481-6202-4c62-9127-5a0ae8e3fe3d",
+  "description": "Detects the execution of a specific OneLiner to download and execute powershell modules in memory.",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.defense-impairment",
+    "attack.t1059.001",
+    "attack.t1685"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_powershell_download_cradle_obfuscated.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\powershell.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "http://127.0.0.1",
+            "%{(IRM $_)}",
+            "Invoke"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

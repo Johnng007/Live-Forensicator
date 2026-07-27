@@ -1,0 +1,78 @@
+{
+  "title": "Potential Windows Defender Tampering Via Wmic.EXE",
+  "rule_id": "51cbac1e-eee3-4a90-b1b7-358efb81fa0a",
+  "description": "Detects potential tampering with Windows Defender settings such as adding exclusion using wmic",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.defense-impairment",
+    "attack.t1047",
+    "attack.t1685"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_wmic_namespace_defender.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "wmic.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\WMIC.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_cli": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "/Namespace:\\\\\\\\root\\\\Microsoft\\\\Windows\\\\Defender"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "title": "Suspicious Get-ADReplAccount",
+  "rule_id": "060c3ef1-fd0a-4091-bf46-e7d625f60b73",
+  "description": "The DSInternals PowerShell Module exposes several internal features of Active Directory and Azure Active Directory.\nThese include FIDO2 and NGC key auditing, offline ntds.dit file manipulation, password auditing, DC recovery from IFM backups and password hash calculation.\n",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.credential-access",
+    "attack.t1003.006"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_get_adreplaccount.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "Get-ADReplAccount",
+            "-All ",
+            "-Server "
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

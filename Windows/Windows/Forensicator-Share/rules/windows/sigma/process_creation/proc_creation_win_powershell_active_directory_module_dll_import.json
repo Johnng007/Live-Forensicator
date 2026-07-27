@@ -1,0 +1,96 @@
+{
+  "title": "Potential Active Directory Enumeration Using AD Module - ProcCreation",
+  "rule_id": "70bc5215-526f-4477-963c-a47a5c9ebd12",
+  "description": "Detects usage of the \"Import-Module\" cmdlet to load the \"Microsoft.ActiveDirectory.Management.dl\" DLL. Which is often used by attackers to perform AD enumeration.",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.reconnaissance",
+    "attack.discovery",
+    "attack.impact"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_powershell_active_directory_module_dll_import.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\powershell.exe",
+                "\\pwsh.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "PowerShell.EXE",
+                "pwsh.dll"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_cmdlet": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "Import-Module ",
+            "ipmo "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_dll": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "Microsoft.ActiveDirectory.Management.dll"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

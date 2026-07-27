@@ -1,0 +1,38 @@
+{
+  "title": "Persistence Via TypedPaths - CommandLine",
+  "rule_id": "ec88289a-7e1a-4cc3-8d18-bd1f60e4b9ba",
+  "description": "Detects modification addition to the 'TypedPaths' key in the user or admin registry via the commandline. Which might indicate persistence attempt",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.persistence"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_registry_typed_paths_persistence.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\TypedPaths"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

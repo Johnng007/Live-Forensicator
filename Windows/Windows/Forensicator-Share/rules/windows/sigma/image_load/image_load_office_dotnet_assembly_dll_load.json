@@ -1,0 +1,55 @@
+{
+  "title": "DotNET Assembly DLL Loaded Via Office Application",
+  "rule_id": "ff0f2b05-09db-4095-b96d-1b75ca24894a",
+  "description": "Detects any assembly DLL being loaded by an Office Product",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1204.002"
+  ],
+  "category": "image_load",
+  "rule_file": "rules/windows/image_load/image_load_office_dotnet_assembly_dll_load.yml",
+  "sources": [
+    "sysmon_image_load"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\excel.exe",
+            "\\mspub.exe",
+            "\\onenote.exe",
+            "\\onenoteim.exe",
+            "\\outlook.exe",
+            "\\powerpnt.exe",
+            "\\winword.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "ImageLoaded",
+          "operator": "startswith",
+          "values": [
+            "C:\\Windows\\assembly\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

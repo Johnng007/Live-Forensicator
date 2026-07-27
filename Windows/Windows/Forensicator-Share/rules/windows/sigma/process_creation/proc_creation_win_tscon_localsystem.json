@@ -1,0 +1,51 @@
+{
+  "title": "Suspicious TSCON Start as SYSTEM",
+  "rule_id": "9847f263-4a81-424f-970c-875dab15b79b",
+  "description": "Detects a tscon.exe start as LOCAL SYSTEM",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.command-and-control",
+    "attack.t1219.002"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_tscon_localsystem.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "User",
+          "operator": "contains",
+          "values": [
+            "AUTHORI",
+            "AUTORI"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\tscon.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

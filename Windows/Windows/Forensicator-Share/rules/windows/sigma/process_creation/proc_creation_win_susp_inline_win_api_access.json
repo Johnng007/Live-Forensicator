@@ -1,0 +1,153 @@
+{
+  "title": "Potential WinAPI Calls Via CommandLine",
+  "rule_id": "ba3f5c1b-6272-4119-9dbd-0bc8d21c2702",
+  "description": "Detects the use of WinAPI Functions via the commandline. As seen used by threat actors via the tool winapiexec",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1106"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_susp_inline_win_api_access.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "AddSecurityPackage",
+            "AdjustTokenPrivileges",
+            "Advapi32",
+            "CloseHandle",
+            "CreateProcessWithToken",
+            "CreatePseudoConsole",
+            "CreateRemoteThread",
+            "CreateThread",
+            "CreateUserThread",
+            "DangerousGetHandle",
+            "DuplicateTokenEx",
+            "EnumerateSecurityPackages",
+            "FreeHGlobal",
+            "FreeLibrary",
+            "GetDelegateForFunctionPointer",
+            "GetLogonSessionData",
+            "GetModuleHandle",
+            "GetProcAddress",
+            "GetProcessHandle",
+            "GetTokenInformation",
+            "ImpersonateLoggedOnUser",
+            "kernel32",
+            "LoadLibrary",
+            "memcpy",
+            "MiniDumpWriteDump",
+            "ntdll",
+            "OpenDesktop",
+            "OpenProcess",
+            "OpenProcessToken",
+            "OpenThreadToken",
+            "OpenWindowStation",
+            "PtrToString",
+            "QueueUserApc",
+            "ReadProcessMemory",
+            "RevertToSelf",
+            "RtlCreateUserThread",
+            "secur32",
+            "SetThreadToken",
+            "VirtualAlloc",
+            "VirtualFree",
+            "VirtualProtect",
+            "WaitForSingleObject",
+            "WriteInt32",
+            "WriteProcessMemory",
+            "ZeroFreeGlobalAllocUnicode"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_optional_mpcmdrun": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\MpCmdRun.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "GetLoadLibraryWAddress32"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_optional_compatTelRunner": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "endswith",
+          "values": [
+            "\\CompatTelRunner.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "FreeHGlobal",
+            "PtrToString",
+            "kernel32",
+            "CloseHandle"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_optional_*"
+        }
+      }
+    ]
+  }
+}

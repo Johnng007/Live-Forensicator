@@ -1,0 +1,110 @@
+{
+  "title": "Renamed CreateDump Utility Execution",
+  "rule_id": "1a1ed54a-2ba4-4221-94d5-01dee560d71e",
+  "description": "Detects uses of a renamed legitimate createdump.exe LOLOBIN utility to dump process memory",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.stealth",
+    "attack.t1036",
+    "attack.t1003.001",
+    "attack.credential-access"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_renamed_createdump.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_pe": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "OriginalFileName",
+          "operator": "exact",
+          "values": [
+            "FX_VER_INTERNALNAME_STR"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_cli": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "contains",
+              "values": [
+                " -u ",
+                " -f ",
+                ".dmp"
+              ],
+              "match": "all",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "contains",
+              "values": [
+                " --full ",
+                " --name ",
+                ".dmp"
+              ],
+              "match": "all",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "filter": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\createdump.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "wildcard_ref",
+        "mode": "any",
+        "pattern": "selection_*"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "item_ref",
+          "name": "filter"
+        }
+      }
+    ]
+  }
+}

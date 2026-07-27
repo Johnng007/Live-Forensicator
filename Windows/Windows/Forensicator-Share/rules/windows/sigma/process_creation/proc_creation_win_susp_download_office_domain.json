@@ -1,0 +1,87 @@
+{
+  "title": "Suspicious Download from Office Domain",
+  "rule_id": "00d49ed5-4491-4271-a8db-650a4ef6f8c1",
+  "description": "Detects suspicious ways to download files from Microsoft domains that are used to store attachments in Emails or OneNote documents",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.command-and-control",
+    "attack.resource-development",
+    "attack.t1105",
+    "attack.t1608"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_susp_download_office_domain.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_download": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\curl.exe",
+                "\\wget.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "contains",
+              "values": [
+                "Invoke-WebRequest",
+                "iwr ",
+                "curl ",
+                "wget ",
+                "Start-BitsTransfer",
+                ".DownloadFile(",
+                ".DownloadString("
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_domains": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "https://attachment.outlook.live.net/owa/",
+            "https://onenoteonlinesync.onenote.com/onenoteonlinesync/"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

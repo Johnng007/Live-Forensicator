@@ -1,0 +1,58 @@
+{
+  "title": "NTFS Alternate Data Stream",
+  "rule_id": "8c521530-5169-495d-a199-0a3a881ad24e",
+  "description": "Detects writing data into NTFS alternate data streams from powershell. Needs Script Block Logging.",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.stealth",
+    "attack.t1564.004",
+    "attack.execution",
+    "attack.t1059.001"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_ntfs_ads_access.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection_content": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "set-content",
+            "add-content"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_stream": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "-stream"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection*"
+  }
+}

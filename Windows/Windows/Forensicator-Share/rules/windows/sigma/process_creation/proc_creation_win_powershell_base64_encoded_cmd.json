@@ -1,0 +1,161 @@
+{
+  "title": "Suspicious Encoded PowerShell Command Line",
+  "rule_id": "ca2092a1-c273-4878-9b4b-0d60115bf5ea",
+  "description": "Detects suspicious powershell process starts with base64 encoded commands (e.g. Emotet)",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1059.001"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_powershell_base64_encoded_cmd.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\powershell.exe",
+                "\\pwsh.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "PowerShell.EXE",
+                "pwsh.dll"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_cli_enc": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " -e"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_cli_content": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " JAB",
+            " SUVYI",
+            " SQBFAFgA",
+            " aQBlAHgA",
+            " aWV4I",
+            " IAA",
+            " IAB",
+            " UwB",
+            " cwB"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_standalone": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            ".exe -ENCOD ",
+            " BA^J e-"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_optional_remote_signed": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " -ExecutionPolicy remotesigned "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection_img"
+      },
+      {
+        "type": "any",
+        "children": [
+          {
+            "type": "wildcard_ref",
+            "mode": "all",
+            "pattern": "selection_cli_*"
+          },
+          {
+            "type": "item_ref",
+            "name": "selection_standalone"
+          }
+        ]
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_optional_*"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,92 @@
+{
+  "title": "WebDav Client Execution Via Rundll32.EXE",
+  "rule_id": "2dbd9d3d-9e27-42a8-b8df-f13825c6c3d5",
+  "description": "Detects \"svchost.exe\" spawning \"rundll32.exe\" with command arguments like \"C:\\windows\\system32\\davclnt.dll,DavSetCookie\".\nThis could be an indicator of exfiltration or use of WebDav to launch code (hosted on a WebDav server).\n",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.exfiltration",
+    "attack.t1048.003"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_rundll32_webdav_client_execution.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_parent": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "endswith",
+          "values": [
+            "\\svchost.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\rundll32.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "RUNDLL32.EXE"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_cli": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "C:\\windows\\system32\\davclnt.dll,DavSetCookie"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "title": "HackTool - PurpleSharp Execution",
+  "rule_id": "ff23ffbc-3378-435e-992f-0624dcf93ab4",
+  "description": "Detects the execution of the PurpleSharp adversary simulation tool",
+  "level": "critical",
+  "status": "test",
+  "tags": [
+    "attack.t1587",
+    "attack.resource-development"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_hktl_purplesharp_indicators.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "contains",
+              "values": [
+                "\\purplesharp"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "PurpleSharp.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_cli": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "xyz123456.exe",
+            "PurpleSharp"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "any",
+    "pattern": "selection_*"
+  }
+}

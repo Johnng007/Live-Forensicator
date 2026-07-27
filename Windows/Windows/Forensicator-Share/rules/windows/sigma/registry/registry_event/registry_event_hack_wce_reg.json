@@ -1,0 +1,39 @@
+{
+  "title": "Windows Credential Editor Registry",
+  "rule_id": "a6b33c02-8305-488f-8585-03cb2a7763f2",
+  "description": "Detects the use of Windows Credential Editor (WCE)",
+  "level": "critical",
+  "status": "test",
+  "tags": [
+    "attack.credential-access",
+    "attack.t1003.001",
+    "attack.s0005"
+  ],
+  "category": "registry_event",
+  "rule_file": "rules/windows/registry/registry_event/registry_event_hack_wce_reg.yml",
+  "sources": [
+    "sysmon_registry_event"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "TargetObject",
+          "operator": "contains",
+          "values": [
+            "Services\\WCESERVICE\\Start"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

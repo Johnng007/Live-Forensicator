@@ -1,0 +1,133 @@
+{
+  "title": "Suspicious PowerShell Encoded Command Patterns",
+  "rule_id": "b9d9cc83-380b-4ba3-8d8f-60c0e7e2930c",
+  "description": "Detects PowerShell command line patterns in combincation with encoded commands that often appear in malware infection chains",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1059.001"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_powershell_base64_encoded_cmd_patterns.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\powershell.exe",
+                "\\pwsh.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "PowerShell.Exe",
+                "pwsh.dll"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_flags": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " -e ",
+            " -en ",
+            " -enc ",
+            " -enco"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_encoded": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " JAB",
+            " SUVYI",
+            " SQBFAFgA",
+            " aWV4I",
+            " IAB",
+            " PAA",
+            " aQBlAHgA"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_gcworker": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "contains",
+          "values": [
+            "C:\\Packages\\Plugins\\Microsoft.GuestConfiguration.ConfigurationforWindows\\",
+            "\\gc_worker.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "wildcard_ref",
+        "mode": "all",
+        "pattern": "selection_*"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_*"
+        }
+      }
+    ]
+  }
+}

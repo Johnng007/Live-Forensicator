@@ -1,0 +1,93 @@
+{
+  "title": "New Service Creation Using Sc.EXE",
+  "rule_id": "85ff530b-261d-48c6-a441-facaa2e81e48",
+  "description": "Detects the creation of a new service using the \"sc.exe\" utility.",
+  "level": "low",
+  "status": "test",
+  "tags": [
+    "attack.persistence",
+    "attack.privilege-escalation",
+    "attack.t1543.003"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_sc_create_service.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\sc.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "create",
+            "binPath"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_optional_dropbox": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "startswith",
+          "values": [
+            "C:\\Program Files (x86)\\Dropbox\\Client\\",
+            "C:\\Program Files\\Dropbox\\Client\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "endswith",
+          "values": [
+            "\\Dropbox.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_optional_*"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "title": "Nltest.EXE Execution",
+  "rule_id": "903076ff-f442-475a-b667-4f246bcc203b",
+  "description": "Detects nltest commands that can be used for information discovery",
+  "level": "low",
+  "status": "test",
+  "tags": [
+    "attack.discovery",
+    "attack.t1016",
+    "attack.t1018",
+    "attack.t1482"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_nltest_execution.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\nltest.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "nltestrk.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

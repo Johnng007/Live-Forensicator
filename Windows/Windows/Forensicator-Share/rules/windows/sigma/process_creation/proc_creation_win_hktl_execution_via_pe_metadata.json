@@ -1,0 +1,40 @@
+{
+  "title": "Hacktool Execution - PE Metadata",
+  "rule_id": "37c1333a-a0db-48be-b64b-7393b2386e3b",
+  "description": "Detects the execution of different Windows based hacktools via PE metadata (company, product, etc.) even if the files have been renamed",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.credential-access",
+    "attack.resource-development",
+    "attack.t1588.002",
+    "attack.t1003"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_hktl_execution_via_pe_metadata.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Company",
+          "operator": "exact",
+          "values": [
+            "Cube0x0"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

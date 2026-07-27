@@ -1,0 +1,39 @@
+{
+  "title": "Start of NT Virtual DOS Machine",
+  "rule_id": "16905e21-66ee-42fe-b256-1318ada2d770",
+  "description": "Ntvdm.exe allows the execution of 16-bit Windows applications on 32-bit Windows operating systems, as well as the execution of both 16-bit and 32-bit DOS applications",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.stealth"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_susp_16bit_application.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\ntvdm.exe",
+            "\\csrstub.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

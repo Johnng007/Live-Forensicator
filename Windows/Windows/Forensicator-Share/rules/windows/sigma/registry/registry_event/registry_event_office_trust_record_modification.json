@@ -1,0 +1,38 @@
+{
+  "title": "Windows Registry Trust Record Modification",
+  "rule_id": "295a59c1-7b79-4b47-a930-df12c15fc9c2",
+  "description": "Alerts on trust record modification within the registry, indicating usage of macros",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.initial-access",
+    "attack.t1566.001"
+  ],
+  "category": "registry_event",
+  "rule_file": "rules/windows/registry/registry_event/registry_event_office_trust_record_modification.yml",
+  "sources": [
+    "sysmon_registry_event"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "TargetObject",
+          "operator": "contains",
+          "values": [
+            "\\Security\\Trusted Documents\\TrustRecords"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

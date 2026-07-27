@@ -1,0 +1,40 @@
+{
+  "title": "Suspicious PowerShell Mailbox Export to Share",
+  "rule_id": "889719ef-dd62-43df-86c3-768fb08dc7c0",
+  "description": "Detects usage of the powerShell New-MailboxExportRequest Cmdlet to exports a mailbox to a remote or local share, as used in ProxyShell exploitations",
+  "level": "critical",
+  "status": "test",
+  "tags": [
+    "attack.exfiltration"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_powershell_mailboxexport_share.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "New-MailboxExportRequest",
+            " -Mailbox ",
+            " -FilePath \\\\\\\\"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

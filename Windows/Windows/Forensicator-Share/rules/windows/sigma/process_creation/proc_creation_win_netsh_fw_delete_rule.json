@@ -1,0 +1,144 @@
+{
+  "title": "Firewall Rule Deleted Via Netsh.EXE",
+  "rule_id": "1a5fefe6-734f-452e-a07d-fc1c35bce4b2",
+  "description": "Detects the removal of a port or application rule in the Windows Firewall configuration using netsh",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.defense-impairment",
+    "attack.t1686.003"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_netsh_fw_delete_rule.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\netsh.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "netsh.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_cli": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "firewall",
+            "delete "
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_optional_dropbox": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "endswith",
+          "values": [
+            "\\Dropbox.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "name=Dropbox"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_optional_avast": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "endswith",
+          "values": [
+            "\\instup.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "advfirewall firewall delete rule name=\"Avast Antivirus Admin Client\""
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "wildcard_ref",
+        "mode": "all",
+        "pattern": "selection_*"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_optional_*"
+        }
+      }
+    ]
+  }
+}

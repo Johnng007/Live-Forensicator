@@ -1,0 +1,54 @@
+{
+  "title": "Potential Amazon SSM Agent Hijacking",
+  "rule_id": "d20ee2f4-822c-4827-9e15-41500b1fff10",
+  "description": "Detects potential Amazon SSM agent hijack attempts as outlined in the Mitiga research report.",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.command-and-control",
+    "attack.persistence",
+    "attack.t1219.002"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_ssm_agent_abuse.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\amazon-ssm-agent.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "-register ",
+            "-code ",
+            "-id ",
+            "-region "
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

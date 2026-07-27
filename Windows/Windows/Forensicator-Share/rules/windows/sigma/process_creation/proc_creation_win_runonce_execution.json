@@ -1,0 +1,98 @@
+{
+  "title": "Run Once Task Execution as Configured in Registry",
+  "rule_id": "198effb6-6c98-4d0c-9ea3-451fa143c45c",
+  "description": "This rule detects the execution of Run Once task as configured in the registry",
+  "level": "low",
+  "status": "test",
+  "tags": [
+    "attack.persistence",
+    "attack.defense-impairment",
+    "attack.t1112"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_runonce_execution.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\runonce.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Description",
+              "operator": "exact",
+              "values": [
+                "Run Once Wrapper"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_cli": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "contains",
+              "values": [
+                "/AlternateShellStartup"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "endswith",
+              "values": [
+                "/r"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "title": "Kernel Memory Dump Via LiveKD",
+  "rule_id": "c7746f1c-47d3-43d6-8c45-cd1e54b6b0a2",
+  "description": "Detects execution of LiveKD with the \"-m\" flag to potentially dump the kernel memory",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.stealth"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_sysinternals_livekd_kernel_memory_dump.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\livekd.exe",
+                "\\livekd64.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "livekd.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_cli": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " -m"
+          ],
+          "match": "any",
+          "windash": true,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "title": "AD Groups Or Users Enumeration Using PowerShell - ScriptBlock",
+  "rule_id": "88f0884b-331d-403d-a3a1-b668cf035603",
+  "description": "Adversaries may attempt to find domain-level groups and permission settings.\nThe knowledge of domain-level permission groups can help adversaries determine which groups exist and which users belong to a particular group.\nAdversaries may use this information to determine which users have elevated permissions, such as domain administrators.\n",
+  "level": "low",
+  "status": "test",
+  "tags": [
+    "attack.discovery",
+    "attack.t1069.001"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_susp_ad_group_reco.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "test_2": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "get-ADPrincipalGroupMembership"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "test_7": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "get-aduser",
+            "-f ",
+            "-pr ",
+            "DoesNotRequirePreAuth"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "any",
+    "pattern": "test_*"
+  }
+}

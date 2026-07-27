@@ -1,0 +1,40 @@
+{
+  "title": "Suspicious SYSVOL Domain Group Policy Access",
+  "rule_id": "05f3c945-dcc8-4393-9f3d-af65077a8f86",
+  "description": "Detects Access to Domain Group Policies stored in SYSVOL",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.credential-access",
+    "attack.t1552.006"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_susp_sysvol_access.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "\\SYSVOL\\",
+            "\\policies\\"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

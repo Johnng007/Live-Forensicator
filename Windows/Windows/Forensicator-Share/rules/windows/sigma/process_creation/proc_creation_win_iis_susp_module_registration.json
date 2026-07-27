@@ -1,0 +1,109 @@
+{
+  "title": "Suspicious IIS Module Registration",
+  "rule_id": "043c4b8b-3a54-4780-9682-081cb6b8185c",
+  "description": "Detects a suspicious IIS module registration as described in Microsoft threat report on IIS backdoors",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.persistence",
+    "attack.t1505.004"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_iis_susp_module_registration.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_parent": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "endswith",
+          "values": [
+            "\\w3wp.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_cli_1": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "appcmd.exe add module"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_cli_2": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " system.enterpriseservices.internal.publish"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\powershell.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_cli_3": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "gacutil",
+            " /I"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection_parent"
+      },
+      {
+        "type": "wildcard_ref",
+        "mode": "any",
+        "pattern": "selection_cli_*"
+      }
+    ]
+  }
+}

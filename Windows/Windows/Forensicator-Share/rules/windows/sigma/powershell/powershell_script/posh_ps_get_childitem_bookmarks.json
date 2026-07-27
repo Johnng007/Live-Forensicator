@@ -1,0 +1,43 @@
+{
+  "title": "Automated Collection Bookmarks Using Get-ChildItem PowerShell",
+  "rule_id": "e0565f5d-d420-4e02-8a68-ac00d864f9cf",
+  "description": "Adversaries may enumerate browser bookmarks to learn more about compromised hosts.\nBrowser bookmarks may reveal personal information about users (ex: banking sites, interests, social media, etc.) as well as details about\ninternal network resources such as servers, tools/dashboards, or other related infrastructure.\n",
+  "level": "low",
+  "status": "test",
+  "tags": [
+    "attack.discovery",
+    "attack.t1217"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_get_childitem_bookmarks.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "Get-ChildItem",
+            " -Recurse ",
+            " -Path ",
+            " -Filter Bookmarks",
+            " -ErrorAction SilentlyContinue",
+            " -Force"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

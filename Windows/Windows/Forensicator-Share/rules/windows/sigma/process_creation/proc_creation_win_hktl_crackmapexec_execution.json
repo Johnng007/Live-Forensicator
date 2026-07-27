@@ -1,0 +1,207 @@
+{
+  "title": "HackTool - CrackMapExec Execution",
+  "rule_id": "42a993dd-bb3e-48c8-b372-4d6684c4106c",
+  "description": "This rule detect common flag combinations used by CrackMapExec in order to detect its use even if the binary has been replaced.",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.persistence",
+    "attack.privilege-escalation",
+    "attack.credential-access",
+    "attack.discovery",
+    "attack.t1047",
+    "attack.t1053",
+    "attack.t1059.003",
+    "attack.t1059.001",
+    "attack.t1110",
+    "attack.t1201"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_hktl_crackmapexec_execution.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_binary": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\crackmapexec.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_special": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " -M pe_inject "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_execute": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " --local-auth",
+            " -u ",
+            " -x "
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_hash": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " --local-auth",
+            " -u ",
+            " -p ",
+            " -H 'NTHASH'"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_module_mssql": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " mssql ",
+            " -u ",
+            " -p ",
+            " -M ",
+            " -d "
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_module_smb1": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " smb ",
+            " -u ",
+            " -H ",
+            " -M ",
+            " -o "
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_module_smb2": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " smb ",
+            " -u ",
+            " -p ",
+            " --local-auth"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "part_localauth_1": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " --local-auth",
+            " -u ",
+            " -p "
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "part_localauth_2": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " 10.",
+            " 192.168.",
+            "/24 "
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "any",
+    "children": [
+      {
+        "type": "wildcard_ref",
+        "mode": "any",
+        "pattern": "selection_*"
+      },
+      {
+        "type": "wildcard_ref",
+        "mode": "all",
+        "pattern": "part_localauth*"
+      }
+    ]
+  }
+}

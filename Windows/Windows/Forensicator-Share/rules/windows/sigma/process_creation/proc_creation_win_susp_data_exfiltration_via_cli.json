@@ -1,0 +1,234 @@
+{
+  "title": "Potential Data Exfiltration Activity Via CommandLine Tools",
+  "rule_id": "7d1aaf3d-4304-425c-b7c3-162055e0b3ab",
+  "description": "Detects the use of various CLI utilities exfiltrating data via web requests",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1059.001"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_susp_data_exfiltration_via_cli.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_iwr": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\powershell_ise.exe",
+            "\\powershell.exe",
+            "\\pwsh.exe",
+            "\\cmd.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "curl ",
+            "Invoke-RestMethod",
+            "Invoke-WebRequest",
+            "irm ",
+            "iwr ",
+            "wget "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " -ur",
+            " -me",
+            " -b",
+            " POST "
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_curl": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\curl.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "--ur"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_curl_data": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " -d ",
+            " --data "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_wget": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\wget.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "--post-data",
+            "--post-file"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "payloads": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "re",
+              "values": [
+                "net\\s+view",
+                "sc\\s+query"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": false
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "contains",
+              "values": [
+                "Get-Content",
+                "GetBytes",
+                "hostname",
+                "ifconfig",
+                "ipconfig",
+                "netstat",
+                "nltest",
+                "qprocess",
+                "systeminfo",
+                "tasklist",
+                "ToBase64String",
+                "whoami"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "contains",
+              "values": [
+                "type ",
+                " > ",
+                " C:\\"
+              ],
+              "match": "all",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "any",
+        "children": [
+          {
+            "type": "item_ref",
+            "name": "selection_iwr"
+          },
+          {
+            "type": "wildcard_ref",
+            "mode": "all",
+            "pattern": "selection_curl*"
+          },
+          {
+            "type": "item_ref",
+            "name": "selection_wget"
+          }
+        ]
+      },
+      {
+        "type": "item_ref",
+        "name": "payloads"
+      }
+    ]
+  }
+}

@@ -1,0 +1,96 @@
+{
+  "title": "Insecure Transfer Via Curl.EXE",
+  "rule_id": "cb9cc1d1-e84e-4bdc-b7ad-c31b1b7908ec",
+  "description": "Detects execution of \"curl.exe\" with the \"--insecure\" flag.",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.execution"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_curl_insecure_connection.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\curl.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "curl.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_cli": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "re",
+              "values": [
+                "\\s-k\\s"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": false
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "contains",
+              "values": [
+                "--insecure"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

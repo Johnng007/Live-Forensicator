@@ -1,0 +1,175 @@
+{
+  "title": "Suspicious WmiPrvSE Child Process",
+  "rule_id": "8a582fe2-0882-4b89-a82a-da6b2dc32937",
+  "description": "Detects suspicious and uncommon child processes of WmiPrvSE",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.stealth",
+    "attack.t1047",
+    "attack.t1204.002",
+    "attack.t1218.010"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_wmiprvse_susp_child_processes.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_parent": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "endswith",
+          "values": [
+            "\\wbem\\WmiPrvSE.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_children_1": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\certutil.exe",
+            "\\cscript.exe",
+            "\\mshta.exe",
+            "\\msiexec.exe",
+            "\\regsvr32.exe",
+            "\\rundll32.exe",
+            "\\verclsid.exe",
+            "\\wscript.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_children_2": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\cmd.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "cscript",
+            "mshta",
+            "powershell",
+            "pwsh",
+            "regsvr32",
+            "rundll32",
+            "wscript"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main_werfault": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\WerFault.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main_wmiprvse": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\WmiPrvSE.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main_msiexec": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\msiexec.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "/i "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection_parent"
+      },
+      {
+        "type": "wildcard_ref",
+        "mode": "any",
+        "pattern": "selection_children_*"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_main_*"
+        }
+      }
+    ]
+  }
+}

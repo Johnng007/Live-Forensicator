@@ -1,0 +1,43 @@
+{
+  "title": "Suspicious New-PSDrive to Admin Share",
+  "rule_id": "1c563233-030e-4a07-af8c-ee0490a66d3a",
+  "description": "Adversaries may use to interact with a remote network share using Server Message Block (SMB). The adversary may then perform actions as the logged-on user.",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.lateral-movement",
+    "attack.t1021.002"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_susp_new_psdrive.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "New-PSDrive",
+            "-psprovider ",
+            "filesystem",
+            "-root ",
+            "\\\\\\\\",
+            "$"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

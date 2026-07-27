@@ -1,0 +1,49 @@
+{
+  "title": "Remote DLL Load Via Rundll32.EXE",
+  "rule_id": "f40017b3-cb2e-4335-ab5d-3babf679c1de",
+  "description": "Detects a remote DLL load event via \"rundll32.exe\".",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1204.002"
+  ],
+  "category": "image_load",
+  "rule_file": "rules/windows/image_load/image_load_rundll32_remote_share_load.yml",
+  "sources": [
+    "sysmon_image_load"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\rundll32.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "ImageLoaded",
+          "operator": "startswith",
+          "values": [
+            "\\\\\\\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

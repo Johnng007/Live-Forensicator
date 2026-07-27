@@ -1,0 +1,249 @@
+{
+  "title": "System File Execution Location Anomaly",
+  "rule_id": "e4a6b256-3e47-40fc-89d2-7a477edd6915",
+  "description": "Detects the execution of a Windows system binary that is usually located in the system folder from an uncommon location.\n",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.stealth",
+    "attack.t1036"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_susp_system_exe_anomaly.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\atbroker.exe",
+            "\\audiodg.exe",
+            "\\bcdedit.exe",
+            "\\bitsadmin.exe",
+            "\\certreq.exe",
+            "\\certutil.exe",
+            "\\cmstp.exe",
+            "\\conhost.exe",
+            "\\consent.exe",
+            "\\cscript.exe",
+            "\\csrss.exe",
+            "\\dashost.exe",
+            "\\defrag.exe",
+            "\\dfrgui.exe",
+            "\\dism.exe",
+            "\\dllhost.exe",
+            "\\dllhst3g.exe",
+            "\\dwm.exe",
+            "\\eventvwr.exe",
+            "\\fsquirt.exe",
+            "\\finger.exe",
+            "\\logonui.exe",
+            "\\LsaIso.exe",
+            "\\lsass.exe",
+            "\\lsm.exe",
+            "\\msiexec.exe",
+            "\\ntoskrnl.exe",
+            "\\powershell_ise.exe",
+            "\\powershell.exe",
+            "\\pwsh.exe",
+            "\\regsvr32.exe",
+            "\\rundll32.exe",
+            "\\runonce.exe",
+            "\\RuntimeBroker.exe",
+            "\\schtasks.exe",
+            "\\services.exe",
+            "\\sihost.exe",
+            "\\smartscreen.exe",
+            "\\smss.exe",
+            "\\spoolsv.exe",
+            "\\svchost.exe",
+            "\\taskhost.exe",
+            "\\taskhostw.exe",
+            "\\Taskmgr.exe",
+            "\\userinit.exe",
+            "\\werfault.exe",
+            "\\werfaultsecure.exe",
+            "\\wininit.exe",
+            "\\winlogon.exe",
+            "\\winver.exe",
+            "\\wlanext.exe",
+            "\\wmic.exe",
+            "\\wscript.exe",
+            "\\wsl.exe",
+            "\\wsmprovhost.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main_generic": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "startswith",
+          "values": [
+            "C:\\$WINDOWS.~BT\\",
+            "C:\\$WinREAgent\\",
+            "C:\\Windows\\SoftwareDistribution\\",
+            "C:\\Windows\\System32\\",
+            "C:\\Windows\\SystemTemp\\",
+            "C:\\Windows\\SysWOW64\\",
+            "C:\\Windows\\uus\\",
+            "C:\\Windows\\WinSxS\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_optional_system32": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "contains",
+          "values": [
+            "\\SystemRoot\\System32\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main_powershell": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "contains",
+          "values": [
+            "C:\\Program Files\\PowerShell\\7\\",
+            "C:\\Program Files\\PowerShell\\7-preview\\",
+            "C:\\Program Files\\WindowsApps\\Microsoft.PowerShellPreview",
+            "\\AppData\\Local\\Microsoft\\WindowsApps\\Microsoft.PowerShellPreview"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\pwsh.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main_wsl_programfiles": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "startswith",
+          "values": [
+            "C:\\Program Files\\WindowsApps\\MicrosoftCorporationII.WindowsSubsystemForLinux",
+            "C:\\Program Files\\WSL\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\wsl.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main_wsl_appdata": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "startswith",
+          "values": [
+            "C:\\Users\\'"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "contains",
+          "values": [
+            "\\AppData\\Local\\Microsoft\\WindowsApps\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\wsl.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_main_*"
+        }
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_optional_*"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,131 @@
+{
+  "title": "WinRAR Execution in Non-Standard Folder",
+  "rule_id": "4ede543c-e098-43d9-a28f-dd784a13132f",
+  "description": "Detects a suspicious WinRAR execution in a folder which is not the default installation folder",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.collection",
+    "attack.t1560.001"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_winrar_uncommon_folder_execution.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\rar.exe",
+                "\\winrar.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Description",
+              "operator": "exact",
+              "values": [
+                "Command line RAR",
+                "WinRAR"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "filter_main_unrar": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\UnRAR.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main_path": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "contains",
+          "values": [
+            ":\\Program Files (x86)\\WinRAR\\",
+            ":\\Program Files\\WinRAR\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_optional_temp": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "contains",
+          "values": [
+            ":\\Windows\\Temp\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_main_*"
+        }
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_optional_*"
+        }
+      }
+    ]
+  }
+}

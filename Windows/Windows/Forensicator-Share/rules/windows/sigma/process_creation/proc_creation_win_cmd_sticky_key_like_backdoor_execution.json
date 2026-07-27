@@ -1,0 +1,77 @@
+{
+  "title": "Sticky Key Like Backdoor Execution",
+  "rule_id": "2fdefcb3-dbda-401e-ae23-f0db027628bc",
+  "description": "Detects the usage and installation of a backdoor that uses an option to register a malicious debugger for built-in tools that are accessible in the login screen",
+  "level": "critical",
+  "status": "test",
+  "tags": [
+    "attack.privilege-escalation",
+    "attack.persistence",
+    "attack.t1546.008",
+    "car.2014-11-003",
+    "car.2014-11-008"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_cmd_sticky_key_like_backdoor_execution.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "endswith",
+          "values": [
+            "\\winlogon.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\cmd.exe",
+            "\\cscript.exe",
+            "\\mshta.exe",
+            "\\powershell.exe",
+            "\\pwsh.exe",
+            "\\regsvr32.exe",
+            "\\rundll32.exe",
+            "\\wscript.exe",
+            "\\wt.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "sethc.exe",
+            "utilman.exe",
+            "osk.exe",
+            "Magnify.exe",
+            "Narrator.exe",
+            "DisplaySwitch.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

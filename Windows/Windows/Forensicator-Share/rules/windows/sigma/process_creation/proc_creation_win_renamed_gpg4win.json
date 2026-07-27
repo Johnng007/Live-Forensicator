@@ -1,0 +1,68 @@
+{
+  "title": "Renamed Gpg.EXE Execution",
+  "rule_id": "ec0722a3-eb5c-4a56-8ab2-bf6f20708592",
+  "description": "Detects the execution of a renamed \"gpg.exe\". Often used by ransomware and loaders to decrypt/encrypt data.",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.impact",
+    "attack.t1486"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_renamed_gpg4win.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "OriginalFileName",
+          "operator": "exact",
+          "values": [
+            "gpg.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main_img": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\gpg.exe",
+            "\\gpg2.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_main_*"
+        }
+      }
+    ]
+  }
+}

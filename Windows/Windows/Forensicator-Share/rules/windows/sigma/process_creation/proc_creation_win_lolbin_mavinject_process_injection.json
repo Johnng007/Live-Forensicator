@@ -1,0 +1,69 @@
+{
+  "title": "Mavinject Inject DLL Into Running Process",
+  "rule_id": "4f73421b-5a0b-4bbf-a892-5a7fb99bea66",
+  "description": "Detects process injection using the signed Windows tool \"Mavinject\" via the \"INJECTRUNNING\" flag",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.privilege-escalation",
+    "attack.stealth",
+    "attack.t1055.001",
+    "attack.t1218.013"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_lolbin_mavinject_process_injection.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " /INJECTRUNNING "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "exact",
+          "values": [
+            "C:\\Windows\\System32\\AppVClient.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "item_ref",
+          "name": "filter"
+        }
+      }
+    ]
+  }
+}

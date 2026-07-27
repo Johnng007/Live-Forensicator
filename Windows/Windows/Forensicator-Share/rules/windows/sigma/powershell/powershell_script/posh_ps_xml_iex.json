@@ -1,0 +1,60 @@
+{
+  "title": "Powershell XML Execute Command",
+  "rule_id": "6c6c6282-7671-4fe9-a0ce-a2dcebdc342b",
+  "description": "Adversaries may abuse PowerShell commands and scripts for execution.\nPowerShell is a powerful interactive command-line interface and scripting environment included in the Windows operating system. (Citation: TechNet PowerShell)\nAdversaries can use PowerShell to perform a number of actions, including discovery of information and execution of code\n",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1059.001"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_xml_iex.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection_xml": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "New-Object",
+            "System.Xml.XmlDocument",
+            ".Load"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_exec": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "IEX ",
+            "Invoke-Expression ",
+            "Invoke-Command ",
+            "ICM -"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

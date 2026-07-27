@@ -1,0 +1,81 @@
+{
+  "title": "Unsigned Mfdetours.DLL Sideloading",
+  "rule_id": "948a0953-f287-4806-bbcb-3b2e396df89f",
+  "description": "Detects DLL sideloading of unsigned \"mfdetours.dll\". Executing \"mftrace.exe\" can be abused to attach to an arbitrary process and force load any DLL named \"mfdetours.dll\" from the current directory of execution.",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.persistence",
+    "attack.privilege-escalation",
+    "attack.execution",
+    "attack.stealth",
+    "attack.t1574.001"
+  ],
+  "category": "image_load",
+  "rule_file": "rules/windows/image_load/image_load_side_load_mfdetours_unsigned.yml",
+  "sources": [
+    "sysmon_image_load"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ImageLoaded",
+          "operator": "endswith",
+          "values": [
+            "\\mfdetours.dll"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main_legit_path": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ImageLoaded",
+          "operator": "contains",
+          "values": [
+            ":\\Program Files (x86)\\Windows Kits\\10\\bin\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "SignatureStatus",
+          "operator": "exact",
+          "values": [
+            "Valid"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_main_*"
+        }
+      }
+    ]
+  }
+}

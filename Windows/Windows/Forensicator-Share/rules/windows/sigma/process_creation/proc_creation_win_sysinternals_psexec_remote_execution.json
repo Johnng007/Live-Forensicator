@@ -1,0 +1,72 @@
+{
+  "title": "Potential PsExec Remote Execution",
+  "rule_id": "ea011323-7045-460b-b2d7-0f7442ea6b38",
+  "description": "Detects potential psexec command that initiate execution on a remote systems via common commandline flags used by the utility",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.resource-development",
+    "attack.t1587.001"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_sysinternals_psexec_remote_execution.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "accepteula",
+            " -u ",
+            " -p ",
+            " \\\\\\\\"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main_localhost": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "\\\\\\\\localhost",
+            "\\\\\\\\127."
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_main_*"
+        }
+      }
+    ]
+  }
+}

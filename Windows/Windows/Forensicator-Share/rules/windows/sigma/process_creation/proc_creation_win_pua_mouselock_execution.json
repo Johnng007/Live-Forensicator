@@ -1,0 +1,76 @@
+{
+  "title": "PUA - Mouse Lock Execution",
+  "rule_id": "c9192ad9-75e5-43eb-8647-82a0a5b493e3",
+  "description": "In Kaspersky's 2020 Incident Response Analyst Report they listed legitimate tool \"Mouse Lock\" as being used for both credential access and collection in security incidents.",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.credential-access",
+    "attack.collection",
+    "attack.t1056.002"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_pua_mouselock_execution.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Product",
+              "operator": "contains",
+              "values": [
+                "Mouse Lock"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Company",
+              "operator": "contains",
+              "values": [
+                "Misc314"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "contains",
+              "values": [
+                "Mouse Lock_"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

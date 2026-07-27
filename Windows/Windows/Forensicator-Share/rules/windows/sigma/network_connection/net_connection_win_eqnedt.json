@@ -1,0 +1,38 @@
+{
+  "title": "Network Connection Initiated By Eqnedt32.EXE",
+  "rule_id": "a66bc059-c370-472c-a0d7-f8fd1bf9d583",
+  "description": "Detects network connections from the Equation Editor process \"eqnedt32.exe\".",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1203"
+  ],
+  "category": "network_connection",
+  "rule_file": "rules/windows/network_connection/net_connection_win_eqnedt.yml",
+  "sources": [
+    "sysmon_network_connection"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\eqnedt32.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

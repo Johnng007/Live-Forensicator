@@ -1,0 +1,173 @@
+{
+  "title": "Suspicious File Download From IP Via Wget.EXE",
+  "rule_id": "17f0c0a8-8bd5-4ee0-8c5f-a342c0199f35",
+  "description": "Detects potentially suspicious file downloads directly from IP addresses using Wget.exe",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_wget_download_direct_ip.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\wget.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "wget.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_ip": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "re",
+          "values": [
+            "://[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": false
+        }
+      ]
+    },
+    "selection_http": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "http"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_flag": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "re",
+              "values": [
+                "\\s-O\\s"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": false
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "contains",
+              "values": [
+                "--output-document"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_ext": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "endswith",
+          "values": [
+            ".ps1",
+            ".ps1'",
+            ".ps1\"",
+            ".dat",
+            ".dat'",
+            ".dat\"",
+            ".msi",
+            ".msi'",
+            ".msi\"",
+            ".bat",
+            ".bat'",
+            ".bat\"",
+            ".exe",
+            ".exe'",
+            ".exe\"",
+            ".vbs",
+            ".vbs'",
+            ".vbs\"",
+            ".vbe",
+            ".vbe'",
+            ".vbe\"",
+            ".hta",
+            ".hta'",
+            ".hta\"",
+            ".dll",
+            ".dll'",
+            ".dll\"",
+            ".psm1",
+            ".psm1'",
+            ".psm1\""
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

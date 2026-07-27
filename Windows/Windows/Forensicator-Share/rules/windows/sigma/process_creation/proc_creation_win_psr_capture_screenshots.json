@@ -1,0 +1,51 @@
+{
+  "title": "Screen Capture Activity Via Psr.EXE",
+  "rule_id": "2158f96f-43c2-43cb-952a-ab4580f32382",
+  "description": "Detects execution of Windows Problem Steps Recorder (psr.exe), a utility used to record the user screen and clicks.",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.collection",
+    "attack.t1113"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_psr_capture_screenshots.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\Psr.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "/start",
+            "-start"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

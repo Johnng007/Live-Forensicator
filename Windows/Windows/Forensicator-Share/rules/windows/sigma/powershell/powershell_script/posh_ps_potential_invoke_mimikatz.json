@@ -1,0 +1,73 @@
+{
+  "title": "Potential Invoke-Mimikatz PowerShell Script",
+  "rule_id": "189e3b02-82b2-4b90-9662-411eb64486d4",
+  "description": "Detects Invoke-Mimikatz PowerShell script and alike. Mimikatz is a credential dumper capable of obtaining plaintext Windows account logins and passwords.",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.credential-access",
+    "attack.t1003"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_potential_invoke_mimikatz.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection_1": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "DumpCreds",
+            "DumpCerts"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_2": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "sekurlsa::logonpasswords"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_3": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "crypto::certificates",
+            "CERT_SYSTEM_STORE_LOCAL_MACHINE"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "any",
+    "pattern": "selection*"
+  }
+}

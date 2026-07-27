@@ -1,0 +1,61 @@
+{
+  "title": "Modify Group Policy Settings - ScriptBlockLogging",
+  "rule_id": "b7216a7d-687e-4c8d-82b1-3080b2ad961f",
+  "description": "Detect malicious GPO modifications can be used to implement many other malicious behaviors.",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.privilege-escalation",
+    "attack.defense-impairment",
+    "attack.t1484.001"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_modify_group_policy_settings.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection_path": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "\\SOFTWARE\\Policies\\Microsoft\\Windows\\System"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_key": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "GroupPolicyRefreshTimeDC",
+            "GroupPolicyRefreshTimeOffsetDC",
+            "GroupPolicyRefreshTime",
+            "GroupPolicyRefreshTimeOffset",
+            "EnableSmartScreen",
+            "ShellSmartScreenLevel"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

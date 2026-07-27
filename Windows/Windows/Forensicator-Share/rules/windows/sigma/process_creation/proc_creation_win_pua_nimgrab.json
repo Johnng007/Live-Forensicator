@@ -1,0 +1,57 @@
+{
+  "title": "PUA - Nimgrab Execution",
+  "rule_id": "74a12f18-505c-4114-8d0b-8448dd5485c6",
+  "description": "Detects the usage of nimgrab, a tool bundled with the Nim programming framework and used for downloading files.",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.command-and-control",
+    "attack.t1105"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_pua_nimgrab.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_name": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\nimgrab.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_hashes": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Hashes",
+          "operator": "contains",
+          "values": [
+            "MD5=2DD44C3C29D667F5C0EF5F9D7C7FFB8B",
+            "SHA256=F266609E91985F0FE3E31C5E8FAEEEC4FFA5E0322D8B6F15FE69F4C5165B9559",
+            "IMPHASH=C07FDDD21D123EA9B3A08EEF44AAAC45"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "any",
+    "pattern": "selection_*"
+  }
+}

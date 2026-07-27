@@ -1,0 +1,232 @@
+{
+  "title": "Always Install Elevated Windows Installer",
+  "rule_id": "cd951fdc-4b2f-47f5-ba99-a33bf61e3770",
+  "description": "Detects Windows Installer service (msiexec.exe) trying to install MSI packages with SYSTEM privilege",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.privilege-escalation",
+    "attack.t1548.002"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_susp_always_install_elevated_windows_installer.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_user": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "User",
+          "operator": "contains",
+          "values": [
+            "AUTHORI",
+            "AUTORI"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_image_1": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "contains",
+          "values": [
+            "\\Windows\\Installer\\",
+            "msi"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "tmp"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_image_2": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\msiexec.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "IntegrityLevel",
+          "operator": "exact",
+          "values": [
+            "System",
+            "S-1-16-16384"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_installer": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "exact",
+          "values": [
+            "C:\\Windows\\System32\\services.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_repair": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "endswith",
+              "values": [
+                "\\system32\\msiexec.exe /V"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "ParentCommandLine",
+              "operator": "endswith",
+              "values": [
+                "\\system32\\msiexec.exe /V"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "filter_sophos": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "startswith",
+          "values": [
+            "C:\\ProgramData\\Sophos\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_avira": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "startswith",
+          "values": [
+            "C:\\ProgramData\\Avira\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_avast": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "startswith",
+          "values": [
+            "C:\\Program Files\\Avast Software\\",
+            "C:\\Program Files (x86)\\Avast Software\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_google_update": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "startswith",
+          "values": [
+            "C:\\Program Files\\Google\\Update\\",
+            "C:\\Program Files (x86)\\Google\\Update\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "wildcard_ref",
+        "mode": "any",
+        "pattern": "selection_image_*"
+      },
+      {
+        "type": "item_ref",
+        "name": "selection_user"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_*"
+        }
+      }
+    ]
+  }
+}

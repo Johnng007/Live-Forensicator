@@ -1,0 +1,79 @@
+{
+  "title": "Whoami.EXE Execution From Privileged Process",
+  "rule_id": "79ce34ca-af29-4d0e-b832-fc1b377020db",
+  "description": "Detects the execution of \"whoami.exe\" by privileged accounts that are often abused by threat actors",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.privilege-escalation",
+    "attack.discovery",
+    "attack.t1033"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_whoami_execution_from_high_priv_process.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "whoami.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\whoami.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_user": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "User",
+          "operator": "contains",
+          "values": [
+            "AUTHORI",
+            "AUTORI",
+            "TrustedInstaller"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

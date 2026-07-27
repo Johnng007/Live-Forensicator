@@ -1,0 +1,48 @@
+{
+  "title": "Sticky Key Like Backdoor Usage - Registry",
+  "rule_id": "baca5663-583c-45f9-b5dc-ea96a22ce542",
+  "description": "Detects the usage and installation of a backdoor that uses an option to register a malicious debugger for built-in tools that are accessible in the login screen",
+  "level": "critical",
+  "status": "test",
+  "tags": [
+    "attack.privilege-escalation",
+    "attack.persistence",
+    "attack.t1546.008",
+    "car.2014-11-003",
+    "car.2014-11-008"
+  ],
+  "category": "registry_event",
+  "rule_file": "rules/windows/registry/registry_event/registry_event_stickykey_like_backdoor.yml",
+  "sources": [
+    "sysmon_registry_event"
+  ],
+  "items": {
+    "selection_registry": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "TargetObject",
+          "operator": "endswith",
+          "values": [
+            "\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\sethc.exe\\Debugger",
+            "\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\utilman.exe\\Debugger",
+            "\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\osk.exe\\Debugger",
+            "\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\Magnify.exe\\Debugger",
+            "\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\Narrator.exe\\Debugger",
+            "\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\DisplaySwitch.exe\\Debugger",
+            "\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\atbroker.exe\\Debugger",
+            "\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Image File Execution Options\\HelpPane.exe\\Debugger"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection_registry"
+  }
+}

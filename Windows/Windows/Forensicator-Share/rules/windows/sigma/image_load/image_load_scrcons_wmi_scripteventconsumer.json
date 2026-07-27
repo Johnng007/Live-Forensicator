@@ -1,0 +1,54 @@
+{
+  "title": "WMI ActiveScriptEventConsumers Activity Via Scrcons.EXE DLL Load",
+  "rule_id": "b439f47d-ef52-4b29-9a2f-57d8a96cb6b8",
+  "description": "Detects signs of the WMI script host process \"scrcons.exe\" loading scripting DLLs which could indicates WMI ActiveScriptEventConsumers EventConsumers activity.",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.lateral-movement",
+    "attack.privilege-escalation",
+    "attack.persistence",
+    "attack.t1546.003"
+  ],
+  "category": "image_load",
+  "rule_file": "rules/windows/image_load/image_load_scrcons_wmi_scripteventconsumer.yml",
+  "sources": [
+    "sysmon_image_load"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\scrcons.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "ImageLoaded",
+          "operator": "endswith",
+          "values": [
+            "\\vbscript.dll",
+            "\\wbemdisp.dll",
+            "\\wshom.ocx",
+            "\\scrrun.dll"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

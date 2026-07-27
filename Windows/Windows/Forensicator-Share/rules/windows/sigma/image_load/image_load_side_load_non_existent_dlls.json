@@ -1,0 +1,102 @@
+{
+  "title": "Potential DLL Sideloading Of Non-Existent DLLs From System Folders",
+  "rule_id": "6b98b92b-4f00-4f62-b4fe-4d1920215771",
+  "description": "Detects loading of specific system DLL files that are usually not present on the system (or at least not in system directories) but may be loaded by legitimate processes, potentially indicating phantom DLL hijacking attempts.\nPhantom DLL hijacking involves placing malicious DLLs with names of non-existent system binaries in locations where legitimate applications may search for them, leading to execution of the malicious DLLs.\n",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.persistence",
+    "attack.privilege-escalation",
+    "attack.execution",
+    "attack.stealth",
+    "attack.t1574.001"
+  ],
+  "category": "image_load",
+  "rule_file": "rules/windows/image_load/image_load_side_load_non_existent_dlls.yml",
+  "sources": [
+    "sysmon_image_load"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ImageLoaded",
+          "operator": "endswith",
+          "values": [
+            ":\\Windows\\System32\\axeonoffhelper.dll",
+            ":\\Windows\\System32\\cdpsgshims.dll",
+            ":\\Windows\\System32\\oci.dll",
+            ":\\Windows\\System32\\offdmpsvc.dll",
+            ":\\Windows\\System32\\shellchromeapi.dll",
+            ":\\Windows\\System32\\TSMSISrv.dll",
+            ":\\Windows\\System32\\TSVIPSrv.dll",
+            ":\\Windows\\System32\\wbem\\wbemcomn.dll",
+            ":\\Windows\\System32\\WLBSCTRL.dll",
+            ":\\Windows\\System32\\wow64log.dll",
+            ":\\Windows\\System32\\WptsExtensions.dll"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main_ms_signed": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Signed",
+          "operator": "exact",
+          "values": [
+            "true"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "SignatureStatus",
+          "operator": "exact",
+          "values": [
+            "Valid"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Signature",
+          "operator": "exact",
+          "values": [
+            "Microsoft Windows"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_main_*"
+        }
+      }
+    ]
+  }
+}

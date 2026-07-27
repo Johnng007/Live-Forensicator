@@ -1,0 +1,52 @@
+{
+  "title": "Mshtml.DLL RunHTMLApplication Suspicious Usage",
+  "rule_id": "4782eb5a-a513-4523-a0ac-f3082b26ac5c",
+  "description": "Detects execution of commands that leverage the \"mshtml.dll\" RunHTMLApplication export to run arbitrary code via different protocol handlers (vbscript, javascript, file, http...)\n",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.stealth"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_rundll32_mshtml_runhtmlapplication.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "\\..\\",
+            "mshtml"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "#135",
+            "RunHTMLApplication"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

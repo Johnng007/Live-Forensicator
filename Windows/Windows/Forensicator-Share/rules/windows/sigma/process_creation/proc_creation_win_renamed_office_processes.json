@@ -1,0 +1,112 @@
+{
+  "title": "Renamed Office Binary Execution",
+  "rule_id": "0b0cd537-fc77-4e6e-a973-e53495c1083d",
+  "description": "Detects the execution of a renamed office binary",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.stealth",
+    "attack.t1036.003"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_renamed_office_processes.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "Excel.exe",
+                "MSACCESS.EXE",
+                "MSPUB.EXE",
+                "OneNote.exe",
+                "OneNoteM.exe",
+                "OUTLOOK.EXE",
+                "POWERPNT.EXE",
+                "WinWord.exe",
+                "Olk.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Description",
+              "operator": "exact",
+              "values": [
+                "Microsoft Access",
+                "Microsoft Excel",
+                "Microsoft OneNote",
+                "Microsoft Outlook",
+                "Microsoft PowerPoint",
+                "Microsoft Publisher",
+                "Microsoft Word",
+                "Sent to OneNote Tool"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "filter_main_legit_names": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\EXCEL.exe",
+            "\\excelcnv.exe",
+            "\\MSACCESS.exe",
+            "\\MSPUB.EXE",
+            "\\ONENOTE.EXE",
+            "\\ONENOTEM.EXE",
+            "\\OUTLOOK.EXE",
+            "\\POWERPNT.EXE",
+            "\\WINWORD.exe",
+            "\\OLK.EXE"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_main_*"
+        }
+      }
+    ]
+  }
+}

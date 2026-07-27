@@ -1,0 +1,67 @@
+{
+  "title": "Renamed Whoami Execution",
+  "rule_id": "f1086bf7-a0c4-4a37-9102-01e573caf4a0",
+  "description": "Detects the execution of whoami that has been renamed to a different name to avoid detection",
+  "level": "critical",
+  "status": "test",
+  "tags": [
+    "attack.discovery",
+    "attack.t1033",
+    "car.2016-03-001"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_renamed_whoami.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "OriginalFileName",
+          "operator": "exact",
+          "values": [
+            "whoami.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\whoami.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "item_ref",
+          "name": "filter"
+        }
+      }
+    ]
+  }
+}

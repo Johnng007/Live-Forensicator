@@ -1,0 +1,41 @@
+{
+  "title": "PowerShell Get-Process LSASS",
+  "rule_id": "b2815d0d-7481-4bf0-9b6c-a4c48a94b349",
+  "description": "Detects a \"Get-Process\" cmdlet and it's aliases on lsass process, which is in almost all cases a sign of malicious activity",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.credential-access",
+    "attack.t1552.004"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_powershell_getprocess_lsass.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "Get-Process lsas",
+            "ps lsas",
+            "gps lsas"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

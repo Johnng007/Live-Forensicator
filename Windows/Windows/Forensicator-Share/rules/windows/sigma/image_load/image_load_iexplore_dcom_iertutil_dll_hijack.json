@@ -1,0 +1,50 @@
+{
+  "title": "Potential DCOM InternetExplorer.Application DLL Hijack - Image Load",
+  "rule_id": "f354eba5-623b-450f-b073-0b5b2773b6aa",
+  "description": "Detects potential DLL hijack of \"iertutil.dll\" found in the DCOM InternetExplorer.Application Class",
+  "level": "critical",
+  "status": "test",
+  "tags": [
+    "attack.lateral-movement",
+    "attack.t1021.002",
+    "attack.t1021.003"
+  ],
+  "category": "image_load",
+  "rule_file": "rules/windows/image_load/image_load_iexplore_dcom_iertutil_dll_hijack.yml",
+  "sources": [
+    "sysmon_image_load"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\Internet Explorer\\iexplore.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "ImageLoaded",
+          "operator": "endswith",
+          "values": [
+            "\\Internet Explorer\\iertutil.dll"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "title": "Procdump Execution",
+  "rule_id": "2e65275c-8288-4ab4-aeb7-6274f58b6b20",
+  "description": "Detects usage of the SysInternals Procdump utility",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.stealth",
+    "attack.t1036",
+    "attack.t1003.001",
+    "attack.credential-access"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_sysinternals_procdump.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\procdump.exe",
+            "\\procdump64.exe",
+            "\\procdump64a.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

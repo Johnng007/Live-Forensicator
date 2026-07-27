@@ -1,0 +1,254 @@
+{
+  "title": "Local Accounts Discovery",
+  "rule_id": "502b42de-4306-40b4-9596-6f590c81f073",
+  "description": "Local accounts, System Owner/User discovery using operating systems utilities",
+  "level": "low",
+  "status": "test",
+  "tags": [
+    "attack.discovery",
+    "attack.t1033",
+    "attack.t1087.001"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_susp_local_system_owner_account_discovery.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_other_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\whoami.exe",
+                "\\quser.exe",
+                "\\qwinsta.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "whoami.exe",
+                "quser.exe",
+                "qwinsta.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_other_wmi": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\wmic.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "useraccount",
+            "get"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_other_cmdkey": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\cmdkey.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " /l"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_cmd": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\cmd.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " /c",
+            "dir ",
+            "\\Users\\"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_cmd": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " rmdir "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_net": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\net.exe",
+            "\\net1.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "user"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_net": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "/domain",
+            "/add",
+            "/delete",
+            "/active",
+            "/expires",
+            "/passwordreq",
+            "/scriptpath",
+            "/times",
+            "/workstations"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "any",
+    "children": [
+      {
+        "type": "all",
+        "children": [
+          {
+            "type": "item_ref",
+            "name": "selection_cmd"
+          },
+          {
+            "type": "not",
+            "child": {
+              "type": "item_ref",
+              "name": "filter_cmd"
+            }
+          }
+        ]
+      },
+      {
+        "type": "all",
+        "children": [
+          {
+            "type": "item_ref",
+            "name": "selection_net"
+          },
+          {
+            "type": "not",
+            "child": {
+              "type": "item_ref",
+              "name": "filter_net"
+            }
+          }
+        ]
+      },
+      {
+        "type": "wildcard_ref",
+        "mode": "any",
+        "pattern": "selection_other_*"
+      }
+    ]
+  }
+}

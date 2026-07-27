@@ -1,0 +1,82 @@
+{
+  "title": "Potentially Suspicious Execution Of Regasm/Regsvcs From Uncommon Location",
+  "rule_id": "cc368ed0-2411-45dc-a222-510ace303cb2",
+  "description": "Detects potentially suspicious execution of the Regasm/Regsvcs utilities from a potentially suspicious location",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.stealth",
+    "attack.t1218.009"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_regasm_regsvcs_uncommon_location_execution.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\Regsvcs.exe",
+                "\\Regasm.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "RegSvcs.exe",
+                "RegAsm.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_dir": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "\\AppData\\Local\\Temp\\",
+            "\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\",
+            "\\PerfLogs\\",
+            "\\Users\\Public\\",
+            "\\Windows\\Temp\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

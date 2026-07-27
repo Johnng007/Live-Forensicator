@@ -1,0 +1,289 @@
+{
+  "title": "Script Interpreter Execution From Suspicious Folder",
+  "rule_id": "1228c958-e64e-4e71-92ad-7d429f4138ba",
+  "description": "Detects suspicious script execution from suspicious directories or folders accessible by environment variables that may indicate malware activity.\nScript interpreters (cscript, wscript, mshta, powershell) executing from folders like Temp, Public, or user profile directories may suggest attempts to evade detection or execute malicious scripts.\n",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1059"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_susp_script_exec_from_env_folder.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_proc_image": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\cscript.exe",
+            "\\mshta.exe",
+            "\\wscript.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_proc_flags": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " -ep bypass ",
+            " -ExecutionPolicy bypass ",
+            " -w hidden ",
+            "/e:javascript ",
+            "/e:Jscript ",
+            "/e:vbscript "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_proc_original": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "OriginalFileName",
+          "operator": "exact",
+          "values": [
+            "cscript.exe",
+            "mshta.exe",
+            "wscript.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_folders_1": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            ":\\Perflogs\\",
+            ":\\Users\\Public\\",
+            "\\%Public%",
+            "\\AppData\\Local\\Temp",
+            "\\AppData\\Roaming\\Temp",
+            "\\Temporary Internet",
+            "\\Windows\\Temp",
+            "\\Start Menu\\Programs\\Startup\\",
+            "%TEMP%",
+            "%TMP%",
+            "%LocalAppData%\\Temp"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_folders_2": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "contains",
+              "values": [
+                ":\\Users\\",
+                "\\Favorites\\"
+              ],
+              "match": "all",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "contains",
+              "values": [
+                ":\\Users\\",
+                "\\Favourites\\"
+              ],
+              "match": "all",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "contains",
+              "values": [
+                ":\\Users\\",
+                "\\Contacts\\"
+              ],
+              "match": "all",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "contains",
+              "values": [
+                ":\\Users\\",
+                "\\Documents\\"
+              ],
+              "match": "all",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "contains",
+              "values": [
+                ":\\Users\\",
+                "\\Music\\"
+              ],
+              "match": "all",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "contains",
+              "values": [
+                ":\\Users\\",
+                "\\Pictures\\"
+              ],
+              "match": "all",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "contains",
+              "values": [
+                ":\\Users\\",
+                "\\Videos\\"
+              ],
+              "match": "all",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "filter_optional_chocolatey_installer": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "exact",
+          "values": [
+            "C:\\Windows\\System32\\Msiexec.exe",
+            "C:\\Windows\\SysWOW64\\Msiexec.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\powershell.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "-NoProfile -ExecutionPolicy Bypass -Command",
+            "AppData\\Local\\Temp\\",
+            "Install-Chocolatey.ps1"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "wildcard_ref",
+        "mode": "any",
+        "pattern": "selection_proc_*"
+      },
+      {
+        "type": "wildcard_ref",
+        "mode": "any",
+        "pattern": "selection_folders_*"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_optional_*"
+        }
+      }
+    ]
+  }
+}

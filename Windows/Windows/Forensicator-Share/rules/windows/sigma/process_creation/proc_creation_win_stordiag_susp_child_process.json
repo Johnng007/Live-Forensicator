@@ -1,0 +1,81 @@
+{
+  "title": "Execution via stordiag.exe",
+  "rule_id": "961e0abb-1b1e-4c84-a453-aafe56ad0d34",
+  "description": "Detects the use of stordiag.exe to execute schtasks.exe systeminfo.exe and fltmc.exe",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.stealth",
+    "attack.t1218"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_stordiag_susp_child_process.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "endswith",
+          "values": [
+            "\\stordiag.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\schtasks.exe",
+            "\\systeminfo.exe",
+            "\\fltmc.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "startswith",
+          "values": [
+            "c:\\windows\\system32\\",
+            "c:\\windows\\syswow64\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "item_ref",
+          "name": "filter"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,94 @@
+{
+  "title": "PUA - Advanced IP Scanner Execution",
+  "rule_id": "bef37fa2-f205-4a7b-b484-0759bfd5f86f",
+  "description": "Detects the use of Advanced IP Scanner. Seems to be a popular tool for ransomware groups.",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.discovery",
+    "attack.t1046",
+    "attack.t1135"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_pua_advanced_ip_scanner.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "contains",
+              "values": [
+                "\\advanced_ip_scanner"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "contains",
+              "values": [
+                "advanced_ip_scanner"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Description",
+              "operator": "contains",
+              "values": [
+                "Advanced IP Scanner"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_cli": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "/portable",
+            "/lng"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "any",
+    "pattern": "selection_*"
+  }
+}

@@ -1,0 +1,86 @@
+{
+  "title": "Potential SmadHook.DLL Sideloading",
+  "rule_id": "24b6cf51-6122-469e-861a-22974e9c1e5b",
+  "description": "Detects potential DLL sideloading of \"SmadHook.dll\", a DLL used by SmadAV antivirus",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.persistence",
+    "attack.privilege-escalation",
+    "attack.execution",
+    "attack.stealth",
+    "attack.t1574.001"
+  ],
+  "category": "image_load",
+  "rule_file": "rules/windows/image_load/image_load_side_load_smadhook.yml",
+  "sources": [
+    "sysmon_image_load"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ImageLoaded",
+          "operator": "endswith",
+          "values": [
+            "\\SmadHook32c.dll",
+            "\\SmadHook64c.dll"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main_legit_path": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "exact",
+          "values": [
+            "C:\\Program Files (x86)\\SMADAV\\SmadavProtect32.exe",
+            "C:\\Program Files (x86)\\SMADAV\\SmadavProtect64.exe",
+            "C:\\Program Files\\SMADAV\\SmadavProtect32.exe",
+            "C:\\Program Files\\SMADAV\\SmadavProtect64.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "ImageLoaded",
+          "operator": "startswith",
+          "values": [
+            "C:\\Program Files (x86)\\SMADAV\\",
+            "C:\\Program Files\\SMADAV\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_main_*"
+        }
+      }
+    ]
+  }
+}

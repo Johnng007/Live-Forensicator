@@ -1,0 +1,40 @@
+{
+  "title": "Suspicious PowerShell Get Current User",
+  "rule_id": "4096a49c-7de4-4da0-a230-c66ccd56ea5a",
+  "description": "Detects the use of PowerShell to identify the current logged user.",
+  "level": "low",
+  "status": "test",
+  "tags": [
+    "attack.discovery",
+    "attack.t1033"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_susp_get_current_user.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "[System.Environment]::UserName",
+            "$env:UserName",
+            "[System.Security.Principal.WindowsIdentity]::GetCurrent()"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

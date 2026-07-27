@@ -1,0 +1,102 @@
+{
+  "title": "Outbound Network Connection Initiated By Script Interpreter",
+  "rule_id": "992a6cae-db6a-43c8-9cec-76d7195c96fc",
+  "description": "Detects a script interpreter wscript/cscript opening a network connection to a non-local network. Adversaries may use script to download malicious payloads.",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.command-and-control",
+    "attack.t1105"
+  ],
+  "category": "network_connection",
+  "rule_file": "rules/windows/network_connection/net_connection_win_wscript_cscript_outbound_connection.yml",
+  "sources": [
+    "sysmon_network_connection"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Initiated",
+          "operator": "exact",
+          "values": [
+            "true"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\wscript.exe",
+            "\\cscript.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main_local_ranges": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "DestinationIp",
+          "operator": "cidr",
+          "values": [
+            "127.0.0.0/8",
+            "10.0.0.0/8",
+            "172.16.0.0/12",
+            "192.168.0.0/16",
+            "169.254.0.0/16",
+            "::1/128",
+            "fe80::/10",
+            "fc00::/7"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main_ms_ranges": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "DestinationIp",
+          "operator": "cidr",
+          "values": [
+            "20.0.0.0/11"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_main_*"
+        }
+      }
+    ]
+  }
+}

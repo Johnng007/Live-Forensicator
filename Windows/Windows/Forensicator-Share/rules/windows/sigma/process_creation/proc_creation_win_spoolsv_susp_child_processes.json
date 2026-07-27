@@ -1,0 +1,359 @@
+{
+  "title": "Suspicious Spool Service Child Process",
+  "rule_id": "dcdbc940-0bff-46b2-95f3-2d73f848e33b",
+  "description": "Detects suspicious print spool service (spoolsv.exe) child processes.",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1203",
+    "attack.privilege-escalation",
+    "attack.t1068"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_spoolsv_susp_child_processes.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "spoolsv": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "endswith",
+          "values": [
+            "\\spoolsv.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "IntegrityLevel",
+          "operator": "exact",
+          "values": [
+            "System",
+            "S-1-16-16384"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "suspicious_unrestricted": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\gpupdate.exe",
+            "\\whoami.exe",
+            "\\nltest.exe",
+            "\\taskkill.exe",
+            "\\wmic.exe",
+            "\\taskmgr.exe",
+            "\\sc.exe",
+            "\\findstr.exe",
+            "\\curl.exe",
+            "\\wget.exe",
+            "\\certutil.exe",
+            "\\bitsadmin.exe",
+            "\\accesschk.exe",
+            "\\wevtutil.exe",
+            "\\bcdedit.exe",
+            "\\fsutil.exe",
+            "\\cipher.exe",
+            "\\schtasks.exe",
+            "\\write.exe",
+            "\\wuauclt.exe",
+            "\\systeminfo.exe",
+            "\\reg.exe",
+            "\\query.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "suspicious_net": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\net.exe",
+            "\\net1.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "suspicious_net_filter": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "start"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "suspicious_cmd": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\cmd.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "suspicious_cmd_filter": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            ".spl",
+            "route add",
+            "program files"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "suspicious_netsh": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\netsh.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "suspicious_netsh_filter": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "add portopening",
+            "rule name"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "suspicious_powershell": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\powershell.exe",
+            "\\pwsh.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "suspicious_powershell_filter": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            ".spl"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "suspicious_rundll32_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\rundll32.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "RUNDLL32.EXE"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "suspicious_rundll32_cli": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "endswith",
+          "values": [
+            "rundll32.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "spoolsv"
+      },
+      {
+        "type": "any",
+        "children": [
+          {
+            "type": "item_ref",
+            "name": "suspicious_unrestricted"
+          },
+          {
+            "type": "all",
+            "children": [
+              {
+                "type": "item_ref",
+                "name": "suspicious_net"
+              },
+              {
+                "type": "not",
+                "child": {
+                  "type": "item_ref",
+                  "name": "suspicious_net_filter"
+                }
+              }
+            ]
+          },
+          {
+            "type": "all",
+            "children": [
+              {
+                "type": "item_ref",
+                "name": "suspicious_cmd"
+              },
+              {
+                "type": "not",
+                "child": {
+                  "type": "item_ref",
+                  "name": "suspicious_cmd_filter"
+                }
+              }
+            ]
+          },
+          {
+            "type": "all",
+            "children": [
+              {
+                "type": "item_ref",
+                "name": "suspicious_netsh"
+              },
+              {
+                "type": "not",
+                "child": {
+                  "type": "item_ref",
+                  "name": "suspicious_netsh_filter"
+                }
+              }
+            ]
+          },
+          {
+            "type": "all",
+            "children": [
+              {
+                "type": "item_ref",
+                "name": "suspicious_powershell"
+              },
+              {
+                "type": "not",
+                "child": {
+                  "type": "item_ref",
+                  "name": "suspicious_powershell_filter"
+                }
+              }
+            ]
+          },
+          {
+            "type": "wildcard_ref",
+            "mode": "all",
+            "pattern": "suspicious_rundll32_*"
+          }
+        ]
+      }
+    ]
+  }
+}

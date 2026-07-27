@@ -1,0 +1,67 @@
+{
+  "title": "Explorer Process Tree Break",
+  "rule_id": "949f1ffb-6e85-4f00-ae1e-c3c5b190d605",
+  "description": "Detects a command line process that uses explorer.exe to launch arbitrary commands or binaries,\nwhich is similar to cmd.exe /c, only it breaks the process tree and makes its parent a new instance of explorer spawning from \"svchost\"\n",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.stealth",
+    "attack.t1036"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_explorer_break_process_tree.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_factory": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "/factory,{75dff2b7-6936-4c06-a8bb-676a7b00b24b}"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_root": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "explorer.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " /root,"
+          ],
+          "match": "any",
+          "windash": true,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "any",
+    "pattern": "selection_*"
+  }
+}

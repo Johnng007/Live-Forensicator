@@ -1,0 +1,65 @@
+{
+  "title": "New Virtual Smart Card Created Via TpmVscMgr.EXE",
+  "rule_id": "c633622e-cab9-4eaa-bb13-66a1d68b3e47",
+  "description": "Detects execution of \"Tpmvscmgr.exe\" to create a new virtual smart card.",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.execution"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_tpmvscmgr_add_virtual_smartcard.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\tpmvscmgr.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "OriginalFileName",
+          "operator": "exact",
+          "values": [
+            "TpmVscMgr.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_cli": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "create"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

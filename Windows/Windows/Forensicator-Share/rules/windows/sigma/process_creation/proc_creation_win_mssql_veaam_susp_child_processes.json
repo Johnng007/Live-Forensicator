@@ -1,0 +1,124 @@
+{
+  "title": "Suspicious Child Process Of Veeam Dabatase",
+  "rule_id": "d55b793d-f847-4eea-b59a-5ab09908ac90",
+  "description": "Detects suspicious child processes of the Veeam service process. This could indicate potential RCE or SQL Injection.",
+  "level": "critical",
+  "status": "test",
+  "tags": [
+    "attack.initial-access",
+    "attack.persistence",
+    "attack.privilege-escalation"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_mssql_veaam_susp_child_processes.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_parent": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "endswith",
+          "values": [
+            "\\sqlservr.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "ParentCommandLine",
+          "operator": "contains",
+          "values": [
+            "VEEAMSQL"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_child_1": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\cmd.exe",
+            "\\powershell.exe",
+            "\\pwsh.exe",
+            "\\wsl.exe",
+            "\\wt.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "-ex ",
+            "bypass",
+            "cscript",
+            "DownloadString",
+            "http://",
+            "https://",
+            "mshta",
+            "regsvr32",
+            "rundll32",
+            "wscript",
+            "copy "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_child_2": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\net.exe",
+            "\\net1.exe",
+            "\\netstat.exe",
+            "\\nltest.exe",
+            "\\ping.exe",
+            "\\tasklist.exe",
+            "\\whoami.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection_parent"
+      },
+      {
+        "type": "wildcard_ref",
+        "mode": "any",
+        "pattern": "selection_child_*"
+      }
+    ]
+  }
+}

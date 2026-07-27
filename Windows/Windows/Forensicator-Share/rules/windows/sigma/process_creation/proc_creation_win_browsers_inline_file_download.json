@@ -1,0 +1,116 @@
+{
+  "title": "File Download From Browser Process Via Inline URL",
+  "rule_id": "94771a71-ba41-4b6e-a757-b531372eaab6",
+  "description": "Detects execution of a browser process with a URL argument pointing to a file with a potentially interesting extension. This can be abused to download arbitrary files or to hide from the user for example by launching the browser in a minimized state.",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.command-and-control",
+    "attack.t1105"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_browsers_inline_file_download.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\brave.exe",
+            "\\chrome.exe",
+            "\\msedge.exe",
+            "\\opera.exe",
+            "\\vivaldi.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_http": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "http"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_extensions": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "endswith",
+              "values": [
+                ".7z",
+                ".dat",
+                ".dll",
+                ".exe",
+                ".hta",
+                ".ps1",
+                ".psm1",
+                ".txt",
+                ".vbe",
+                ".vbs",
+                ".zip"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "contains",
+              "values": [
+                ".7z\"",
+                ".dat\"",
+                ".dll\"",
+                ".hta\"",
+                ".ps1\"",
+                ".psm1\"",
+                ".txt\"",
+                ".vbe\"",
+                ".vbs\"",
+                ".zip\""
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

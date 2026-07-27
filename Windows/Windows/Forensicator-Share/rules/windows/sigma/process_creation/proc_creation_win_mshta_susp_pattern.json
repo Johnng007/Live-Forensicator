@@ -1,0 +1,173 @@
+{
+  "title": "Suspicious Mshta.EXE Execution Patterns",
+  "rule_id": "e32f92d1-523e-49c3-9374-bdb13b46a3ba",
+  "description": "Detects suspicious mshta process execution patterns",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1106"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_mshta_susp_pattern.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\mshta.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "MSHTA.EXE"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_susp": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "endswith",
+          "values": [
+            "\\cmd.exe",
+            "\\cscript.exe",
+            "\\powershell.exe",
+            "\\pwsh.exe",
+            "\\regsvr32.exe",
+            "\\rundll32.exe",
+            "\\wscript.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "\\AppData\\Local\\",
+            "C:\\ProgramData\\",
+            "C:\\Users\\Public\\",
+            "C:\\Windows\\Temp\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "startswith",
+              "values": [
+                "C:\\Windows\\System32\\",
+                "C:\\Windows\\SysWOW64\\"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "contains",
+              "values": [
+                ".htm",
+                ".hta"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "endswith",
+              "values": [
+                "mshta.exe",
+                "mshta"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "any",
+    "children": [
+      {
+        "type": "wildcard_ref",
+        "mode": "all",
+        "pattern": "selection_*"
+      },
+      {
+        "type": "all",
+        "children": [
+          {
+            "type": "item_ref",
+            "name": "selection_img"
+          },
+          {
+            "type": "not",
+            "child": {
+              "type": "item_ref",
+              "name": "filter_img"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

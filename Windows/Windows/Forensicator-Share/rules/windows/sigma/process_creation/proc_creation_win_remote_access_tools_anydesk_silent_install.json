@@ -1,0 +1,41 @@
+{
+  "title": "Remote Access Tool - AnyDesk Silent Installation",
+  "rule_id": "114e7f1c-f137-48c8-8f54-3088c24ce4b9",
+  "description": "Detects AnyDesk Remote Desktop silent installation. Which can be used by attackers to gain remote access.",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.command-and-control",
+    "attack.t1219.002"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_remote_access_tools_anydesk_silent_install.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "--install",
+            "--start-with-win",
+            "--silent"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

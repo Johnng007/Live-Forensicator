@@ -1,0 +1,87 @@
+{
+  "title": "PUA - Chisel Tunneling Tool Execution",
+  "rule_id": "8b0e12da-d3c3-49db-bb4f-256703f380e5",
+  "description": "Detects usage of the Chisel tunneling tool via the commandline arguments",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.command-and-control",
+    "attack.t1090.001"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_pua_chisel.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\chisel.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_param1": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "exe client ",
+            "exe server "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_param2": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "-socks5",
+            "-reverse",
+            " r:",
+            ":127.0.0.1:",
+            "-tls-skip-verify ",
+            ":socks"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "any",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection_img"
+      },
+      {
+        "type": "wildcard_ref",
+        "mode": "all",
+        "pattern": "selection_param*"
+      }
+    ]
+  }
+}

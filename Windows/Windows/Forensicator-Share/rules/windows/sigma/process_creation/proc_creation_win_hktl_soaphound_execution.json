@@ -1,0 +1,62 @@
+{
+  "title": "HackTool - SOAPHound Execution",
+  "rule_id": "e92a4287-e072-4a40-9739-370c106bb750",
+  "description": "Detects the execution of SOAPHound, a .NET tool for collecting Active Directory data, using specific command-line arguments that may indicate an attempt to extract sensitive AD information.\n",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.discovery",
+    "attack.t1087"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_hktl_soaphound_execution.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_1": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " --buildcache ",
+            " --bhdump ",
+            " --certdump ",
+            " --dnsdump "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_2": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " -c ",
+            " --cachefilename ",
+            " -o ",
+            " --outputdirectory"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

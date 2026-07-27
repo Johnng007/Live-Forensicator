@@ -1,0 +1,39 @@
+{
+  "title": "Execute Invoke-command on Remote Host",
+  "rule_id": "7b836d7f-179c-4ba4-90a7-a7e60afb48e6",
+  "description": "Adversaries may use Valid Accounts to interact with remote systems using Windows Remote Management (WinRM). The adversary may then perform actions as the logged-on user.",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.lateral-movement",
+    "attack.t1021.006"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_invoke_command_remote.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection_cmdlet": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "invoke-command ",
+            " -ComputerName "
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection_cmdlet"
+  }
+}

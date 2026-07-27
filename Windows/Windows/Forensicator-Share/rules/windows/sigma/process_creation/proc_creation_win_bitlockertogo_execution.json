@@ -1,0 +1,39 @@
+{
+  "title": "BitLockerTogo.EXE Execution",
+  "rule_id": "7f2376f9-42ee-4dfc-9360-fecff9a88fc8",
+  "description": "Detects the execution of \"BitLockerToGo.EXE\".\nBitLocker To Go is BitLocker Drive Encryption on removable data drives. This feature includes the encryption of, USB flash drives, SD cards, External hard disk drives, Other drives that are formatted by using the NTFS, FAT16, FAT32, or exFAT file system.\nThis is a rarely used application and usage of it at all is worth investigating.\nMalware such as Lumma stealer has been seen using this process as a target for process hollowing.\n",
+  "level": "low",
+  "status": "test",
+  "tags": [
+    "attack.stealth",
+    "attack.t1218"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_bitlockertogo_execution.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\BitLockerToGo.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

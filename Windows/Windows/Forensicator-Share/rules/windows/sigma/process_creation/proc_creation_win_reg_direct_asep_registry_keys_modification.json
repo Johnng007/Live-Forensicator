@@ -1,0 +1,99 @@
+{
+  "title": "Direct Autorun Keys Modification",
+  "rule_id": "24357373-078f-44ed-9ac4-6d334a668a11",
+  "description": "Detects direct modification of autostart extensibility point (ASEP) in registry using reg.exe.",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.privilege-escalation",
+    "attack.persistence",
+    "attack.t1547.001"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_reg_direct_asep_registry_keys_modification.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\reg.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "reg.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_cli_add": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "add"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_cli_keys": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "\\software\\Microsoft\\Windows\\CurrentVersion\\Run",
+            "\\software\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Run",
+            "\\software\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\\Run",
+            "\\software\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\Userinit",
+            "\\software\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\Shell",
+            "\\software\\Microsoft\\Windows NT\\CurrentVersion\\Windows",
+            "\\system\\CurrentControlSet\\Control\\SafeBoot\\AlternateShell"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

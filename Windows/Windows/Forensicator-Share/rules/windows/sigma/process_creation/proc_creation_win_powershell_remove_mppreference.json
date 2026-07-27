@@ -1,0 +1,59 @@
+{
+  "title": "Tamper Windows Defender Remove-MpPreference",
+  "rule_id": "07e3cb2c-0608-410d-be4b-1511cb1a0448",
+  "description": "Detects attempts to remove Windows Defender configurations using the 'MpPreference' cmdlet",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.defense-impairment",
+    "attack.t1685"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_powershell_remove_mppreference.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_remove": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "Remove-MpPreference"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_tamper": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "-ControlledFolderAccessProtectedFolders ",
+            "-AttackSurfaceReductionRules_Ids ",
+            "-AttackSurfaceReductionRules_Actions ",
+            "-CheckForSignaturesBeforeRunningScan "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

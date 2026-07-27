@@ -1,0 +1,53 @@
+{
+  "title": "Port Forwarding Activity Via SSH.EXE",
+  "rule_id": "327f48c1-a6db-4eb8-875a-f6981f1b0183",
+  "description": "Detects port forwarding activity via SSH.exe",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.command-and-control",
+    "attack.lateral-movement",
+    "attack.t1572",
+    "attack.t1021.001",
+    "attack.t1021.004"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_ssh_port_forward.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\ssh.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " -R "
+          ],
+          "match": "any",
+          "windash": true,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

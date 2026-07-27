@@ -1,0 +1,97 @@
+{
+  "title": "Suspicious Windows Trace ETW Session Tamper Via Logman.EXE",
+  "rule_id": "cd1f961e-0b96-436b-b7c6-38da4583ec00",
+  "description": "Detects the execution of \"logman\" utility in order to disable or delete Windows trace sessions",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.defense-impairment",
+    "attack.t1685",
+    "attack.t1685.005"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_logman_disable_eventlog.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\logman.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "Logman.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_action": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "stop ",
+            "delete "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_service": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "Circular Kernel Context Logger",
+            "EventLog-",
+            "SYSMON TRACE",
+            "SysmonDnsEtwSession"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection*"
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "title": "DotNet CLR DLL Loaded By Scripting Applications",
+  "rule_id": "4508a70e-97ef-4300-b62b-ff27992990ea",
+  "description": "Detects .NET CLR DLLs being loaded by scripting applications such as wscript or cscript. This could be an indication of potential suspicious execution.",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.privilege-escalation",
+    "attack.stealth",
+    "attack.t1055"
+  ],
+  "category": "image_load",
+  "rule_file": "rules/windows/image_load/image_load_susp_script_dotnet_clr_dll_load.yml",
+  "sources": [
+    "sysmon_image_load"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\cmstp.exe",
+            "\\cscript.exe",
+            "\\mshta.exe",
+            "\\msxsl.exe",
+            "\\regsvr32.exe",
+            "\\wmic.exe",
+            "\\wscript.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "ImageLoaded",
+          "operator": "endswith",
+          "values": [
+            "\\clr.dll",
+            "\\mscoree.dll",
+            "\\mscorlib.dll"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

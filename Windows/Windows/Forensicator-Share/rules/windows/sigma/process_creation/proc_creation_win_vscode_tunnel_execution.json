@@ -1,0 +1,106 @@
+{
+  "title": "Visual Studio Code Tunnel Execution",
+  "rule_id": "90d6bd71-dffb-4989-8d86-a827fedd6624",
+  "description": "Detects Visual Studio Code tunnel execution. Attackers can abuse this functionality to establish a C2 channel",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.command-and-control",
+    "attack.t1071.001",
+    "attack.t1219"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_vscode_tunnel_execution.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_only_tunnel": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "OriginalFileName",
+          "operator": "is_null",
+          "values": [],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "endswith",
+          "values": [
+            ".exe tunnel"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_tunnel_args": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            ".exe tunnel",
+            "--accept-server-license-terms"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_parent_tunnel": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentCommandLine",
+          "operator": "endswith",
+          "values": [
+            " tunnel"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\cmd.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "/d /c ",
+            "\\servers\\Stable-",
+            "code-server.cmd"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "any",
+    "pattern": "selection_*"
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "title": "Communication To LocaltoNet Tunneling Service Initiated",
+  "rule_id": "3ab65069-d82a-4d44-a759-466661a082d1",
+  "description": "Detects an executable initiating a network connection to \"LocaltoNet\" tunneling sub-domains.\nLocaltoNet is a reverse proxy that enables localhost services to be exposed to the Internet.\nAttackers have been seen to use this service for command-and-control activities to bypass MFA and perimeter controls.\n",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.command-and-control",
+    "attack.t1572",
+    "attack.t1090",
+    "attack.t1102"
+  ],
+  "category": "network_connection",
+  "rule_file": "rules/windows/network_connection/net_connection_win_domain_localtonet_tunnel.yml",
+  "sources": [
+    "sysmon_network_connection"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "DestinationHostname",
+          "operator": "endswith",
+          "values": [
+            ".localto.net",
+            ".localtonet.com"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Initiated",
+          "operator": "exact",
+          "values": [
+            "true"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

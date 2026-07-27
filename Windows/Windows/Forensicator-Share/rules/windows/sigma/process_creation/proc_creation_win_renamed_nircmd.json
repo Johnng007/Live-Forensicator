@@ -1,0 +1,70 @@
+{
+  "title": "Renamed NirCmd.EXE Execution",
+  "rule_id": "264982dc-dbad-4dce-b707-1e0d3e0f73d9",
+  "description": "Detects the execution of a renamed \"NirCmd.exe\" binary based on the PE metadata fields.",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.stealth",
+    "attack.t1059",
+    "attack.t1202"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_renamed_nircmd.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "OriginalFileName",
+          "operator": "exact",
+          "values": [
+            "NirCmd.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main_img": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\nircmd.exe",
+            "\\nircmdc.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_main_*"
+        }
+      }
+    ]
+  }
+}

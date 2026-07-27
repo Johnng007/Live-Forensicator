@@ -1,0 +1,40 @@
+{
+  "title": "Malicious ShellIntel PowerShell Commandlets",
+  "rule_id": "402e1e1d-ad59-47b6-bf80-1ee44985b3a7",
+  "description": "Detects Commandlet names from ShellIntel exploitation scripts.",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1059.001"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_shellintel_malicious_commandlets.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "Invoke-SMBAutoBrute",
+            "Invoke-GPOLinks",
+            "Invoke-Potato"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

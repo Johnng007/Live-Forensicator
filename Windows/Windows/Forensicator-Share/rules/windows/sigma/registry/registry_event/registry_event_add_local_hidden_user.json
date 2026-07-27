@@ -1,0 +1,60 @@
+{
+  "title": "Creation of a Local Hidden User Account by Registry",
+  "rule_id": "460479f3-80b7-42da-9c43-2cc1d54dbccd",
+  "description": "Sysmon registry detection of a local hidden user account.",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.persistence",
+    "attack.t1136.001"
+  ],
+  "category": "registry_event",
+  "rule_file": "rules/windows/registry/registry_event/registry_event_add_local_hidden_user.yml",
+  "sources": [
+    "sysmon_registry_event"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "TargetObject",
+          "operator": "contains",
+          "values": [
+            "\\SAM\\SAM\\Domains\\Account\\Users\\Names\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "TargetObject",
+          "operator": "endswith",
+          "values": [
+            "$\\(Default)"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\lsass.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

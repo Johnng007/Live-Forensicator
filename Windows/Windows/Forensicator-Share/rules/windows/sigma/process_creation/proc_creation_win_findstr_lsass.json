@@ -1,0 +1,108 @@
+{
+  "title": "LSASS Process Reconnaissance Via Findstr.EXE",
+  "rule_id": "fe63010f-8823-4864-a96b-a7b4a0f7b929",
+  "description": "Detects findstring commands that include the keyword lsass, which indicates recon actviity for the LSASS process PID",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.credential-access",
+    "attack.t1552.006"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_findstr_lsass.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_findstr_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\find.exe",
+                "\\findstr.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "FIND.EXE",
+                "FINDSTR.EXE"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_findstr_cli": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "lsass"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_special": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " /i \"lsass",
+            " /i lsass.exe",
+            "findstr \"lsass",
+            "findstr lsass",
+            "findstr.exe \"lsass",
+            "findstr.exe lsass"
+          ],
+          "match": "any",
+          "windash": true,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "any",
+    "children": [
+      {
+        "type": "wildcard_ref",
+        "mode": "all",
+        "pattern": "selection_findstr_*"
+      },
+      {
+        "type": "item_ref",
+        "name": "selection_special"
+      }
+    ]
+  }
+}

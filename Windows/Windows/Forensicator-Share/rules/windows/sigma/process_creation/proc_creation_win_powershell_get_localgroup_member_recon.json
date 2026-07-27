@@ -1,0 +1,63 @@
+{
+  "title": "Suspicious Reconnaissance Activity Using Get-LocalGroupMember Cmdlet",
+  "rule_id": "c8a180d6-47a3-4345-a609-53f9c3d834fc",
+  "description": "Detects suspicious reconnaissance command line activity on Windows systems using the PowerShell Get-LocalGroupMember Cmdlet",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.discovery",
+    "attack.t1087.001"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_powershell_get_localgroup_member_recon.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_cmdlet": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "Get-LocalGroupMember "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_group": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "domain admins",
+            " administrator",
+            " administrateur",
+            "enterprise admins",
+            "Exchange Trusted Subsystem",
+            "Remote Desktop Users",
+            "Utilisateurs du Bureau \u00e0 distance",
+            "Usuarios de escritorio remoto"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

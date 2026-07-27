@@ -1,0 +1,91 @@
+{
+  "title": "HackTool - Potential Impacket Lateral Movement Activity",
+  "rule_id": "10c14723-61c7-4c75-92ca-9af245723ad2",
+  "description": "Detects wmiexec/dcomexec/atexec/smbexec from Impacket framework",
+  "level": "high",
+  "status": "stable",
+  "tags": [
+    "attack.execution",
+    "attack.t1047",
+    "attack.lateral-movement",
+    "attack.t1021.003"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_hktl_impacket_lateral_movement.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_other": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "endswith",
+          "values": [
+            "\\wmiprvse.exe",
+            "\\mmc.exe",
+            "\\explorer.exe",
+            "\\services.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "cmd.exe",
+            "/Q",
+            "/c",
+            "\\\\\\\\127.0.0.1\\\\",
+            "&1"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_atexec": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentCommandLine",
+          "operator": "contains",
+          "values": [
+            "svchost.exe -k netsvcs",
+            "taskeng.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "cmd.exe",
+            "/C",
+            "Windows\\Temp\\",
+            "&1"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "any",
+    "pattern": "selection_*"
+  }
+}

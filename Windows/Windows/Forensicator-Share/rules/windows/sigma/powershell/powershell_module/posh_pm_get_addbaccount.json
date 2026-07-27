@@ -1,0 +1,40 @@
+{
+  "title": "Suspicious Get-ADDBAccount Usage",
+  "rule_id": "b140afd9-474b-4072-958e-2ebb435abd68",
+  "description": "Detects suspicious invocation of the Get-ADDBAccount script that reads from a ntds.dit file and may be used to get access to credentials without using any credential dumpers",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.credential-access",
+    "attack.t1003.003"
+  ],
+  "category": "ps_module",
+  "rule_file": "rules/windows/powershell/powershell_module/posh_pm_get_addbaccount.yml",
+  "sources": [
+    "powershell_module_logging"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Payload",
+          "operator": "contains",
+          "values": [
+            "Get-ADDBAccount",
+            "BootKey ",
+            "DatabasePath "
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

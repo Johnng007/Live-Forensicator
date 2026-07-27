@@ -1,0 +1,82 @@
+{
+  "title": "Suspicious Service Path Modification",
+  "rule_id": "138d3531-8793-4f50-a2cd-f291b2863d78",
+  "description": "Detects service path modification via the \"sc\" binary to a suspicious command or path",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.persistence",
+    "attack.privilege-escalation",
+    "attack.t1543.003"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_sc_service_path_modification.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\sc.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "config",
+            "binPath"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "powershell",
+            "cmd ",
+            "mshta",
+            "wscript",
+            "cscript",
+            "rundll32",
+            "svchost",
+            "dllhost",
+            "cmd.exe /c",
+            "cmd.exe /k",
+            "cmd.exe /r",
+            "cmd /c",
+            "cmd /k",
+            "cmd /r",
+            "C:\\Users\\Public",
+            "\\Downloads\\",
+            "\\Desktop\\",
+            "\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\",
+            "C:\\Windows\\TEMP\\",
+            "\\AppData\\Local\\Temp"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

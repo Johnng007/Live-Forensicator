@@ -1,0 +1,75 @@
+{
+  "title": "RDP to HTTP or HTTPS Target Ports",
+  "rule_id": "b1e5da3b-ca8e-4adf-915c-9921f3d85481",
+  "description": "Detects svchost hosting RDP termsvcs communicating to target systems on TCP port 80 or 443",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.command-and-control",
+    "attack.t1572",
+    "attack.lateral-movement",
+    "attack.t1021.001",
+    "car.2013-07-002"
+  ],
+  "category": "network_connection",
+  "rule_file": "rules/windows/network_connection/net_connection_win_rdp_to_http.yml",
+  "sources": [
+    "sysmon_network_connection"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\svchost.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Initiated",
+          "operator": "exact",
+          "values": [
+            "true"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "SourcePort",
+          "operator": "exact",
+          "values": [
+            "3389"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "DestinationPort",
+          "operator": "exact",
+          "values": [
+            "80",
+            "443"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

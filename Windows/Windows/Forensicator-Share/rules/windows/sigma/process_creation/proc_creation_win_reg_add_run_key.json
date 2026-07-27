@@ -1,0 +1,65 @@
+{
+  "title": "Potential Persistence Attempt Via Run Keys Using Reg.EXE",
+  "rule_id": "de587dce-915e-4218-aac4-835ca6af6f70",
+  "description": "Detects suspicious command line reg.exe tool adding key to RUN key in Registry",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.privilege-escalation",
+    "attack.persistence",
+    "attack.t1547.001"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_reg_add_run_key.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\reg.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "reg",
+            " add "
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+            "\\Software\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Run",
+            "\\Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\\Run"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

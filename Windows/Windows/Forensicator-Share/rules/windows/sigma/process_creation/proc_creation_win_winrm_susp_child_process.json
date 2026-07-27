@@ -1,0 +1,61 @@
+{
+  "title": "Suspicious Processes Spawned by WinRM",
+  "rule_id": "5cc2cda8-f261-4d88-a2de-e9e193c86716",
+  "description": "Detects suspicious processes including shells spawnd from WinRM host process",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.t1190",
+    "attack.initial-access",
+    "attack.persistence",
+    "attack.privilege-escalation"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_winrm_susp_child_process.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "endswith",
+          "values": [
+            "\\wsmprovhost.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\cmd.exe",
+            "\\sh.exe",
+            "\\bash.exe",
+            "\\powershell.exe",
+            "\\pwsh.exe",
+            "\\wsl.exe",
+            "\\schtasks.exe",
+            "\\certutil.exe",
+            "\\whoami.exe",
+            "\\bitsadmin.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

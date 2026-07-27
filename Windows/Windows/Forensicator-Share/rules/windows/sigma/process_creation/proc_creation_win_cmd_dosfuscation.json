@@ -1,0 +1,53 @@
+{
+  "title": "Potential Dosfuscation Activity",
+  "rule_id": "a77c1610-fc73-4019-8e29-0f51efc04a51",
+  "description": "Detects possible payload obfuscation via the commandline",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1059"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_cmd_dosfuscation.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "^^",
+            "^|^",
+            ",;,",
+            ";;;;",
+            ";; ;;",
+            "(,(,",
+            "%COMSPEC:~",
+            " c^m^d",
+            "^c^m^d",
+            " c^md",
+            " cm^d",
+            "^cm^d",
+            " s^et ",
+            " s^e^t ",
+            " se^t "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

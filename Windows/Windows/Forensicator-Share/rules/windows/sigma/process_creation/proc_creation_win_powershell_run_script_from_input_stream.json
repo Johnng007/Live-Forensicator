@@ -1,0 +1,51 @@
+{
+  "title": "Run PowerShell Script from Redirected Input Stream",
+  "rule_id": "c83bf4b5-cdf0-437c-90fa-43d734f7c476",
+  "description": "Detects PowerShell script execution via input stream redirect",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1059"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_powershell_run_script_from_input_stream.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\powershell.exe",
+            "\\pwsh.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "re",
+          "values": [
+            "\\s-\\s*<"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": false
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

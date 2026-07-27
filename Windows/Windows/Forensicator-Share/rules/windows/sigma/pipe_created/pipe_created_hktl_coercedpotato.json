@@ -1,0 +1,39 @@
+{
+  "title": "HackTool - CoercedPotato Named Pipe Creation",
+  "rule_id": "4d0083b3-580b-40da-9bba-626c19fe4033",
+  "description": "Detects the pattern of a pipe name as used by the hack tool CoercedPotato",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.privilege-escalation",
+    "attack.stealth",
+    "attack.t1055"
+  ],
+  "category": "pipe_created",
+  "rule_file": "rules/windows/pipe_created/pipe_created_hktl_coercedpotato.yml",
+  "sources": [
+    "sysmon_pipe_created"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "PipeName",
+          "operator": "contains",
+          "values": [
+            "\\coerced\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

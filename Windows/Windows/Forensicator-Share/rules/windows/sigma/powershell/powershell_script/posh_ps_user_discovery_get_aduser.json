@@ -1,0 +1,54 @@
+{
+  "title": "User Discovery And Export Via Get-ADUser Cmdlet - PowerShell",
+  "rule_id": "c2993223-6da8-4b1a-88ee-668b8bf315e9",
+  "description": "Detects usage of the Get-ADUser cmdlet to collect user information and output it to a file",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.discovery",
+    "attack.t1033"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_user_discovery_get_aduser.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "Get-ADUser ",
+            " -Filter \\*"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            " > ",
+            " | Select ",
+            "Out-File",
+            "Set-Content",
+            "Add-Content"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

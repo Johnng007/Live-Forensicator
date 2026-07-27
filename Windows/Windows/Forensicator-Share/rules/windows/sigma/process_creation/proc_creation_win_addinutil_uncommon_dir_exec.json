@@ -1,0 +1,92 @@
+{
+  "title": "AddinUtil.EXE Execution From Uncommon Directory",
+  "rule_id": "6120ac2a-a34b-42c0-a9bd-1fb9f459f348",
+  "description": "Detects execution of the Add-In deployment cache updating utility (AddInutil.exe) from a non-standard directory.",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.stealth",
+    "attack.t1218"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_addinutil_uncommon_dir_exec.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\addinutil.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "AddInUtil.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "filter_main_legit_location": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "contains",
+          "values": [
+            ":\\Windows\\Microsoft.NET\\Framework\\",
+            ":\\Windows\\Microsoft.NET\\Framework64\\",
+            ":\\Windows\\Microsoft.NET\\FrameworkArm\\",
+            ":\\Windows\\Microsoft.NET\\FrameworkArm64\\",
+            ":\\Windows\\WinSxS\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_main_*"
+        }
+      }
+    ]
+  }
+}

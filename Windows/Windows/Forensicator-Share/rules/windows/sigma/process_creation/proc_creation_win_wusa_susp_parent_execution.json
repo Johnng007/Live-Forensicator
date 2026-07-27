@@ -1,0 +1,165 @@
+{
+  "title": "Wusa.EXE Executed By Parent Process Located In Suspicious Location",
+  "rule_id": "ef64fc9c-a45e-43cc-8fd8-7d75d73b4c99",
+  "description": "Detects execution of the \"wusa.exe\" (Windows Update Standalone Installer) utility by a parent process that is located in a suspicious location.\nAttackers could instantiate an instance of \"wusa.exe\" in order to bypass User Account Control (UAC). They can duplicate the access token from \"wusa.exe\" to gain elevated privileges.\n",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_wusa_susp_parent_execution.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\wusa.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_paths_1": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "contains",
+          "values": [
+            ":\\Perflogs\\",
+            ":\\Users\\Public\\",
+            ":\\Windows\\Temp\\",
+            "\\Appdata\\Local\\Temp\\",
+            "\\Temporary Internet"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_paths_2": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "ParentImage",
+              "operator": "contains",
+              "values": [
+                ":\\Users\\",
+                "\\Favorites\\"
+              ],
+              "match": "all",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "ParentImage",
+              "operator": "contains",
+              "values": [
+                ":\\Users\\",
+                "\\Favourites\\"
+              ],
+              "match": "all",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "ParentImage",
+              "operator": "contains",
+              "values": [
+                ":\\Users\\",
+                "\\Contacts\\"
+              ],
+              "match": "all",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "ParentImage",
+              "operator": "contains",
+              "values": [
+                ":\\Users\\",
+                "\\Pictures\\"
+              ],
+              "match": "all",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "filter_main_msu": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            ".msu"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection_img"
+      },
+      {
+        "type": "wildcard_ref",
+        "mode": "any",
+        "pattern": "selection_paths_*"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_main_*"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "title": "VMMap Unsigned Dbghelp.DLL Potential Sideloading",
+  "rule_id": "273a8dd8-3742-4302-bcc7-7df5a80fe425",
+  "description": "Detects potential DLL sideloading of an unsigned dbghelp.dll by the Sysinternals VMMap.",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.persistence",
+    "attack.privilege-escalation",
+    "attack.execution",
+    "attack.stealth",
+    "attack.t1574.001"
+  ],
+  "category": "image_load",
+  "rule_file": "rules/windows/image_load/image_load_side_load_vmmap_dbghelp_unsigned.yml",
+  "sources": [
+    "sysmon_image_load"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ImageLoaded",
+          "operator": "contains",
+          "values": [
+            "C:\\Debuggers\\dbghelp.dll"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\vmmap.exe",
+            "\\vmmap64.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main_signed": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Signed",
+          "operator": "exact",
+          "values": [
+            "true"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_main_*"
+        }
+      }
+    ]
+  }
+}

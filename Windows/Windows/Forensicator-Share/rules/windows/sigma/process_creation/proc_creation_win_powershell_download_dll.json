@@ -1,0 +1,57 @@
+{
+  "title": "Potential DLL File Download Via PowerShell Invoke-WebRequest",
+  "rule_id": "0f0450f3-8b47-441e-a31b-15a91dc243e2",
+  "description": "Detects potential DLL files being downloaded using the PowerShell Invoke-WebRequest or Invoke-RestMethod cmdlets.",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.command-and-control",
+    "attack.execution",
+    "attack.t1059.001",
+    "attack.t1105"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_powershell_download_dll.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "Invoke-RestMethod ",
+            "Invoke-WebRequest ",
+            "IRM ",
+            "IWR "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "http",
+            "OutFile",
+            ".dll"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

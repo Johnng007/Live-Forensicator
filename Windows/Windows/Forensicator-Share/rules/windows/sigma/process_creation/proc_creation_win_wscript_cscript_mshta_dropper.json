@@ -1,0 +1,94 @@
+{
+  "title": "Potential Dropper Script Execution Via WScript/CScript/MSHTA",
+  "rule_id": "cea72823-df4d-4567-950c-0b579eaf0846",
+  "description": "Detects wscript/cscript/mshta executions of scripts located in user directories",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1059.005",
+    "attack.t1059.007"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_wscript_cscript_mshta_dropper.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_exec": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\wscript.exe",
+            "\\cscript.exe",
+            "\\mshta.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_paths": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            ":\\Perflogs\\",
+            ":\\Temp\\",
+            ":\\Tmp\\",
+            ":\\Users\\Public\\",
+            ":\\Windows\\Temp\\",
+            "\\AppData\\Local\\Temp\\",
+            "\\AppData\\Roaming\\Temp\\",
+            "\\Start Menu\\Programs\\Startup\\",
+            "\\Temporary Internet",
+            "\\Windows\\Temp",
+            "%LocalAppData%\\Temp\\",
+            "%TEMP%",
+            "%TMP%"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_ext": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            ".hta",
+            ".js",
+            ".jse",
+            ".vba",
+            ".vbe",
+            ".vbs",
+            ".wsf",
+            ".wsh"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

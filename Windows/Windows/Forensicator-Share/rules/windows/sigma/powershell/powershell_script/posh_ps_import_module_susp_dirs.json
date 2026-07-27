@@ -1,0 +1,51 @@
+{
+  "title": "Import PowerShell Modules From Suspicious Directories",
+  "rule_id": "21f9162c-5f5d-4b01-89a8-b705bd7d10ab",
+  "description": "Detects powershell scripts that import modules from suspicious directories",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1059.001"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_import_module_susp_dirs.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "Import-Module \"$Env:Temp\\",
+            "Import-Module '$Env:Temp\\",
+            "Import-Module $Env:Temp\\",
+            "Import-Module \"$Env:Appdata\\",
+            "Import-Module '$Env:Appdata\\",
+            "Import-Module $Env:Appdata\\",
+            "Import-Module C:\\Users\\Public\\",
+            "ipmo \"$Env:Temp\\",
+            "ipmo '$Env:Temp\\",
+            "ipmo $Env:Temp\\",
+            "ipmo \"$Env:Appdata\\",
+            "ipmo '$Env:Appdata\\",
+            "ipmo $Env:Appdata\\",
+            "ipmo C:\\Users\\Public\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

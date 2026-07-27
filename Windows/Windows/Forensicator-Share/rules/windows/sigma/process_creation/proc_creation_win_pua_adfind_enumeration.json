@@ -1,0 +1,79 @@
+{
+  "title": "PUA - Suspicious ActiveDirectory Enumeration Via AdFind.EXE",
+  "rule_id": "455b9d50-15a1-4b99-853f-8d37655a4c1b",
+  "description": "Detects active directory enumeration activity using known AdFind CLI flags",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.discovery",
+    "attack.t1087.002"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_pua_adfind_enumeration.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_password": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "lockoutduration",
+            "lockoutthreshold",
+            "lockoutobservationwindow",
+            "maxpwdage",
+            "minpwdage",
+            "minpwdlength",
+            "pwdhistorylength",
+            "pwdproperties"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_enum_ad": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "-sc admincountdmp"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_enum_exchange": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "-sc exchaddresses"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "any",
+    "pattern": "selection_*"
+  }
+}

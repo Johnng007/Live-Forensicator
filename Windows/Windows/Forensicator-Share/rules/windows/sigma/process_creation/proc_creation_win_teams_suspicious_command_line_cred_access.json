@@ -1,0 +1,69 @@
+{
+  "title": "Potentially Suspicious Command Targeting Teams Sensitive Files",
+  "rule_id": "d2eb17db-1d39-41dc-b57f-301f6512fa75",
+  "description": "Detects a commandline containing references to the Microsoft Teams database or cookies files from a process other than Teams.\nThe database might contain authentication tokens and other sensitive information about the logged in accounts.\n",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.credential-access",
+    "attack.t1528"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_teams_suspicious_command_line_cred_access.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "\\Microsoft\\Teams\\Cookies",
+            "\\Microsoft\\Teams\\Local Storage\\leveldb"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main_legit_locations": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\Microsoft\\Teams\\current\\Teams.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_main_*"
+        }
+      }
+    ]
+  }
+}

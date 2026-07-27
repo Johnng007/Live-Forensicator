@@ -1,0 +1,106 @@
+{
+  "title": "Suspicious Git Clone",
+  "rule_id": "aef9d1f1-7396-4e92-a927-4567c7a495c1",
+  "description": "Detects execution of \"git\" in order to clone a remote repository that contain suspicious keywords which might be suspicious",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.reconnaissance",
+    "attack.t1593.003"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_git_susp_clone.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\git.exe",
+                "\\git-remote-https.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "git.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_cli": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " clone ",
+            "git-remote-https "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_keyword": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "exploit",
+            "Vulns",
+            "vulnerability",
+            "RemoteCodeExecution",
+            "Invoke-",
+            "CVE-",
+            "poc-",
+            "ProofOfConcept",
+            "proxyshell",
+            "log4shell",
+            "eternalblue",
+            "eternal-blue",
+            "MS17-"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

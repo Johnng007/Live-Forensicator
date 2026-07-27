@@ -1,0 +1,39 @@
+{
+  "title": "Live Memory Dump Using Powershell",
+  "rule_id": "cd185561-4760-45d6-a63e-a51325112cae",
+  "description": "Detects usage of a PowerShell command to dump the live memory of a Windows machine",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.credential-access",
+    "attack.t1003"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_memorydump_getstoragediagnosticinfo.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "Get-StorageDiagnosticInfo",
+            "-IncludeLiveDump"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

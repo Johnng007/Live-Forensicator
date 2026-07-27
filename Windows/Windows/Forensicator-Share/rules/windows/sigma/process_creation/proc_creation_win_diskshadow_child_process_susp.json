@@ -1,0 +1,57 @@
+{
+  "title": "Potentially Suspicious Child Process Of DiskShadow.EXE",
+  "rule_id": "9f546b25-5f12-4c8d-8532-5893dcb1e4b8",
+  "description": "Detects potentially suspicious child processes of \"Diskshadow.exe\". This could be an attempt to bypass parent/child relationship detection or application whitelisting rules.",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.stealth",
+    "attack.t1218"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_diskshadow_child_process_susp.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "endswith",
+          "values": [
+            "\\diskshadow.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\certutil.exe",
+            "\\cscript.exe",
+            "\\mshta.exe",
+            "\\powershell.exe",
+            "\\pwsh.exe",
+            "\\regsvr32.exe",
+            "\\rundll32.exe",
+            "\\wscript.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

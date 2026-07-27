@@ -1,0 +1,80 @@
+{
+  "title": "Potential Excel.EXE DCOM Lateral Movement Via ActivateMicrosoftApp",
+  "rule_id": "551d9c1f-816c-445b-a7a6-7a3864720d60",
+  "description": "Detects suspicious child processes of Excel which could be an indicator of lateral movement leveraging the \"ActivateMicrosoftApp\" Excel DCOM object.\n",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.t1021.003",
+    "attack.lateral-movement"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_office_excel_dcom_lateral_movement.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_parent": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "endswith",
+          "values": [
+            "\\excel.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_child": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "foxprow.exe",
+                "schdplus.exe",
+                "winproj.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\foxprow.exe",
+                "\\schdplus.exe",
+                "\\winproj.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

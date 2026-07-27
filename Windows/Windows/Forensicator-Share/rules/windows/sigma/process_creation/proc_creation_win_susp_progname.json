@@ -1,0 +1,114 @@
+{
+  "title": "Suspicious Program Names",
+  "rule_id": "efdd8dd5-cee8-4e59-9390-7d4d5e4dd6f6",
+  "description": "Detects suspicious patterns in program names or folders that are often found in malicious samples or hacktools",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1059"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_susp_progname.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_image": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "contains",
+              "values": [
+                "\\CVE-202",
+                "\\CVE202"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\poc.exe",
+                "\\artifact.exe",
+                "\\artifact64.exe",
+                "\\artifact_protected.exe",
+                "\\artifact32.exe",
+                "\\artifact32big.exe",
+                "obfuscated.exe",
+                "obfusc.exe",
+                "\\meterpreter"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_commandline": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "inject.ps1",
+            "Invoke-CVE",
+            "pupy.ps1",
+            "payload.ps1",
+            "beacon.ps1",
+            "PowerView.ps1",
+            "bypass.ps1",
+            "obfuscated.ps1",
+            "obfusc.ps1",
+            "obfus.ps1",
+            "obfs.ps1",
+            "evil.ps1",
+            "MiniDogz.ps1",
+            "_enc.ps1",
+            "\\shell.ps1",
+            "\\rshell.ps1",
+            "revshell.ps1",
+            "\\av.ps1",
+            "\\av_test.ps1",
+            "adrecon.ps1",
+            "mimikatz.ps1",
+            "\\PowerUp_",
+            "powerup.ps1",
+            "\\Temp\\a.ps1",
+            "\\Temp\\p.ps1",
+            "\\Temp\\1.ps1",
+            "Hound.ps1",
+            "encode.ps1",
+            "powercat.ps1"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "any",
+    "pattern": "selection*"
+  }
+}

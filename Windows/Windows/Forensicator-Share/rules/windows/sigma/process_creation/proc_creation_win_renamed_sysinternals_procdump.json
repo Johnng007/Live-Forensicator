@@ -1,0 +1,112 @@
+{
+  "title": "Renamed ProcDump Execution",
+  "rule_id": "4a0b2c7e-7cb2-495d-8b63-5f268e7bfd67",
+  "description": "Detects the execution of a renamed ProcDump executable.\nThis often done by attackers or malware in order to evade defensive mechanisms.\n",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.stealth",
+    "attack.t1036.003"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_renamed_sysinternals_procdump.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_ofn": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "OriginalFileName",
+          "operator": "exact",
+          "values": [
+            "procdump"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_cli_dump_flag": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " -ma ",
+            " -mp "
+          ],
+          "match": "any",
+          "windash": true,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_cli_eula_flag": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " /accepteula"
+          ],
+          "match": "any",
+          "windash": true,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main_known_names": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\procdump.exe",
+            "\\procdump64.exe",
+            "\\procdump64a.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "any",
+        "children": [
+          {
+            "type": "item_ref",
+            "name": "selection_ofn"
+          },
+          {
+            "type": "wildcard_ref",
+            "mode": "all",
+            "pattern": "selection_cli_*"
+          }
+        ]
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_main_*"
+        }
+      }
+    ]
+  }
+}

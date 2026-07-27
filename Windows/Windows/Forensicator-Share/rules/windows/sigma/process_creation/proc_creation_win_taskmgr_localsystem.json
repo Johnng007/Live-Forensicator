@@ -1,0 +1,51 @@
+{
+  "title": "Taskmgr as LOCAL_SYSTEM",
+  "rule_id": "9fff585c-c33e-4a86-b3cd-39312079a65f",
+  "description": "Detects the creation of taskmgr.exe process in context of LOCAL_SYSTEM",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.stealth",
+    "attack.t1036"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_taskmgr_localsystem.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "User",
+          "operator": "contains",
+          "values": [
+            "AUTHORI",
+            "AUTORI"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\taskmgr.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

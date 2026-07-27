@@ -1,0 +1,194 @@
+{
+  "title": "Renamed Visual Studio Code Tunnel Execution",
+  "rule_id": "2cf29f11-e356-4f61-98c0-1bdb9393d6da",
+  "description": "Detects renamed Visual Studio Code tunnel execution. Attackers can abuse this functionality to establish a C2 channel",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.command-and-control",
+    "attack.t1071.001",
+    "attack.t1219"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_vscode_tunnel_renamed_execution.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_image_only_tunnel": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "OriginalFileName",
+          "operator": "is_null",
+          "values": [],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "endswith",
+          "values": [
+            ".exe tunnel"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_image_tunnel_args": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            ".exe tunnel",
+            "--accept-server-license-terms"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_image_tunnel_service": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "tunnel ",
+            "service",
+            "internal-run",
+            "tunnel-service.log"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_parent_tunnel": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentCommandLine",
+          "operator": "endswith",
+          "values": [
+            " tunnel"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\cmd.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "/d /c ",
+            "\\servers\\Stable-",
+            "code-server.cmd"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main_parent_code": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "endswith",
+          "values": [
+            "\\code-tunnel.exe",
+            "\\code.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main_image_code": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\code-tunnel.exe",
+            "\\code.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "any",
+    "children": [
+      {
+        "type": "all",
+        "children": [
+          {
+            "type": "wildcard_ref",
+            "mode": "any",
+            "pattern": "selection_image_*"
+          },
+          {
+            "type": "not",
+            "child": {
+              "type": "wildcard_ref",
+              "mode": "any",
+              "pattern": "filter_main_image_*"
+            }
+          }
+        ]
+      },
+      {
+        "type": "all",
+        "children": [
+          {
+            "type": "item_ref",
+            "name": "selection_parent_tunnel"
+          },
+          {
+            "type": "not",
+            "child": {
+              "type": "wildcard_ref",
+              "mode": "any",
+              "pattern": "filter_main_parent_*"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

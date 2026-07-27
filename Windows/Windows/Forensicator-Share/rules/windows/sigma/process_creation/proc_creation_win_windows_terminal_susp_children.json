@@ -1,0 +1,176 @@
+{
+  "title": "Suspicious WindowsTerminal Child Processes",
+  "rule_id": "8de89e52-f6e1-4b5b-afd1-41ecfa300d48",
+  "description": "Detects suspicious children spawned via the Windows Terminal application which could be a sign of persistence via WindowsTerminal (see references section)",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.persistence"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_windows_terminal_susp_children.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_parent": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "endswith",
+          "values": [
+            "\\WindowsTerminal.exe",
+            "\\wt.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_susp": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\rundll32.exe",
+                "\\regsvr32.exe",
+                "\\certutil.exe",
+                "\\cscript.exe",
+                "\\wscript.exe",
+                "\\csc.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "contains",
+              "values": [
+                "C:\\Users\\Public\\",
+                "\\Downloads\\",
+                "\\Desktop\\",
+                "\\AppData\\Local\\Temp\\",
+                "\\Windows\\TEMP\\"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "contains",
+              "values": [
+                " iex ",
+                " icm",
+                "Invoke-",
+                "Import-Module ",
+                "ipmo ",
+                "DownloadString(",
+                " /c ",
+                " /k ",
+                " /r "
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "filter_builtin_visual_studio_shell": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "Import-Module",
+            "Microsoft.VisualStudio.DevShell.dll",
+            "Enter-VsDevShell"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_open_settings": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "\\AppData\\Local\\Packages\\Microsoft.WindowsTerminal_",
+            "\\LocalState\\settings.json"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_vsdevcmd": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "C:\\Program Files\\Microsoft Visual Studio\\",
+            "\\Common7\\Tools\\VsDevCmd.bat"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "wildcard_ref",
+        "mode": "all",
+        "pattern": "selection_*"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_*"
+        }
+      }
+    ]
+  }
+}

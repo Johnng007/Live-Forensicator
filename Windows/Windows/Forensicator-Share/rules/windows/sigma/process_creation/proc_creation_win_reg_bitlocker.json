@@ -1,0 +1,61 @@
+{
+  "title": "Suspicious Reg Add BitLocker",
+  "rule_id": "0e0255bf-2548-47b8-9582-c0955c9283f5",
+  "description": "Detects suspicious addition to BitLocker related registry keys via the reg.exe utility",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.impact",
+    "attack.t1486"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_reg_bitlocker.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "REG",
+            "ADD",
+            "\\SOFTWARE\\Policies\\Microsoft\\FVE",
+            "/v",
+            "/f"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "EnableBDEWithNoTPM",
+            "UseAdvancedStartup",
+            "UseTPM",
+            "UseTPMKey",
+            "UseTPMKeyPIN",
+            "RecoveryKeyMessageSource",
+            "UseTPMPIN",
+            "RecoveryKeyMessage"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

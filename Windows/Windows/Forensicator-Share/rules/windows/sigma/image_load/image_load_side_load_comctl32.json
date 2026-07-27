@@ -1,0 +1,56 @@
+{
+  "title": "Potential DLL Sideloading Via comctl32.dll",
+  "rule_id": "6360757a-d460-456c-8b13-74cf0e60cceb",
+  "description": "Detects potential DLL sideloading using comctl32.dll to obtain system privileges",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.persistence",
+    "attack.privilege-escalation",
+    "attack.execution",
+    "attack.stealth",
+    "attack.t1574.001"
+  ],
+  "category": "image_load",
+  "rule_file": "rules/windows/image_load/image_load_side_load_comctl32.yml",
+  "sources": [
+    "sysmon_image_load"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ImageLoaded",
+          "operator": "startswith",
+          "values": [
+            "C:\\Windows\\System32\\logonUI.exe.local\\",
+            "C:\\Windows\\System32\\werFault.exe.local\\",
+            "C:\\Windows\\System32\\consent.exe.local\\",
+            "C:\\Windows\\System32\\narrator.exe.local\\",
+            "C:\\windows\\system32\\wermgr.exe.local\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "ImageLoaded",
+          "operator": "endswith",
+          "values": [
+            "\\comctl32.dll"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "title": "Remote Access Tool - ScreenConnect Installation Execution",
+  "rule_id": "75bfe6e6-cd8e-429e-91d3-03921e1d7962",
+  "description": "Detects ScreenConnect program starts that establish a remote access to a system.",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.persistence",
+    "attack.initial-access",
+    "attack.t1133"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_remote_access_tools_screenconnect_installation_cli_param.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "e=Access&",
+            "y=Guest&",
+            "&p=",
+            "&c=",
+            "&k="
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

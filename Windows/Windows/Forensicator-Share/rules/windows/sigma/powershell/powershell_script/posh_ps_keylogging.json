@@ -1,0 +1,57 @@
+{
+  "title": "Powershell Keylogging",
+  "rule_id": "34f90d3c-c297-49e9-b26d-911b05a4866c",
+  "description": "Adversaries may log user keystrokes to intercept credentials as the user types them.",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.credential-access",
+    "attack.collection",
+    "attack.t1056.001"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_keylogging.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection_basic": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "Get-Keystrokes"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_high": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "Get-ProcAddress user32.dll GetAsyncKeyState",
+            "Get-ProcAddress user32.dll GetForegroundWindow"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "any",
+    "pattern": "selection_*"
+  }
+}

@@ -1,0 +1,123 @@
+{
+  "title": "Windows Recall Feature Enabled Via Reg.EXE",
+  "rule_id": "817f252c-5143-4dae-b418-48c3e9f63728",
+  "description": "Detects the enabling of the Windows Recall feature via registry manipulation.\nWindows Recall can be enabled by deleting the existing \"DisableAIDataAnalysis\" value, or setting it to 0.\nAdversaries may enable Windows Recall as part of post-exploitation discovery and collection activities.\nThis rule assumes that Recall is already explicitly disabled on the host, and subsequently enabled by the adversary.\n",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.collection",
+    "attack.t1113"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_reg_enable_windows_recall.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\reg.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "reg.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_value": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "Microsoft\\Windows\\WindowsAI",
+            "DisableAIDataAnalysis"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_action_add": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "add",
+            "0"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_action_delete": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "delete"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection_img"
+      },
+      {
+        "type": "item_ref",
+        "name": "selection_value"
+      },
+      {
+        "type": "wildcard_ref",
+        "mode": "any",
+        "pattern": "selection_action_*"
+      }
+    ]
+  }
+}

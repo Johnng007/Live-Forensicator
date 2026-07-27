@@ -1,0 +1,58 @@
+{
+  "title": "Suspicious Encoded And Obfuscated Reflection Assembly Load Function Call",
+  "rule_id": "9c0295ce-d60d-40bd-bd74-84673b7592b1",
+  "description": "Detects suspicious base64 encoded and obfuscated \"LOAD\" keyword used in .NET \"reflection.assembly\"",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.stealth",
+    "attack.t1059.001",
+    "attack.t1027"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_powershell_base64_reflection_assembly_load_obfusc.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "OgA6ACgAIgBMACIAKwAiAG8AYQBkACIAKQ",
+            "oAOgAoACIATAAiACsAIgBvAGEAZAAiACkA",
+            "6ADoAKAAiAEwAIgArACIAbwBhAGQAIgApA",
+            "OgA6ACgAIgBMAG8AIgArACIAYQBkACIAKQ",
+            "oAOgAoACIATABvACIAKwAiAGEAZAAiACkA",
+            "6ADoAKAAiAEwAbwAiACsAIgBhAGQAIgApA",
+            "OgA6ACgAIgBMAG8AYQAiACsAIgBkACIAKQ",
+            "oAOgAoACIATABvAGEAIgArACIAZAAiACkA",
+            "6ADoAKAAiAEwAbwBhACIAKwAiAGQAIgApA",
+            "OgA6ACgAJwBMACcAKwAnAG8AYQBkACcAKQ",
+            "oAOgAoACcATAAnACsAJwBvAGEAZAAnACkA",
+            "6ADoAKAAnAEwAJwArACcAbwBhAGQAJwApA",
+            "OgA6ACgAJwBMAG8AJwArACcAYQBkACcAKQ",
+            "oAOgAoACcATABvACcAKwAnAGEAZAAnACkA",
+            "6ADoAKAAnAEwAbwAnACsAJwBhAGQAJwApA",
+            "OgA6ACgAJwBMAG8AYQAnACsAJwBkACcAKQ",
+            "oAOgAoACcATABvAGEAJwArACcAZAAnACkA",
+            "6ADoAKAAnAEwAbwBhACcAKwAnAGQAJwApA"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

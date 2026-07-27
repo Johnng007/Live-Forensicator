@@ -1,0 +1,331 @@
+{
+  "title": "Webshell Detection With Command Line Keywords",
+  "rule_id": "bed2a484-9348-4143-8a8a-b801c979301c",
+  "description": "Detects certain command line parameters often used during reconnaissance activity via web shells",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.persistence",
+    "attack.discovery",
+    "attack.t1505.003",
+    "attack.t1018",
+    "attack.t1033",
+    "attack.t1087"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_webshell_recon_commands_and_processes.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_webserver_image": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "endswith",
+          "values": [
+            "\\w3wp.exe",
+            "\\php-cgi.exe",
+            "\\nginx.exe",
+            "\\httpd.exe",
+            "\\caddy.exe",
+            "\\ws_tomcatservice.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_webserver_characteristics_tomcat1": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "endswith",
+          "values": [
+            "\\java.exe",
+            "\\javaw.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "contains",
+          "values": [
+            "-tomcat-",
+            "\\tomcat"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_webserver_characteristics_tomcat2": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "endswith",
+          "values": [
+            "\\java.exe",
+            "\\javaw.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "catalina.jar",
+            "CATALINA_HOME"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_susp_net_utility": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "OriginalFileName",
+          "operator": "exact",
+          "values": [
+            "net.exe",
+            "net1.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " user ",
+            " use ",
+            " group "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_susp_ping_utility": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "OriginalFileName",
+          "operator": "exact",
+          "values": [
+            "ping.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " -n "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_susp_change_dir": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "&cd&echo",
+            "cd /d "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_susp_wmic_utility": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "OriginalFileName",
+          "operator": "exact",
+          "values": [
+            "wmic.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " /node:"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_susp_powershell_cli": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\cmd.exe",
+            "\\powershell.exe",
+            "\\pwsh.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " -enc ",
+            " -EncodedCommand ",
+            " -w hidden ",
+            " -windowstyle hidden",
+            ".WebClient).Download"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_susp_misc_discovery_binaries": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\dsquery.exe",
+                "\\find.exe",
+                "\\findstr.exe",
+                "\\ipconfig.exe",
+                "\\netstat.exe",
+                "\\nslookup.exe",
+                "\\pathping.exe",
+                "\\quser.exe",
+                "\\schtasks.exe",
+                "\\systeminfo.exe",
+                "\\tasklist.exe",
+                "\\tracert.exe",
+                "\\wevtutil.exe",
+                "\\whoami.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "dsquery.exe",
+                "find.exe",
+                "findstr.exe",
+                "ipconfig.exe",
+                "netstat.exe",
+                "nslookup.exe",
+                "pathping.exe",
+                "quser.exe",
+                "schtasks.exe",
+                "sysinfo.exe",
+                "tasklist.exe",
+                "tracert.exe",
+                "VSSADMIN.EXE",
+                "wevtutil.exe",
+                "whoami.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_susp_misc_discovery_commands": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " Test-NetConnection ",
+            "dir \\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "wildcard_ref",
+        "mode": "any",
+        "pattern": "selection_webserver_*"
+      },
+      {
+        "type": "wildcard_ref",
+        "mode": "any",
+        "pattern": "selection_susp_*"
+      }
+    ]
+  }
+}

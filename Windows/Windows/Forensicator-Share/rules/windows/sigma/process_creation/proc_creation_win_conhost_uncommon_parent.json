@@ -1,0 +1,124 @@
+{
+  "title": "Conhost Spawned By Uncommon Parent Process",
+  "rule_id": "cbb9e3d1-2386-4e59-912e-62f1484f7a89",
+  "description": "Detects when the Console Window Host (conhost.exe) process is spawned by an uncommon parent process, which could be indicative of potential code injection activity.",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1059"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_conhost_uncommon_parent.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\conhost.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "endswith",
+          "values": [
+            "\\explorer.exe",
+            "\\lsass.exe",
+            "\\regsvr32.exe",
+            "\\rundll32.exe",
+            "\\services.exe",
+            "\\smss.exe",
+            "\\spoolsv.exe",
+            "\\svchost.exe",
+            "\\userinit.exe",
+            "\\wininit.exe",
+            "\\winlogon.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main_svchost": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentCommandLine",
+          "operator": "contains",
+          "values": [
+            "-k apphost -s AppHostSvc",
+            "-k imgsvc",
+            "-k localService -p -s RemoteRegistry",
+            "-k LocalSystemNetworkRestricted -p -s NgcSvc",
+            "-k NetSvcs -p -s NcaSvc",
+            "-k netsvcs -p -s NetSetupSvc",
+            "-k netsvcs -p -s wlidsvc",
+            "-k NetworkService -p -s DoSvc",
+            "-k wsappx -p -s AppXSvc",
+            "-k wsappx -p -s ClipSVC",
+            "-k wusvcs -p -s WaaSMedicSvc"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_optional_dropbox": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentCommandLine",
+          "operator": "contains",
+          "values": [
+            "C:\\Program Files (x86)\\Dropbox\\Client\\",
+            "C:\\Program Files\\Dropbox\\Client\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_main_*"
+        }
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_optional_*"
+        }
+      }
+    ]
+  }
+}

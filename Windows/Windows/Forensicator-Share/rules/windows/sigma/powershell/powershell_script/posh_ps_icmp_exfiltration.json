@@ -1,0 +1,40 @@
+{
+  "title": "PowerShell ICMP Exfiltration",
+  "rule_id": "4c4af3cd-2115-479c-8193-6b8bfce9001c",
+  "description": "Detects Exfiltration Over Alternative Protocol - ICMP. Adversaries may steal data by exfiltrating it over an un-encrypted network protocol other than that of the existing command and control channel.",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.exfiltration",
+    "attack.t1048.003"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_icmp_exfiltration.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "New-Object",
+            "System.Net.NetworkInformation.Ping",
+            ".Send("
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

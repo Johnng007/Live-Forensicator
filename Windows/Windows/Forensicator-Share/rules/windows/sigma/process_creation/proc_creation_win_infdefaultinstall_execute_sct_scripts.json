@@ -1,0 +1,40 @@
+{
+  "title": "InfDefaultInstall.exe .inf Execution",
+  "rule_id": "ce7cf472-6fcc-490a-9481-3786840b5d9b",
+  "description": "Executes SCT script using scrobj.dll from a command in entered into a specially prepared INF file.",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.stealth",
+    "attack.t1218"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_infdefaultinstall_execute_sct_scripts.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "InfDefaultInstall.exe ",
+            ".inf"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

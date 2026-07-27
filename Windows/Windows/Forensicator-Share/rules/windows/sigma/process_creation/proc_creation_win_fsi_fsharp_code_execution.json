@@ -1,0 +1,61 @@
+{
+  "title": "Use of FSharp Interpreters",
+  "rule_id": "b96b2031-7c17-4473-afe7-a30ce714db29",
+  "description": "Detects the execution of FSharp Interpreters \"FsiAnyCpu.exe\" and \"FSi.exe\"\nBoth can be used for AWL bypass and to execute F# code via scripts or inline.\n",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1059"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_fsi_fsharp_code_execution.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\fsi.exe",
+                "\\fsianycpu.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "fsi.exe",
+                "fsianycpu.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

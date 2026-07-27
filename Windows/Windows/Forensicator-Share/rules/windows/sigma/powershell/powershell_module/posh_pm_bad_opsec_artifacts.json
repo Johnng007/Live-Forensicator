@@ -1,0 +1,43 @@
+{
+  "title": "Bad Opsec Powershell Code Artifacts",
+  "rule_id": "8d31a8ce-46b5-4dd6-bdc3-680931f1db86",
+  "description": "focuses on trivial artifacts observed in variants of prevalent offensive ps1 payloads, including\nCobalt Strike Beacon, PoshC2, Powerview, Letmein, Empire, Powersploit, and other attack payloads\nthat often undergo minimal changes by attackers due to bad opsec.\n",
+  "level": "critical",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1059.001"
+  ],
+  "category": "ps_module",
+  "rule_file": "rules/windows/powershell/powershell_module/posh_pm_bad_opsec_artifacts.yml",
+  "sources": [
+    "powershell_module_logging"
+  ],
+  "items": {
+    "selection_4103": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Payload",
+          "operator": "contains",
+          "values": [
+            "$DoIt",
+            "harmj0y",
+            "mattifestation",
+            "_RastaMouse",
+            "tifkin_",
+            "0xdeadbeef"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection_4103"
+  }
+}

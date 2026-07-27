@@ -1,0 +1,108 @@
+{
+  "title": "AADInternals PowerShell Cmdlets Execution - ProccessCreation",
+  "rule_id": "c86500e9-a645-4680-98d7-f882c70c1ea3",
+  "description": "Detects ADDInternals Cmdlet execution. A tool for administering Azure AD and Office 365. Which can be abused by threat actors to attack Azure AD or Office 365.",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.reconnaissance",
+    "attack.discovery",
+    "attack.credential-access",
+    "attack.impact"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_powershell_aadinternals_cmdlets_execution.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\powershell.exe",
+                "\\powershell_ise.exe",
+                "\\pwsh.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "PowerShell.Exe",
+                "pwsh.dll"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_cli": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "Add-AADInt",
+            "ConvertTo-AADInt",
+            "Disable-AADInt",
+            "Enable-AADInt",
+            "Export-AADInt",
+            "Find-AADInt",
+            "Get-AADInt",
+            "Grant-AADInt",
+            "Initialize-AADInt",
+            "Install-AADInt",
+            "Invoke-AADInt",
+            "Join-AADInt",
+            "New-AADInt",
+            "Open-AADInt",
+            "Read-AADInt",
+            "Register-AADInt",
+            "Remove-AADInt",
+            "Reset-AADInt",
+            "Resolve-AADInt",
+            "Restore-AADInt",
+            "Save-AADInt",
+            "Search-AADInt",
+            "Send-AADInt",
+            "Set-AADInt",
+            "Start-AADInt",
+            "Unprotect-AADInt",
+            "Update-AADInt"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

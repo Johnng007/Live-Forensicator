@@ -1,0 +1,66 @@
+{
+  "title": "PUA - Netcat Suspicious Execution",
+  "rule_id": "e31033fc-33f0-4020-9a16-faf9b31cbf08",
+  "description": "Detects execution of Netcat. Adversaries may use a non-application layer protocol for communication between host and C2 server or among infected hosts within a network",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.command-and-control",
+    "attack.t1095"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_pua_netcat.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\nc.exe",
+            "\\ncat.exe",
+            "\\netcat.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_cmdline": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " -lvp ",
+            " -lvnp",
+            " -l -v -p ",
+            " -lv -p ",
+            " -l --proxy-type http ",
+            " -vnl --exec ",
+            " -vnl -e ",
+            " --lua-exec ",
+            " --sh-exec "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "any",
+    "pattern": "selection_*"
+  }
+}

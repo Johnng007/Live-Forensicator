@@ -1,0 +1,63 @@
+{
+  "title": "Potential AMSI Bypass Via .NET Reflection",
+  "rule_id": "30edb182-aa75-42c0-b0a9-e998bb29067c",
+  "description": "Detects Request to \"amsiInitFailed\" that can be used to disable AMSI Scanning",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.defense-impairment",
+    "attack.t1685"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_powershell_amsi_init_failed_bypass.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "contains",
+              "values": [
+                "System.Management.Automation.AmsiUtils",
+                "amsiInitFailed"
+              ],
+              "match": "all",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "contains",
+              "values": [
+                "[Ref].Assembly.GetType",
+                "SetValue($null,$true)",
+                "NonPublic,Static"
+              ],
+              "match": "all",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

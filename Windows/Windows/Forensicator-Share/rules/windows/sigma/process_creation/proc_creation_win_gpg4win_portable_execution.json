@@ -1,0 +1,108 @@
+{
+  "title": "Portable Gpg.EXE Execution",
+  "rule_id": "77df53a5-1d78-4f32-bc5a-0e7465bd8f41",
+  "description": "Detects the execution of \"gpg.exe\" from uncommon location. Often used by ransomware and loaders to decrypt/encrypt data.",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.impact",
+    "attack.t1486"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_gpg4win_portable_execution.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\gpg.exe",
+                "\\gpg2.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "gpg.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Description",
+              "operator": "exact",
+              "values": [
+                "GnuPG\u2019s OpenPGP tool"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "filter_main_legit_location": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "contains",
+          "values": [
+            ":\\Program Files (x86)\\GNU\\GnuPG\\bin\\",
+            ":\\Program Files (x86)\\GnuPG VS-Desktop\\",
+            ":\\Program Files (x86)\\GnuPG\\bin\\",
+            ":\\Program Files (x86)\\Gpg4win\\bin\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_main_*"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,115 @@
+{
+  "title": "PUA - System Informer Execution",
+  "rule_id": "5722dff1-4bdd-4949-86ab-fbaf707e767a",
+  "description": "Detects the execution of System Informer, a task manager tool to view and manipulate processes, kernel options and other low level operations",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.persistence",
+    "attack.privilege-escalation",
+    "attack.discovery",
+    "attack.stealth",
+    "attack.t1082",
+    "attack.t1564",
+    "attack.t1543"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_pua_system_informer.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\SystemInformer.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "SystemInformer.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Description",
+              "operator": "exact",
+              "values": [
+                "System Informer"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Product",
+              "operator": "exact",
+              "values": [
+                "System Informer"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Hashes",
+              "operator": "contains",
+              "values": [
+                "MD5=19426363A37C03C3ED6FEDF57B6696EC",
+                "SHA1=8B12C6DA8FAC0D5E8AB999C31E5EA04AF32D53DC",
+                "SHA256=8EE9D84DE50803545937A63C686822388A3338497CDDB660D5D69CF68B68F287",
+                "IMPHASH=B68908ADAEB5D662F87F2528AF318F12"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

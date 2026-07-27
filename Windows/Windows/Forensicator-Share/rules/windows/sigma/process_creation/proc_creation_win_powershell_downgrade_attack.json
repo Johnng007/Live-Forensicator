@@ -1,0 +1,56 @@
+{
+  "title": "Potential PowerShell Downgrade Attack",
+  "rule_id": "b3512211-c67e-4707-bedc-66efc7848863",
+  "description": "Detects PowerShell downgrade attack by comparing the host versions with the actually used engine version 2.0",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1059.001"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_powershell_downgrade_attack.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\powershell.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " -version 2 ",
+            " -versio 2 ",
+            " -versi 2 ",
+            " -vers 2 ",
+            " -ver 2 ",
+            " -ve 2 ",
+            " -v 2 "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

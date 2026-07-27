@@ -1,0 +1,74 @@
+{
+  "title": "HybridConnectionManager Service Installation - Registry",
+  "rule_id": "ac8866c7-ce44-46fd-8c17-b24acff96ca8",
+  "description": "Detects the installation of the Azure Hybrid Connection Manager service to allow remote code execution from Azure function.",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.resource-development",
+    "attack.t1608"
+  ],
+  "category": "registry_event",
+  "rule_file": "rules/windows/registry/registry_event/registry_event_hybridconnectionmgr_svc_installation.yml",
+  "sources": [
+    "sysmon_registry_event"
+  ],
+  "items": {
+    "selection1": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "TargetObject",
+          "operator": "contains",
+          "values": [
+            "\\Services\\HybridConnectionManager"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection2": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "EventType",
+          "operator": "exact",
+          "values": [
+            "SetValue"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Details",
+          "operator": "contains",
+          "values": [
+            "Microsoft.HybridConnectionManager.Listener.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "any",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection1"
+      },
+      {
+        "type": "item_ref",
+        "name": "selection2"
+      }
+    ]
+  }
+}

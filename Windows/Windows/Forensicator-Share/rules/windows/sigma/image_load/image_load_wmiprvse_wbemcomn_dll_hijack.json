@@ -1,0 +1,51 @@
+{
+  "title": "Wmiprvse Wbemcomn DLL Hijack",
+  "rule_id": "7707a579-e0d8-4886-a853-ce47e4575aaa",
+  "description": "Detects a threat actor creating a file named `wbemcomn.dll` in the `C:\\Windows\\System32\\wbem\\` directory over the network and loading it for a WMI DLL Hijack scenario.",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1047",
+    "attack.lateral-movement",
+    "attack.t1021.002"
+  ],
+  "category": "image_load",
+  "rule_file": "rules/windows/image_load/image_load_wmiprvse_wbemcomn_dll_hijack.yml",
+  "sources": [
+    "sysmon_image_load"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\wmiprvse.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "ImageLoaded",
+          "operator": "endswith",
+          "values": [
+            "\\wbem\\wbemcomn.dll"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

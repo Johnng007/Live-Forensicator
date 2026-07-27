@@ -1,0 +1,70 @@
+{
+  "title": "Suspicious Outlook Child Process",
+  "rule_id": "208748f7-881d-47ac-a29c-07ea84bf691d",
+  "description": "Detects a suspicious process spawning from an Outlook process.",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1204.002"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_office_outlook_susp_child_processes.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "endswith",
+          "values": [
+            "\\OUTLOOK.EXE"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\AppVLP.exe",
+            "\\bash.exe",
+            "\\cmd.exe",
+            "\\cscript.exe",
+            "\\forfiles.exe",
+            "\\hh.exe",
+            "\\mftrace.exe",
+            "\\msbuild.exe",
+            "\\msdt.exe",
+            "\\mshta.exe",
+            "\\msiexec.exe",
+            "\\powershell.exe",
+            "\\pwsh.exe",
+            "\\regsvr32.exe",
+            "\\schtasks.exe",
+            "\\scrcons.exe",
+            "\\scriptrunner.exe",
+            "\\sh.exe",
+            "\\svchost.exe",
+            "\\wmic.exe",
+            "\\wscript.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

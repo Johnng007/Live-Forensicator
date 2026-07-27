@@ -1,0 +1,102 @@
+{
+  "title": "Potential Recon Activity Using DriverQuery.EXE",
+  "rule_id": "9fc3072c-dc8f-4bf7-b231-18950000fadd",
+  "description": "Detect usage of the \"driverquery\" utility to perform reconnaissance on installed drivers",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.discovery"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_driverquery_recon.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "driverquery.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "drvqry.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_parent": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "ParentImage",
+              "operator": "endswith",
+              "values": [
+                "\\cscript.exe",
+                "\\mshta.exe",
+                "\\regsvr32.exe",
+                "\\rundll32.exe",
+                "\\wscript.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "ParentImage",
+              "operator": "contains",
+              "values": [
+                "\\AppData\\Local\\",
+                "\\Users\\Public\\",
+                "\\Windows\\Temp\\"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

@@ -1,0 +1,333 @@
+{
+  "title": "Outbound RDP Connections Over Non-Standard Tools",
+  "rule_id": "ed74fe75-7594-4b4b-ae38-e38e3fd2eb23",
+  "description": "Detects Non-Standard tools initiating a connection over port 3389 indicating possible lateral movement.\nAn initial baseline is required before using this utility to exclude third party RDP tooling that you might use.\n",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.lateral-movement",
+    "attack.t1021.001",
+    "car.2013-07-002"
+  ],
+  "category": "network_connection",
+  "rule_file": "rules/windows/network_connection/net_connection_win_rdp_outbound_over_non_standard_tools.yml",
+  "sources": [
+    "sysmon_network_connection"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "DestinationPort",
+          "operator": "exact",
+          "values": [
+            "3389"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Initiated",
+          "operator": "exact",
+          "values": [
+            "true"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main_mstsc": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "exact",
+          "values": [
+            "C:\\Windows\\System32\\mstsc.exe",
+            "C:\\Windows\\SysWOW64\\mstsc.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_optional_dns": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "exact",
+          "values": [
+            "C:\\Windows\\System32\\dns.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "SourcePort",
+          "operator": "exact",
+          "values": [
+            "53"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Protocol",
+          "operator": "exact",
+          "values": [
+            "udp"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_optional_avast": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\Avast Software\\Avast\\AvastSvc.exe",
+            "\\Avast\\AvastSvc.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_optional_sysinternals_rdcman": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\RDCMan.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_optional_chrome": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "exact",
+          "values": [
+            "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_optional_third_party": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\FSAssessment.exe",
+            "\\FSDiscovery.exe",
+            "\\MobaRTE.exe",
+            "\\mRemote.exe",
+            "\\mRemoteNG.exe",
+            "\\Passwordstate.exe",
+            "\\RemoteDesktopManager.exe",
+            "\\RemoteDesktopManager64.exe",
+            "\\RemoteDesktopManagerFree.exe",
+            "\\RSSensor.exe",
+            "\\RTS2App.exe",
+            "\\RTSApp.exe",
+            "\\spiceworks-finder.exe",
+            "\\Terminals.exe",
+            "\\ws_TunnelService.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_optional_thor": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\thor.exe",
+            "\\thor64.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_optional_splunk": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "startswith",
+          "values": [
+            "C:\\Program Files\\SplunkUniversalForwarder\\bin\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_optional_sentinel_one": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\Ranger\\SentinelRanger.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_optional_firefox": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "exact",
+          "values": [
+            "C:\\Program Files\\Mozilla Firefox\\firefox.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_optional_tsplus": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "exact",
+          "values": [
+            "C:\\Program Files\\TSplus\\Java\\bin\\HTML5service.exe",
+            "C:\\Program Files (x86)\\TSplus\\Java\\bin\\HTML5service.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_optional_null": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "is_null",
+          "values": [],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_optional_empty": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "exact",
+          "values": [
+            ""
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_optional_unknown": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "exact",
+          "values": [
+            "<unknown process>"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_main_*"
+        }
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_optional_*"
+        }
+      }
+    ]
+  }
+}

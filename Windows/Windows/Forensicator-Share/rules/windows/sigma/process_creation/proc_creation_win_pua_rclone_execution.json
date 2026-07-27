@@ -1,0 +1,118 @@
+{
+  "title": "PUA - Rclone Execution",
+  "rule_id": "e37db05d-d1f9-49c8-b464-cee1a4b11638",
+  "description": "Detects execution of RClone utility for exfiltration as used by various ransomwares strains like REvil, Conti, FiveHands, etc",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.exfiltration",
+    "attack.t1567.002"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_pua_rclone_execution.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_specific_options": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "--config ",
+            "--no-check-certificate ",
+            " copy "
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_rclone_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\rclone.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Description",
+              "operator": "exact",
+              "values": [
+                "Rsync for cloud storage"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_rclone_cli": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "pass",
+            "user",
+            "copy",
+            "sync",
+            "config",
+            "lsd",
+            "remote",
+            "ls",
+            "mega",
+            "pcloud",
+            "ftp",
+            "ignore-existing",
+            "auto-confirm",
+            "transfers",
+            "multi-thread-streams",
+            "no-check-certificate "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "any",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection_specific_options"
+      },
+      {
+        "type": "wildcard_ref",
+        "mode": "all",
+        "pattern": "selection_rclone_*"
+      }
+    ]
+  }
+}

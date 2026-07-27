@@ -1,0 +1,79 @@
+{
+  "title": "Winrar Compressing Dump Files",
+  "rule_id": "1ac14d38-3dfc-4635-92c7-e3fd1c5f5bfc",
+  "description": "Detects execution of WinRAR in order to compress a file with a \".dmp\"/\".dump\" extension, which could be a step in a process of dump file exfiltration.",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.collection",
+    "attack.t1560.001"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_winrar_exfil_dmp_files.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\rar.exe",
+                "\\winrar.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Description",
+              "operator": "exact",
+              "values": [
+                "Command line RAR"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_extension": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            ".dmp",
+            ".dump",
+            ".hdmp"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

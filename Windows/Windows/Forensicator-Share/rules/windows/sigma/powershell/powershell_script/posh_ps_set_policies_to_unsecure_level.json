@@ -1,0 +1,86 @@
+{
+  "title": "Change PowerShell Policies to an Insecure Level - PowerShell",
+  "rule_id": "61d0475c-173f-4844-86f7-f3eebae1c66b",
+  "description": "Detects changing the PowerShell script execution policy to a potentially insecure level using the \"Set-ExecutionPolicy\" cmdlet.",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1059.001"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_set_policies_to_unsecure_level.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection_cmdlet": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "Set-ExecutionPolicy"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_option": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "Unrestricted",
+            "bypass"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_optional_chocolatey": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "(New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1')",
+            "(New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1')"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "wildcard_ref",
+        "mode": "all",
+        "pattern": "selection_*"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_optional_*"
+        }
+      }
+    ]
+  }
+}

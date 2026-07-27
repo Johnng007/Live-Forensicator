@@ -1,0 +1,55 @@
+{
+  "title": "DumpStack.log Defender Evasion",
+  "rule_id": "4f647cfa-b598-4e12-ad69-c68dd16caef8",
+  "description": "Detects the use of the filename DumpStack.log to evade Microsoft Defender",
+  "level": "critical",
+  "status": "test",
+  "tags": [
+    "attack.defense-impairment"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_susp_dumpstack_log_evasion.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\DumpStack.log"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_download": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " -o DumpStack.log"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "any",
+    "pattern": "selection*"
+  }
+}

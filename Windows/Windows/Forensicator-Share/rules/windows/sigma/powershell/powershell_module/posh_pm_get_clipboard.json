@@ -1,0 +1,38 @@
+{
+  "title": "PowerShell Get Clipboard",
+  "rule_id": "4cbd4f12-2e22-43e3-882f-bff3247ffb78",
+  "description": "A General detection for the Get-Clipboard commands in PowerShell logs. This could be an adversary capturing clipboard contents.",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.collection",
+    "attack.t1115"
+  ],
+  "category": "ps_module",
+  "rule_file": "rules/windows/powershell/powershell_module/posh_pm_get_clipboard.yml",
+  "sources": [
+    "powershell_module_logging"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Payload",
+          "operator": "contains",
+          "values": [
+            "Get-Clipboard"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

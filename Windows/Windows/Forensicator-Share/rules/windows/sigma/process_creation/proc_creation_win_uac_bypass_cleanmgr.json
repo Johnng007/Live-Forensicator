@@ -1,0 +1,63 @@
+{
+  "title": "UAC Bypass Using Disk Cleanup",
+  "rule_id": "b697e69c-746f-4a86-9f59-7bfff8eab881",
+  "description": "Detects the pattern of UAC Bypass using scheduled tasks and variable expansion of cleanmgr.exe (UACMe 34)",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.privilege-escalation",
+    "attack.t1548.002"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_uac_bypass_cleanmgr.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "endswith",
+          "values": [
+            "\"\\system32\\cleanmgr.exe /autoclean /d C:"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "ParentCommandLine",
+          "operator": "exact",
+          "values": [
+            "C:\\Windows\\system32\\svchost.exe -k netsvcs -p -s Schedule"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "IntegrityLevel",
+          "operator": "exact",
+          "values": [
+            "High",
+            "System",
+            "S-1-16-16384",
+            "S-1-16-12288"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

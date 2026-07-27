@@ -1,0 +1,55 @@
+{
+  "title": "CLR DLL Loaded Via Office Applications",
+  "rule_id": "d13c43f0-f66b-4279-8b2c-5912077c1780",
+  "description": "Detects CLR DLL being loaded by an Office Product",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1204.002"
+  ],
+  "category": "image_load",
+  "rule_file": "rules/windows/image_load/image_load_office_dotnet_clr_dll_load.yml",
+  "sources": [
+    "sysmon_image_load"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\excel.exe",
+            "\\mspub.exe",
+            "\\outlook.exe",
+            "\\onenote.exe",
+            "\\onenoteim.exe",
+            "\\powerpnt.exe",
+            "\\winword.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "ImageLoaded",
+          "operator": "contains",
+          "values": [
+            "\\clr.dll"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

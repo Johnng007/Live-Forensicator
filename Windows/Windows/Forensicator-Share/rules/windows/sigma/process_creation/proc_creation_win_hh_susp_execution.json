@@ -1,0 +1,93 @@
+{
+  "title": "Suspicious HH.EXE Execution",
+  "rule_id": "e8a95b5e-c891-46e2-b33a-93937d3abc31",
+  "description": "Detects a suspicious execution of a Microsoft HTML Help (HH.exe)",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.initial-access",
+    "attack.stealth",
+    "attack.t1047",
+    "attack.t1059.001",
+    "attack.t1059.003",
+    "attack.t1059.005",
+    "attack.t1059.007",
+    "attack.t1218",
+    "attack.t1218.001",
+    "attack.t1218.010",
+    "attack.t1218.011",
+    "attack.t1566",
+    "attack.t1566.001"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_hh_susp_execution.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "HH.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\hh.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_paths": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            ".application",
+            "\\AppData\\Local\\Temp\\",
+            "\\Content.Outlook\\",
+            "\\Downloads\\",
+            "\\Users\\Public\\",
+            "\\Windows\\Temp\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

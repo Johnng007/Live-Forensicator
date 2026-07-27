@@ -1,0 +1,64 @@
+{
+  "title": "UAC Bypass Using IDiagnostic Profile",
+  "rule_id": "4cbef972-f347-4170-b62a-8253f6168e6d",
+  "description": "Detects the \"IDiagnosticProfileUAC\" UAC bypass technique",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.privilege-escalation",
+    "attack.t1548.002"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_uac_bypass_idiagnostic_profile.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "endswith",
+          "values": [
+            "\\DllHost.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "ParentCommandLine",
+          "operator": "contains",
+          "values": [
+            " /Processid:{12C21EA7-2EB8-4B55-9249-AC243DA8C666}"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "IntegrityLevel",
+          "operator": "exact",
+          "values": [
+            "High",
+            "System",
+            "S-1-16-16384",
+            "S-1-16-12288"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

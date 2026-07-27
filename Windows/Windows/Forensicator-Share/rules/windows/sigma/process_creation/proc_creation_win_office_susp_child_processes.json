@@ -1,0 +1,184 @@
+{
+  "title": "Suspicious Microsoft Office Child Process",
+  "rule_id": "438025f9-5856-4663-83f7-52f878a70a50",
+  "description": "Detects a suspicious process spawning from one of the Microsoft Office suite products (Word, Excel, PowerPoint, Publisher, Visio, etc.)",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.stealth",
+    "attack.t1047",
+    "attack.t1204.002",
+    "attack.t1218.010"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_office_susp_child_processes.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_parent": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "endswith",
+          "values": [
+            "\\EQNEDT32.EXE",
+            "\\EXCEL.EXE",
+            "\\MSACCESS.EXE",
+            "\\MSPUB.exe",
+            "\\ONENOTE.EXE",
+            "\\POWERPNT.exe",
+            "\\VISIO.exe",
+            "\\WINWORD.EXE",
+            "\\wordpad.exe",
+            "\\wordview.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_child_processes": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "bitsadmin.exe",
+                "CertOC.exe",
+                "CertUtil.exe",
+                "Cmd.Exe",
+                "CMSTP.EXE",
+                "cscript.exe",
+                "curl.exe",
+                "HH.exe",
+                "IEExec.exe",
+                "InstallUtil.exe",
+                "javaw.exe",
+                "Microsoft.Workflow.Compiler.exe",
+                "msdt.exe",
+                "MSHTA.EXE",
+                "msiexec.exe",
+                "Msxsl.exe",
+                "odbcconf.exe",
+                "pcalua.exe",
+                "PowerShell.EXE",
+                "RegAsm.exe",
+                "RegSvcs.exe",
+                "REGSVR32.exe",
+                "RUNDLL32.exe",
+                "schtasks.exe",
+                "ScriptRunner.exe",
+                "wmic.exe",
+                "WorkFolders.exe",
+                "wscript.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\AppVLP.exe",
+                "\\bash.exe",
+                "\\bitsadmin.exe",
+                "\\certoc.exe",
+                "\\certutil.exe",
+                "\\cmd.exe",
+                "\\cmstp.exe",
+                "\\control.exe",
+                "\\cscript.exe",
+                "\\curl.exe",
+                "\\forfiles.exe",
+                "\\hh.exe",
+                "\\ieexec.exe",
+                "\\installutil.exe",
+                "\\javaw.exe",
+                "\\mftrace.exe",
+                "\\Microsoft.Workflow.Compiler.exe",
+                "\\msbuild.exe",
+                "\\msdt.exe",
+                "\\mshta.exe",
+                "\\msidb.exe",
+                "\\msiexec.exe",
+                "\\msxsl.exe",
+                "\\odbcconf.exe",
+                "\\pcalua.exe",
+                "\\powershell.exe",
+                "\\pwsh.exe",
+                "\\regasm.exe",
+                "\\regsvcs.exe",
+                "\\regsvr32.exe",
+                "\\rundll32.exe",
+                "\\schtasks.exe",
+                "\\scrcons.exe",
+                "\\scriptrunner.exe",
+                "\\sh.exe",
+                "\\svchost.exe",
+                "\\verclsid.exe",
+                "\\wmic.exe",
+                "\\workfolders.exe",
+                "\\wscript.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_child_susp_paths": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "contains",
+          "values": [
+            "\\AppData\\",
+            "\\Users\\Public\\",
+            "\\ProgramData\\",
+            "\\Windows\\Tasks\\",
+            "\\Windows\\Temp\\",
+            "\\Windows\\System32\\Tasks\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection_parent"
+      },
+      {
+        "type": "wildcard_ref",
+        "mode": "any",
+        "pattern": "selection_child_*"
+      }
+    ]
+  }
+}

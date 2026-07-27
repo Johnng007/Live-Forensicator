@@ -121,5 +121,107 @@
     "exclude_log_names": [],
     "include_categories": [],
     "exclude_categories": []
+  },
+  "ad": {
+    "sysvol_scan_extensions": [
+      "*.bat",
+      "*.ps1",
+      "*.vbs",
+      "*.exe",
+      "*.dll",
+      "*.cmd",
+      "*.js"
+    ],
+    "sysvol_suspicious_keywords": [
+      "invoke-mimikatz",
+      "invoke-expression",
+      "downloadstring",
+      "downloadfile",
+      "iex(",
+      "-enc ",
+      "-encodedcommand",
+      "frombase64string",
+      "empire",
+      "covenant",
+      "sliver",
+      "invoke-dcsync",
+      "invoke-kerberoast",
+      "rubeus",
+      "mimikatz",
+      "net user",
+      "net localgroup"
+    ],
+    "known_attack_tool_names": [
+      "mimikatz",
+      "nanodump",
+      "procdump",
+      "rclone",
+      "winscp",
+      "adfind",
+      "pingcastle",
+      "sharphound",
+      "bloodhound",
+      "certify",
+      "rubeus",
+      "kekeo",
+      "dsamain"
+    ]
+  },
+  "mssql": {
+    "agent_job_suspicious_subsystems": [
+      "CmdExec",
+      "ActiveScripting",
+      "PowerShell"
+    ],
+    "agent_job_suspicious_keywords": [
+      "cmd.exe",
+      "powershell",
+      "certutil",
+      "bitsadmin",
+      "-enc",
+      "-encodedcommand",
+      "downloadstring",
+      "downloadfile",
+      "iex(",
+      "xp_cmdshell",
+      "mshta",
+      "regsvr32",
+      "rundll32"
+    ]
+  },
+  "sharepoint": {
+    "webshell_scan_extensions": [
+      "*.aspx",
+      "*.ashx",
+      "*.asmx",
+      "*.dll",
+      "*.asax"
+    ],
+    "webshell_suspicious_keywords": [
+      "eval(",
+      "request.form",
+      "request.querystring",
+      "process.start",
+      "system.diagnostics.process",
+      "cmd.exe",
+      "powershell",
+      "frombase64string",
+      "getstring(",
+      "shell_exec",
+      "runtime.getruntime",
+      "assembly.load",
+      "unsafe",
+      "webshell"
+    ],
+    "suspicious_iis_uri_patterns": [
+      "toolpane.aspx",
+      "spinstall0.aspx",
+      "spinstall.aspx",
+      "/_layouts/15/toolpane.aspx",
+      "/_layouts/16/toolpane.aspx",
+      "/_vti_bin/",
+      "spfileshell",
+      "cmd.aspx"
+    ]
   }
 }

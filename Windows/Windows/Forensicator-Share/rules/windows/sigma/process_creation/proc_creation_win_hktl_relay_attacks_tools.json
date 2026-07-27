@@ -1,0 +1,134 @@
+{
+  "title": "Potential SMB Relay Attack Tool Execution",
+  "rule_id": "5589ab4f-a767-433c-961d-c91f3f704db1",
+  "description": "Detects different hacktools used for relay attacks on Windows for privilege escalation",
+  "level": "critical",
+  "status": "test",
+  "tags": [
+    "attack.collection",
+    "attack.execution",
+    "attack.credential-access",
+    "attack.t1557.001"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_hktl_relay_attacks_tools.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_pe": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "contains",
+          "values": [
+            "PetitPotam",
+            "RottenPotato",
+            "HotPotato",
+            "JuicyPotato",
+            "\\just_dce_",
+            "Juicy Potato",
+            "\\temp\\rot.exe",
+            "\\Potato.exe",
+            "\\SpoolSample.exe",
+            "\\Responder.exe",
+            "\\smbrelayx",
+            "\\ntlmrelayx",
+            "\\LocalPotato"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_script": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "Invoke-Tater",
+            " smbrelay",
+            " ntlmrelay",
+            "cme smb ",
+            " /ntlm:NTLMhash ",
+            "Invoke-PetitPotam",
+            ".exe -t * -p "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_juicypotato_enum": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            ".exe -c \"{"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "endswith",
+          "values": [
+            "}\" -z"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_hotpotatoes": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "contains",
+          "values": [
+            "HotPotatoes6",
+            "HotPotatoes7",
+            "HotPotatoes "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "wildcard_ref",
+        "mode": "any",
+        "pattern": "selection_*"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_*"
+        }
+      }
+    ]
+  }
+}

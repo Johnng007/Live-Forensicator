@@ -1,0 +1,86 @@
+{
+  "title": "Potential Defense Evasion Via Binary Rename",
+  "rule_id": "36480ae1-a1cb-4eaa-a0d6-29801d7e9142",
+  "description": "Detects the execution of a renamed binary often used by attackers or malware leveraging new Sysmon OriginalFileName datapoint.",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.stealth",
+    "attack.t1036.003"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_renamed_binary.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "OriginalFileName",
+          "operator": "exact",
+          "values": [
+            "Cmd.Exe",
+            "CONHOST.EXE",
+            "7z.exe",
+            "7za.exe",
+            "7zr.exe",
+            "WinRAR.exe",
+            "wevtutil.exe",
+            "net.exe",
+            "net1.exe",
+            "netsh.exe",
+            "InstallUtil.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\cmd.exe",
+            "\\conhost.exe",
+            "\\7z.exe",
+            "\\7za.exe",
+            "\\7zr.exe",
+            "\\WinRAR.exe",
+            "\\wevtutil.exe",
+            "\\net.exe",
+            "\\net1.exe",
+            "\\netsh.exe",
+            "\\InstallUtil.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "item_ref",
+          "name": "filter"
+        }
+      }
+    ]
+  }
+}

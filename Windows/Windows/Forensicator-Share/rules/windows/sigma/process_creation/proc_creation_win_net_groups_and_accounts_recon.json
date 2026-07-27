@@ -1,0 +1,183 @@
+{
+  "title": "Suspicious Group And Account Reconnaissance Activity Using Net.EXE",
+  "rule_id": "d95de845-b83c-4a9a-8a6a-4fc802ebf6c0",
+  "description": "Detects suspicious reconnaissance command line activity on Windows systems using Net.EXE\nCheck if the user that executed the commands is suspicious (e.g. service accounts, LOCAL_SYSTEM)\n",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.discovery",
+    "attack.t1087.001",
+    "attack.t1087.002"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_net_groups_and_accounts_recon.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\net.exe",
+                "\\net1.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "net.exe",
+                "net1.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_group_root": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " group ",
+            " localgroup "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_group_flags": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "domain admins",
+            " administrator",
+            " administrateur",
+            "enterprise admins",
+            "Exchange Trusted Subsystem",
+            "Remote Desktop Users",
+            "Utilisateurs du Bureau \u00e0 distance",
+            "Usuarios de escritorio remoto",
+            " /do"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_group_add": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " /add"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_accounts_root": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " accounts "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_accounts_flags": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " /do"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection_img"
+      },
+      {
+        "type": "any",
+        "children": [
+          {
+            "type": "all",
+            "children": [
+              {
+                "type": "wildcard_ref",
+                "mode": "all",
+                "pattern": "selection_group_*"
+              },
+              {
+                "type": "not",
+                "child": {
+                  "type": "item_ref",
+                  "name": "filter_group_add"
+                }
+              }
+            ]
+          },
+          {
+            "type": "wildcard_ref",
+            "mode": "all",
+            "pattern": "selection_accounts_*"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "title": "Registry-Free Process Scope COR_PROFILER",
+  "rule_id": "23590215-4702-4a70-8805-8dc9e58314a2",
+  "description": "Adversaries may leverage the COR_PROFILER environment variable to hijack the execution flow of programs that load the .NET CLR.\nThe COR_PROFILER is a .NET Framework feature which allows developers to specify an unmanaged (or external of .NET) profiling DLL to be loaded into each .NET process that loads the Common Language Runtime (CLR).\nThese profiliers are designed to monitor, troubleshoot, and debug managed code executed by the .NET CLR.\n(Citation: Microsoft Profiling Mar 2017)\n(Citation: Microsoft COR_PROFILER Feb 2013)\n",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.privilege-escalation",
+    "attack.persistence",
+    "attack.execution",
+    "attack.stealth",
+    "attack.t1574.012"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_cor_profiler.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "$env:COR_ENABLE_PROFILING",
+            "$env:COR_PROFILER",
+            "$env:COR_PROFILER_PATH"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

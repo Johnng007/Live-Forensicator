@@ -1,0 +1,67 @@
+{
+  "title": "Narrator's Feedback-Hub Persistence",
+  "rule_id": "f663a6d9-9d1b-49b8-b2b1-0637914d199a",
+  "description": "Detects abusing Windows 10 Narrator's Feedback-Hub",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.privilege-escalation",
+    "attack.persistence",
+    "attack.t1547.001"
+  ],
+  "category": "registry_event",
+  "rule_file": "rules/windows/registry/registry_event/registry_event_narrator_feedback_persistance.yml",
+  "sources": [
+    "sysmon_registry_event"
+  ],
+  "items": {
+    "selection1": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "EventType",
+          "operator": "exact",
+          "values": [
+            "DeleteValue"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "TargetObject",
+          "operator": "endswith",
+          "values": [
+            "\\AppXypsaf9f1qserqevf0sws76dx4k9a5206\\Shell\\open\\command\\DelegateExecute"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection2": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "TargetObject",
+          "operator": "endswith",
+          "values": [
+            "\\AppXypsaf9f1qserqevf0sws76dx4k9a5206\\Shell\\open\\command\\(Default)"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "any",
+    "pattern": "selection*"
+  }
+}

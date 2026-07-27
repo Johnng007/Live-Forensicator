@@ -1,0 +1,108 @@
+{
+  "title": "Renamed AutoIt Execution",
+  "rule_id": "f4264e47-f522-4c38-a420-04525d5b880f",
+  "description": "Detects the execution of a renamed AutoIt2.exe or AutoIt3.exe.\nAutoIt is a scripting language and automation tool for Windows systems. While primarily used for legitimate automation tasks, it can be misused in cyber attacks.\nAttackers can leverage AutoIt to create and distribute malware, including keyloggers, spyware, and botnets. A renamed AutoIt executable is particularly suspicious.\n",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.stealth",
+    "attack.t1027"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_renamed_autoit.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_1": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " /AutoIt3ExecuteScript",
+            " /ErrorStdOut"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_2": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Hashes",
+          "operator": "contains",
+          "values": [
+            "IMPHASH=FDC554B3A8683918D731685855683DDF",
+            "IMPHASH=CD30A61B60B3D60CECDB034C8C83C290",
+            "IMPHASH=F8A00C72F2D667D2EDBB234D0C0AE000"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_3": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "OriginalFileName",
+          "operator": "exact",
+          "values": [
+            "AutoIt3.exe",
+            "AutoIt2.exe",
+            "AutoIt.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main_legit_name": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\AutoIt.exe",
+            "\\AutoIt2.exe",
+            "\\AutoIt3_x64.exe",
+            "\\AutoIt3.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "wildcard_ref",
+        "mode": "any",
+        "pattern": "selection_*"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_main_*"
+        }
+      }
+    ]
+  }
+}

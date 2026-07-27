@@ -1,0 +1,122 @@
+{
+  "title": "Potential DLL Sideloading Of KeyScramblerIE.DLL Via KeyScrambler.EXE",
+  "rule_id": "d2451be2-b582-4e15-8701-4196ac180260",
+  "description": "Detects potential DLL side loading of \"KeyScramblerIE.dll\" by \"KeyScrambler.exe\".\nVarious threat actors and malware have been found side loading a masqueraded \"KeyScramblerIE.dll\" through \"KeyScrambler.exe\".\n",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.persistence",
+    "attack.privilege-escalation",
+    "attack.execution",
+    "attack.stealth",
+    "attack.t1574.001"
+  ],
+  "category": "image_load",
+  "rule_file": "rules/windows/image_load/image_load_side_load_keyscrambler.yml",
+  "sources": [
+    "sysmon_image_load"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\KeyScrambler.exe",
+            "\\KeyScramblerLogon.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "ImageLoaded",
+          "operator": "endswith",
+          "values": [
+            "\\KeyScramblerIE.dll"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main_legitimate_path": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "contains",
+          "values": [
+            "C:\\Program Files (x86)\\KeyScrambler\\",
+            "C:\\Program Files\\KeyScrambler\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "ImageLoaded",
+          "operator": "contains",
+          "values": [
+            "C:\\Program Files (x86)\\KeyScrambler\\",
+            "C:\\Program Files\\KeyScrambler\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main_signature": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Signature",
+          "operator": "exact",
+          "values": [
+            "QFX Software Corporation"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "SignatureStatus",
+          "operator": "exact",
+          "values": [
+            "Valid"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_main_*"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,99 @@
+{
+  "title": "Suspicious Persistence Via VMwareToolBoxCmd.EXE VM State Change Script",
+  "rule_id": "236d8e89-ed95-4789-a982-36f4643738ba",
+  "description": "Detects execution of the \"VMwareToolBoxCmd.exe\" with the \"script\" and \"set\" flag to setup a specific script that's located in a potentially suspicious location to run for a specific VM state",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.persistence",
+    "attack.t1059"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_vmware_toolbox_cmd_persistence_susp.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_bin_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\VMwareToolBoxCmd.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "toolbox-cmd.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_bin_cli": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " script ",
+            " set "
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_susp_paths": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            ":\\PerfLogs\\",
+            ":\\Temp\\",
+            ":\\Windows\\System32\\Tasks\\",
+            ":\\Windows\\Tasks\\",
+            ":\\Windows\\Temp\\",
+            "\\AppData\\Local\\Temp"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

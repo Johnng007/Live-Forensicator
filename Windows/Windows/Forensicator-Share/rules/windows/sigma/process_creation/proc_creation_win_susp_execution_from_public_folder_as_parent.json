@@ -1,0 +1,95 @@
+{
+  "title": "Potentially Suspicious Execution From Parent Process In Public Folder",
+  "rule_id": "69bd9b97-2be2-41b6-9816-fb08757a4d1a",
+  "description": "Detects a potentially suspicious execution of a parent process located in the \"\\Users\\Public\" folder executing a child process containing references to shell or scripting binaries and commandlines.\n",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.stealth",
+    "attack.t1564",
+    "attack.t1059"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_susp_execution_from_public_folder_as_parent.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_parent": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "contains",
+          "values": [
+            ":\\Users\\Public\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_child": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\bitsadmin.exe",
+                "\\certutil.exe",
+                "\\cmd.exe",
+                "\\cscript.exe",
+                "\\mshta.exe",
+                "\\powershell.exe",
+                "\\pwsh.exe",
+                "\\regsvr32.exe",
+                "\\rundll32.exe",
+                "\\wscript.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "contains",
+              "values": [
+                "bitsadmin",
+                "certutil",
+                "cscript",
+                "mshta",
+                "powershell",
+                "regsvr32",
+                "rundll32",
+                "wscript"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

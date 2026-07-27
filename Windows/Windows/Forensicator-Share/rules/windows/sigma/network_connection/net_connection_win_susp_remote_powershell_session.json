@@ -1,0 +1,171 @@
+{
+  "title": "Potential Remote PowerShell Session Initiated",
+  "rule_id": "c539afac-c12a-46ed-b1bd-5a5567c9f045",
+  "description": "Detects a process that initiated a network connection over ports 5985 or 5986 from a non-network service account.\nThis could potentially indicates a remote PowerShell connection.\n",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1059.001",
+    "attack.lateral-movement",
+    "attack.t1021.006"
+  ],
+  "category": "network_connection",
+  "rule_file": "rules/windows/network_connection/net_connection_win_susp_remote_powershell_session.yml",
+  "sources": [
+    "sysmon_network_connection"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "DestinationPort",
+          "operator": "exact",
+          "values": [
+            "5985",
+            "5986"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Initiated",
+          "operator": "exact",
+          "values": [
+            "true"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "SourceIsIpv6",
+          "operator": "exact",
+          "values": [
+            "false"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main_service_users": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "User",
+              "operator": "contains",
+              "values": [
+                "NETWORK SERVICE",
+                "NETZWERKDIENST",
+                "SERVICIO DE RED",
+                "SERVIZIO DI RETE"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "User",
+              "operator": "contains",
+              "values": [
+                "SERVICE R",
+                "SEAU"
+              ],
+              "match": "all",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "filter_main_localhost": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "SourceIp",
+          "operator": "exact",
+          "values": [
+            "::1",
+            "127.0.0.1"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "DestinationIp",
+          "operator": "exact",
+          "values": [
+            "::1",
+            "127.0.0.1"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_optional_avast": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "exact",
+          "values": [
+            "C:\\Program Files\\Avast Software\\Avast\\AvastSvc.exe",
+            "C:\\Program Files (x86)\\Avast Software\\Avast\\AvastSvc.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_main_*"
+        }
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_optional_*"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "title": "Potential PowerShell Execution Policy Tampering - ProcCreation",
+  "rule_id": "cf2e938e-9a3e-4fe8-a347-411642b28a9f",
+  "description": "Detects changes to the PowerShell execution policy registry key in order to bypass signing requirements for script execution from the CommandLine",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.defense-impairment"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_registry_set_unsecure_powershell_policy.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_path": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "\\ShellIds\\Microsoft.PowerShell\\ExecutionPolicy",
+            "\\Policies\\Microsoft\\Windows\\PowerShell\\ExecutionPolicy"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_values": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "Bypass",
+            "RemoteSigned",
+            "Unrestricted"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

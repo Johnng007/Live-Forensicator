@@ -1,0 +1,40 @@
+{
+  "title": "Suspicious X509Enrollment - Process Creation",
+  "rule_id": "114de787-4eb2-48cc-abdb-c0b449f93ea4",
+  "description": "Detect use of X509Enrollment",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.defense-impairment",
+    "attack.t1553.004"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_powershell_x509enrollment.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "X509Enrollment.CBinaryConverter",
+            "884e2002-217d-11da-b2a4-000e7bbb2b09"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

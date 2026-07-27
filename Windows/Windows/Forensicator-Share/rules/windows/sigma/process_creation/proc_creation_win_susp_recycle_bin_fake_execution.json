@@ -1,0 +1,40 @@
+{
+  "title": "Suspicious Process Execution From Fake Recycle.Bin Folder",
+  "rule_id": "5ce0f04e-3efc-42af-839d-5b3a543b76c0",
+  "description": "Detects process execution from a fake recycle bin folder, often used to avoid security solution.",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.persistence",
+    "attack.stealth"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_susp_recycle_bin_fake_execution.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "contains",
+          "values": [
+            "RECYCLERS.BIN\\",
+            "RECYCLER.BIN\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

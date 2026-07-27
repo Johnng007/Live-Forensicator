@@ -1,0 +1,41 @@
+{
+  "title": "Extracting Information with PowerShell",
+  "rule_id": "bd5971a7-626d-46ab-8176-ed643f694f68",
+  "description": "Adversaries may search local file systems and remote file shares for files containing insecurely stored credentials.\nThese can be files created by users to store their own credentials, shared credential stores for a group of individuals,\nconfiguration files containing passwords for a system or service, or source code/binary files containing embedded passwords.\n",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.credential-access",
+    "attack.t1552.001"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_susp_extracting.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "ls",
+            " -R",
+            "select-string ",
+            "-Pattern "
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

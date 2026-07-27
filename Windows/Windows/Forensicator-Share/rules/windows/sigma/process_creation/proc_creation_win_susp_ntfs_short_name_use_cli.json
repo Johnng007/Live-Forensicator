@@ -1,0 +1,106 @@
+{
+  "title": "Use NTFS Short Name in Command Line",
+  "rule_id": "dd6b39d9-d9be-4a3b-8fe0-fe3c6a5c1795",
+  "description": "Detect use of the Windows 8.3 short name. Which could be used as a method to avoid command-line detection",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.stealth",
+    "attack.t1564.004"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_susp_ntfs_short_name_use_cli.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "~1.exe",
+            "~1.bat",
+            "~1.msi",
+            "~1.vbe",
+            "~1.vbs",
+            "~1.dll",
+            "~1.ps1",
+            "~1.js",
+            "~1.hta",
+            "~2.exe",
+            "~2.bat",
+            "~2.msi",
+            "~2.vbe",
+            "~2.vbs",
+            "~2.dll",
+            "~2.ps1",
+            "~2.js",
+            "~2.hta"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "ParentImage",
+              "operator": "endswith",
+              "values": [
+                "\\WebEx\\WebexHost.exe",
+                "\\thor\\thor64.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "contains",
+              "values": [
+                "C:\\xampp\\vcredist\\VCREDI~1.EXE"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "item_ref",
+          "name": "filter"
+        }
+      }
+    ]
+  }
+}

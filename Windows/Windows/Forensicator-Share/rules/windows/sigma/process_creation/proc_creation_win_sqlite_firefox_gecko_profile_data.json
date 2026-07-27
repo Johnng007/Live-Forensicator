@@ -1,0 +1,80 @@
+{
+  "title": "SQLite Firefox Profile Data DB Access",
+  "rule_id": "4833155a-4053-4c9c-a997-777fcea0baa7",
+  "description": "Detect usage of the \"sqlite\" binary to query databases in Firefox and other Gecko-based browsers for potential data stealing.",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.credential-access",
+    "attack.t1539",
+    "attack.collection",
+    "attack.t1005"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_sqlite_firefox_gecko_profile_data.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_sql": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Product",
+              "operator": "exact",
+              "values": [
+                "SQLite"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\sqlite.exe",
+                "\\sqlite3.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_firefox": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "cookies.sqlite",
+            "places.sqlite"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

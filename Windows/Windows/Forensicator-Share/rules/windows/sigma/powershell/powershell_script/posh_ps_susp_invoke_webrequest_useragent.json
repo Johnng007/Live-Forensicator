@@ -1,0 +1,58 @@
+{
+  "title": "Change User Agents with WebRequest",
+  "rule_id": "d4488827-73af-4f8d-9244-7b7662ef046e",
+  "description": "Adversaries may communicate using application layer protocols associated with web traffic to avoid detection/network filtering by blending in with existing traffic.\nCommands to the remote system, and often the results of those commands, will be embedded within the protocol traffic between the client and server.\n",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.command-and-control",
+    "attack.t1071.001"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_susp_invoke_webrequest_useragent.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection_webrequest": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "Invoke-WebRequest",
+            "Invoke-RestMethod",
+            " irm ",
+            "iwr "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_useragent": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "-UserAgent "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

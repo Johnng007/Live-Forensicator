@@ -1,0 +1,40 @@
+{
+  "title": "Potential AMSI Bypass Using NULL Bits",
+  "rule_id": "92a974db-ab84-457f-9ec0-55db83d7a825",
+  "description": "Detects usage of special strings/null bits in order to potentially bypass AMSI functionalities",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.defense-impairment",
+    "attack.t1685"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_powershell_amsi_null_bits_bypass.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "if(0){{{0}}}' -f $(0 -as [char]) +",
+            "#<NULL>"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

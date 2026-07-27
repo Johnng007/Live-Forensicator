@@ -1,0 +1,78 @@
+{
+  "title": "Deletion of Volume Shadow Copies via WMI with PowerShell - PS Script",
+  "rule_id": "c1337eb8-921a-4b59-855b-4ba188ddcc42",
+  "description": "Detects deletion of Windows Volume Shadow Copies with PowerShell code and Get-WMIObject. This technique is used by numerous ransomware families such as Sodinokibi/REvil",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.impact",
+    "attack.t1490"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_susp_win32_shadowcopy_deletion.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection_get": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "Get-WmiObject",
+            "gwmi",
+            "Get-CimInstance",
+            "gcim"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_shadowcopy": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "Win32_ShadowCopy"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_delete": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            ".Delete()",
+            "Remove-WmiObject",
+            "rwmi",
+            "Remove-CimInstance",
+            "rcim"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection*"
+  }
+}

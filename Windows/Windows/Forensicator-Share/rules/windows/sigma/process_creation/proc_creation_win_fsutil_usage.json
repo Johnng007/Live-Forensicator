@@ -1,0 +1,80 @@
+{
+  "title": "Fsutil Suspicious Invocation",
+  "rule_id": "add64136-62e5-48ea-807e-88638d02df1e",
+  "description": "Detects suspicious parameters of fsutil (deleting USN journal, configuring it with small size, etc).\nMight be used by ransomwares during the attack (seen by NotPetya and others).\n",
+  "level": "high",
+  "status": "stable",
+  "tags": [
+    "attack.impact",
+    "attack.stealth",
+    "attack.t1070",
+    "attack.t1485"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_fsutil_usage.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\fsutil.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "fsutil.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_cli": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "deletejournal",
+            "createjournal",
+            "setZeroData"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

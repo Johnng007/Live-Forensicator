@@ -1,0 +1,82 @@
+{
+  "title": "DLL Load via LSASS",
+  "rule_id": "b3503044-60ce-4bf4-bbcb-e3db98788823",
+  "description": "Detects a method to load DLL via LSASS process using an undocumented Registry key",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.privilege-escalation",
+    "attack.execution",
+    "attack.persistence",
+    "attack.t1547.008"
+  ],
+  "category": "registry_event",
+  "rule_file": "rules/windows/registry/registry_event/registry_event_susp_lsass_dll_load.yml",
+  "sources": [
+    "sysmon_registry_event"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "TargetObject",
+          "operator": "contains",
+          "values": [
+            "\\CurrentControlSet\\Services\\NTDS\\DirectoryServiceExtPt",
+            "\\CurrentControlSet\\Services\\NTDS\\LsaDbExtPt"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_domain_controller": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "exact",
+          "values": [
+            "C:\\Windows\\system32\\lsass.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Details",
+          "operator": "exact",
+          "values": [
+            "%%systemroot%%\\system32\\ntdsa.dll",
+            "%%systemroot%%\\system32\\lsadb.dll"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_*"
+        }
+      }
+    ]
+  }
+}

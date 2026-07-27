@@ -1,0 +1,40 @@
+{
+  "title": "Assembly Loading Via CL_LoadAssembly.ps1",
+  "rule_id": "c57872c7-614f-4d7f-a40d-b78c8df2d30d",
+  "description": "Detects calls to \"LoadAssemblyFromPath\" or \"LoadAssemblyFromNS\" that are part of the \"CL_LoadAssembly.ps1\" script. This can be abused to load different assemblies and bypass App locker controls.",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.stealth",
+    "attack.t1216"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_powershell_cl_loadassembly.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "LoadAssemblyFromPath ",
+            "LoadAssemblyFromNS "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

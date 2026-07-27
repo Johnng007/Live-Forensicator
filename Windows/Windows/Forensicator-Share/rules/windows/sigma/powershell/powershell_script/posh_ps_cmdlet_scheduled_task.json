@@ -1,0 +1,97 @@
+{
+  "title": "Powershell Create Scheduled Task",
+  "rule_id": "363eccc0-279a-4ccf-a3ab-24c2e63b11fb",
+  "description": "Adversaries may abuse the Windows Task Scheduler to perform task scheduling for initial or recurring execution of malicious code",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.privilege-escalation",
+    "attack.execution",
+    "attack.persistence",
+    "attack.t1053.005"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_cmdlet_scheduled_task.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection_cmdlet": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "New-ScheduledTaskAction",
+            "New-ScheduledTaskTrigger",
+            "New-ScheduledTaskPrincipal",
+            "New-ScheduledTaskSettingsSet",
+            "New-ScheduledTask",
+            "Register-ScheduledTask"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_cimmethod": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "Invoke-CimMethod",
+            "-ClassName",
+            "PS_ScheduledTask",
+            "-NameSpace",
+            "Root\\Microsoft\\Windows\\TaskScheduler"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main_legitimate_scripts": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "Microsoft.PowerShell.Core\\Export-ModuleMember",
+            "Microsoft.Management.Infrastructure.CimInstance",
+            "__cmdletization_methodParameter"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "wildcard_ref",
+        "mode": "any",
+        "pattern": "selection_*"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_main_*"
+        }
+      }
+    ]
+  }
+}

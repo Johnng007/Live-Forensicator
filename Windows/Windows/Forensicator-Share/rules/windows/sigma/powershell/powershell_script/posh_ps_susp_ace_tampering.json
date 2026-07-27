@@ -1,0 +1,57 @@
+{
+  "title": "Potential Persistence Via Security Descriptors - ScriptBlock",
+  "rule_id": "2f77047c-e6e9-4c11-b088-a3de399524cd",
+  "description": "Detects usage of certain functions and keywords that are used to manipulate security descriptors in order to potentially set a backdoor. As seen used in the DAMP project.",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.persistence",
+    "attack.privilege-escalation",
+    "attack.defense-impairment"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_susp_ace_tampering.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "win32_Trustee",
+            "win32_Ace",
+            ".AccessMask",
+            ".AceType",
+            ".SetSecurityDescriptor"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "\\Lsa\\JD",
+            "\\Lsa\\Skew1",
+            "\\Lsa\\Data",
+            "\\Lsa\\GBG"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

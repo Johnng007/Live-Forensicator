@@ -1,0 +1,49 @@
+{
+  "title": "Microsoft VBA For Outlook Addin Loaded Via Outlook",
+  "rule_id": "9a0b8719-cd3c-4f0a-90de-765a4cb3f5ed",
+  "description": "Detects outlvba (Microsoft VBA for Outlook Addin) DLL being loaded by the outlook process",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1204.002"
+  ],
+  "category": "image_load",
+  "rule_file": "rules/windows/image_load/image_load_office_outlook_outlvba_load.yml",
+  "sources": [
+    "sysmon_image_load"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\outlook.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "ImageLoaded",
+          "operator": "endswith",
+          "values": [
+            "\\outlvba.dll"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

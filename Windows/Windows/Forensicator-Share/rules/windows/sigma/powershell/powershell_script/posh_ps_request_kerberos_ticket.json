@@ -1,0 +1,39 @@
+{
+  "title": "Suspicious Kerberos Ticket Request via PowerShell Script - ScriptBlock",
+  "rule_id": "a861d835-af37-4930-bcd6-5b178bfb54df",
+  "description": "Detects PowerShell scripts that utilize native PowerShell Identity modules to request Kerberos tickets.\nThis behavior is typically seen during a Kerberos or silver ticket attack. A successful execution will output the SPNs for the endpoint in question.\n",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.credential-access",
+    "attack.t1558.003"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_request_kerberos_ticket.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "System.IdentityModel.Tokens.KerberosRequestorSecurityToken",
+            ".GetRequest()"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

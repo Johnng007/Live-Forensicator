@@ -1,0 +1,115 @@
+{
+  "title": "Suspicious Child Process Of Manage Engine ServiceDesk",
+  "rule_id": "cea2b7ea-792b-405f-95a1-b903ea06458f",
+  "description": "Detects suspicious child processes of the \"Manage Engine ServiceDesk Plus\" Java web service",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.command-and-control",
+    "attack.t1102"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_java_manageengine_susp_child_process.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "contains",
+          "values": [
+            "\\ManageEngine\\ServiceDesk\\",
+            "\\java.exe"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\AppVLP.exe",
+            "\\bash.exe",
+            "\\bitsadmin.exe",
+            "\\calc.exe",
+            "\\certutil.exe",
+            "\\cscript.exe",
+            "\\curl.exe",
+            "\\forfiles.exe",
+            "\\mftrace.exe",
+            "\\mshta.exe",
+            "\\net.exe",
+            "\\net1.exe",
+            "\\notepad.exe",
+            "\\powershell.exe",
+            "\\pwsh.exe",
+            "\\query.exe",
+            "\\reg.exe",
+            "\\schtasks.exe",
+            "\\scrcons.exe",
+            "\\sh.exe",
+            "\\systeminfo.exe",
+            "\\whoami.exe",
+            "\\wmic.exe",
+            "\\wscript.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main_net": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\net.exe",
+            "\\net1.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " stop"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_main_*"
+        }
+      }
+    ]
+  }
+}

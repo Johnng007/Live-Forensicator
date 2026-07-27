@@ -1,0 +1,60 @@
+{
+  "metadata": [
+    {
+      "title": "Sensitive Privilege Use Detected",
+      "author": "Forensicator.",
+      "rule_id": "forensicator-custom-sensitive-privilege-use",
+      "date": "2026-07-23",
+      "description": "Detects when an account is assigned sensitive privileges upon logon. This can be an indicator of privilege escalation or misconfiguration. This rule specifically looks for Event ID 4672 where administrative privileges are assigned.",
+      "references": [
+        "https://attack.mitre.org/techniques/T1078/"
+      ]
+    }
+  ],
+  "title": "Sensitive Privilege Use Detected",
+  "rule_id": "forensicator-custom-sensitive-privilege-use",
+  "level": "high",
+  "status": "stable",
+  "enabled": true,
+  "tags": [
+    "attack.privilege_escalation",
+    "attack.t1078"
+  ],
+  "category": "sensitive_privilege_use",
+  "rule_file": "rules/windows/custom/custom_sensitive_priviledge_use.json",
+  "sources": [
+    "security_sensitive_privilege_use"
+  ],
+  "items": {
+    "selection": {
+      "type": "field",
+      "field": "PrivilegeList",
+      "operator": "contains",
+      "values": [
+        "SeAssignPrimaryTokenPrivilege",
+        "SeAuditPrivilege",
+        "SeBackupPrivilege",
+        "SeCreateGlobalPrivilege",
+        "SeCreatePermanentPrivilege",
+        "SeCreateTokenPrivilege",
+        "SeDebugPrivilege",
+        "SeEnableDelegationPrivilege",
+        "SeImpersonatePrivilege",
+        "SeLoadDriverPrivilege",
+        "SeRestorePrivilege",
+        "SeSecurityPrivilege",
+        "SeSystemEnvironmentPrivilege",
+        "SeSystemtimePrivilege",
+        "SeTakeOwnershipPrivilege",
+        "SeTcbPrivilege"
+      ],
+      "match": "any",
+      "windash": false,
+      "ignore_case": false
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

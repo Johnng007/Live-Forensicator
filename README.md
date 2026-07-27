@@ -191,24 +191,15 @@ Full changelog:
 👉 https://forensicator.io/changelog.html
 
 ```bash
-Windows: v4.1.6 (May 2026)
+Windows: v4.1.7 (July 2026)
 - NEW: Added support for PowerShell v5.
+- NEW: Active Directory detection module (Domain Controllers only) — NTDS database integrity, SYSVOL/GPO script analysis, privileged group membership, KRBTGT account age, SPN/Kerberoasting exposure, Kerberos delegation, DCSync rights enumeration, DC-specific privileged/Kerberos event collection, and WMI permanent event subscription detection.
+- NEW: Microsoft SQL Server detection module — dangerous configuration options (xp_cmdshell, OLE Automation Procedures, CLR), sysadmin/sa account review, linked servers, TRUSTWORTHY databases, SQL Agent job persistence checks, and login failure event collection.
+- NEW: Microsoft SharePoint Server detection module — webshell/dropped-file scanning, suspicious IIS worker process (w3wp.exe) child processes, web.config ViewState/machineKey misconfiguration review, and known exploit URI matching in IIS logs.
+- FIX: Sigma rule engine returning zero findings on PowerShell 5.1 due to a ConvertFrom-Json array-unrolling difference between PS5.1 and PS7.
+- FIX: HTML report rendering broken on PowerShell 5.1 caused by inconsistent Out-File encoding (UTF-16 vs UTF-8) between PowerShell versions.
+- FIX: Friendlier error handling when manage-bde.exe is unavailable during BitLocker key extraction.
 - FIX: Improvements and bug fixes.
-
-Linux: v4.1.6
-- NEW: Sigma rule engine sourced from real SigmaHQ community rules, evaluated against auditd and journald.
-- NEW: Detection engine expanded with deleted-binary execution, credential-file timestomping, world-writable PATH, and package integrity checks.
-- NEW: Auto-updating malware hash and malicious URL feeds (abuse.ch, URLhaus).
-- NEW: LUKS disk-encryption status check.
-- NEW: JSON output for upload to Forensicator Enterprise.
-- FIX: Portability and performance fixes across full-disk scans, auth log parsing, and IOC matching.
-
-macOS: v4.1.6
-- NEW: Best-effort Sigma rule engine sourced from real SigmaHQ community rules, evaluated against the unified log.
-- NEW: Detection engine expanded with deleted-binary execution, kernel/kext integrity status, credential-file timestomping, world-writable PATH, and application code-signature verification checks.
-- NEW: Auto-updating malware hash and malicious URL feeds (abuse.ch, URLhaus).
-- NEW: Investigation archive + JSON output for upload to Forensicator Enterprise.
-- FIX: Portability fixes for BSD-native tooling (stat, shasum) and full-disk scans.
 ```
 
 ---
@@ -232,16 +223,8 @@ https://mit.com/licenses/mit/
 
 # ☕ Full Usage & WalkThrough
 
-<a href="https://forensicator.io/walkthrough.html">
+<a href="https://opendocs.forensicator.io">
   <img width="239" height="31" alt="image" src="https://github.com/user-attachments/assets/f4cb261c-65c8-4592-a42e-6b9ba54dc990" />
 
 </a>
 
----
-
-# 🔗 Project Home
-
-<a href="https://forensicator.io">
-  <img width="147" height="36" alt="image" src="https://github.com/user-attachments/assets/824f5c19-9bf4-41a3-bad9-32549fa0d3bc" />
-
-</a>

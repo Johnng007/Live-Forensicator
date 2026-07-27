@@ -1,0 +1,65 @@
+{
+  "title": "Suspicious Serv-U Process Pattern",
+  "rule_id": "58f4ea09-0fc2-4520-ba18-b85c540b0eaf",
+  "description": "Detects a suspicious process pattern which could be a sign of an exploited Serv-U service",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.credential-access",
+    "attack.t1555",
+    "cve.2021-35211"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_servu_susp_child_process.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "endswith",
+          "values": [
+            "\\Serv-U.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\cmd.exe",
+            "\\powershell.exe",
+            "\\pwsh.exe",
+            "\\wscript.exe",
+            "\\cscript.exe",
+            "\\sh.exe",
+            "\\bash.exe",
+            "\\schtasks.exe",
+            "\\regsvr32.exe",
+            "\\wmic.exe",
+            "\\mshta.exe",
+            "\\rundll32.exe",
+            "\\msiexec.exe",
+            "\\forfiles.exe",
+            "\\scriptrunner.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

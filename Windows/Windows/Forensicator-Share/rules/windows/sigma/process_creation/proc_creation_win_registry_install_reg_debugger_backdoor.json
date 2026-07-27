@@ -1,0 +1,64 @@
+{
+  "title": "Suspicious Debugger Registration Cmdline",
+  "rule_id": "ae215552-081e-44c7-805f-be16f975c8a2",
+  "description": "Detects the registration of a debugger for a program that is available in the logon screen (sticky key backdoor).",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.persistence",
+    "attack.privilege-escalation",
+    "attack.t1546.008"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_registry_install_reg_debugger_backdoor.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection1": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "\\CurrentVersion\\Image File Execution Options\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection2": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "sethc.exe",
+            "utilman.exe",
+            "osk.exe",
+            "magnify.exe",
+            "narrator.exe",
+            "displayswitch.exe",
+            "atbroker.exe",
+            "HelpPane.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection*"
+  }
+}

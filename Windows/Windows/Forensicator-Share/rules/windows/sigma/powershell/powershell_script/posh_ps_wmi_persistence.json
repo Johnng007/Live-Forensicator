@@ -1,0 +1,66 @@
+{
+  "title": "Powershell WMI Persistence",
+  "rule_id": "9e07f6e7-83aa-45c6-998e-0af26efd0a85",
+  "description": "Adversaries may establish persistence and elevate privileges by executing malicious content triggered by a Windows Management Instrumentation (WMI) event subscription.",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.persistence",
+    "attack.privilege-escalation",
+    "attack.t1546.003"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_wmi_persistence.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection_ioc": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "ScriptBlockText",
+              "operator": "contains",
+              "values": [
+                "New-CimInstance ",
+                "-Namespace root/subscription ",
+                "-ClassName __EventFilter ",
+                "-Property "
+              ],
+              "match": "all",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "ScriptBlockText",
+              "operator": "contains",
+              "values": [
+                "New-CimInstance ",
+                "-Namespace root/subscription ",
+                "-ClassName CommandLineEventConsumer ",
+                "-Property "
+              ],
+              "match": "all",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection_ioc"
+  }
+}

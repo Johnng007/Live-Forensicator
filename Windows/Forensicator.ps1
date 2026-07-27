@@ -1,6 +1,5 @@
 ﻿
 # Live Forensicator Powershell Script
-# Coded by Ebuka John Onyejegbu
 
 [cmdletbinding()]
 param( 
@@ -30,8 +29,8 @@ $ErrorActionPreference = 'silentlycontinue'
 ##################################################
 #region        Versioning & Update               #
 ##################################################
-$version_file = $PSScriptRoot + "\" + "Updated" + "\" + "version.txt"
-$current_version = $PSScriptRoot + "\" + "version.txt"
+#$version_file = $PSScriptRoot + "\" + "Updated" + "\" + "version.txt"
+#$current_version = $PSScriptRoot + "\" + "version.txt"
 
 $MyVersion = Get-Content -Path .\version.txt
 
@@ -129,35 +128,50 @@ ___________                                .__               __
  \___  / \____/|__|    \___  >___|  /____  >__|\___  >____  /__|  \____/|__|   
      \/                    \/     \/     \/        \/     \/                    
 
-                                                                          $MyVersion
-
 "@
 
-for ($i = 0; $i -lt $t.length; $i++) {
-  if ($i % 2) {
-    $c = "red"
-  }
-  elseif ($i % 5) {
-    $c = "yellow"
-  }
-  elseif ($i % 7) {
-    $c = "green"
-  }
-  else {
-    $c = "white"
-  }
-  Write-Host $t[$i] -NoNewline -ForegroundColor $c
-}
-Write-Host ''
+# Brand colours
+$LogoColor    = "Cyan"
+$InfoColor    = "DarkCyan"
+$SuccessColor = "Green"
 
-Write-Host ''
-Write-Host ''
-Write-Host ''
-Write-Host -ForegroundColor DarkCyan '[!] https://forensicator.io'
-Write-Host -ForegroundColor DarkCyan '[!] https://github.com/Johnng007/Live-Forensicator'
-Write-Host ''
+# Print banner
+$t.Split("`n") | ForEach-Object {
+    Write-Host $_ -ForegroundColor $LogoColor
+}
+
+
+Write-Host ""
+Write-Host "──────────────────────────────────────────────────────────────────────────────" -ForegroundColor DarkGray
+Write-Host ""
+
+Write-Host "[✓] Collector  : Live Forensicator"                         -ForegroundColor $SuccessColor
+Write-Host "[✓] Version    : $MyVersion"                               -ForegroundColor $SuccessColor
+Write-Host "[✓] Host       : $env:COMPUTERNAME"                        -ForegroundColor White
+Write-Host "[✓] User       : $env:USERNAME"                            -ForegroundColor White
+Write-Host "[✓] PowerShell : $($PSVersionTable.PSVersion)"             -ForegroundColor White
+Write-Host ""
+
+Write-Host "[•] Website    : https://forensicator.io"                  -ForegroundColor $InfoColor
+Write-Host ""
+
+Write-Host "[*] Initializing evidence collection..." -ForegroundColor Yellow
+Start-Sleep -Milliseconds 300
+
+Write-Host "[✓] Loading modules..." -ForegroundColor Green
+Start-Sleep -Milliseconds 150
+
+Write-Host "[✓] Enumerating operating system..." -ForegroundColor Green
+Start-Sleep -Milliseconds 150
+
+Write-Host ""
+Write-Host ""
+
+
 
 if ($PSVersionTable.PSVersion.Major -lt 6) {
+    Write-Host -ForegroundColor Yellow "Hold on one sec.."
+    Write-Host ""
     Write-Host -ForegroundColor Yellow "====================================================="
     Write-Host -ForegroundColor Yellow "[!] Running on Windows PowerShell $($PSVersionTable.PSVersion) (PS5)"
     Write-Host -ForegroundColor Yellow "[!] Forensicator is developed and tested primarily on PowerShell 7."
@@ -382,6 +396,8 @@ else {
 
 #endregion 
 
+Write-Host "[✓] Initializing logging..." -ForegroundColor Green
+Start-Sleep -Milliseconds 150
 
 #############################################################################################################
 #region   LOGGING INITIALISATION
@@ -581,6 +597,9 @@ else {
 }
 
 #endregion
+Write-Host ""
+Write-Host "[✓] Starting forensic acquisition..." -ForegroundColor Green
+Write-Host ""
 
 Write-Host ""
 
@@ -6442,7 +6461,7 @@ if ($LOG4J) {
   # Checking for Log4j
   $DriveList = (Get-PSDrive -PSProvider FileSystem).Root
   ForEach ($Drive In $DriveList) {
-    $Log4j = Get-ChildItem $Drive -rec -force -include *.jar -ea 0 | ForEach-Object { select-string 'JndiLookup.class' $_ } | Select-Object -exp Path | Out-File "$PSScriptRoot\$env:COMPUTERNAME\artifacts\LOG4J\$env:computername.txt"
+    $Log4j = Get-ChildItem $Drive -rec -force -include *.jar -ea 0 | ForEach-Object { select-string 'JndiLookup.class' $_ } | Select-Object -exp Path | Out-File "$PSScriptRoot\$env:COMPUTERNAME\artifacts\LOG4J\$env:computername.txt" -Encoding utf8
 
   }
    
@@ -8363,6 +8382,2295 @@ Write-ForensicLog "[!] Done" -Level SUCCESS -Section "EventLog"
 Write-ForensicLog ""
 
 #############################################################################################################
+#region   ACTIVE DIRECTORY CHECKS
+#############################################################################################################
+
+Write-ForensicLog "[*] Checking whether this host is a Domain Controller" -Level INFO -Section "AD"
+
+function Get-ADFirstNonNull {
+    param([object[]]$Values)
+    foreach($v in $Values){ if($null -ne $v -and "$v" -ne ""){ return $v } }
+    return $null
+}
+
+function Test-IsDomainController {
+
+    $isDC = $false
+    $detectionMethod = "not detected"
+
+    # Method 1 — registry ProductType (LanmanNT = Domain Controller)
+    try{
+        $productType = (Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\ProductOptions" -ErrorAction Stop).ProductType
+        if($productType -eq "LanmanNT"){
+            $isDC = $true
+            $detectionMethod = "registry (ProductType=LanmanNT)"
+        }
+    }
+    catch{}
+
+    # Method 2 — WMI DomainRole (4=Backup DC, 5=Primary DC)
+    if(-not $isDC){
+        try{
+            $domainRole = (Get-CimInstance Win32_ComputerSystem -ErrorAction Stop).DomainRole
+            if($domainRole -ge 4){
+                $isDC = $true
+                $detectionMethod = "WMI (DomainRole=$domainRole)"
+            }
+        }
+        catch{}
+    }
+
+    # Method 3 — ntds.dit presence
+    if(-not $isDC){
+        if(Test-Path "$env:SystemRoot\NTDS\ntds.dit"){
+            $isDC = $true
+            $detectionMethod = "ntds.dit present"
+        }
+    }
+
+    # Method 4 — NTDS service running
+    if(-not $isDC){
+        try{
+            $ntdsService = Get-Service NTDS -ErrorAction Stop
+            if($ntdsService.Status -eq "Running"){
+                $isDC = $true
+                $detectionMethod = "NTDS service running"
+            }
+        }
+        catch{}
+    }
+
+    return [PSCustomObject]@{ IsDC = $isDC; Method = $detectionMethod }
+}
+
+$ADDetection        = Test-IsDomainController
+$IsDomainController = $ADDetection.IsDC
+
+# Populated only when running on a Domain Controller — the HTML template
+# interpolates these as-is, so leaving them empty means the AD nav entry
+# and view simply don't exist in the report for non-DC hosts.
+$AD_SidebarHtml = ""
+$AD_ViewHtml    = ""
+
+if($IsDomainController){
+
+    Write-ForensicLog "[!] Domain Controller detected — running Active Directory checks" -Level SUCCESS -Section "AD" -Detail "Detection method: $($ADDetection.Method)"
+
+    New-Item -ItemType Directory -Force -Path "$PSScriptRoot\$env:COMPUTERNAME\investigation\ad" | Out-Null
+
+    # ---------------------------------------------------------------------
+    # AD.0 — Domain Controller overview
+    # ---------------------------------------------------------------------
+    $adDomainName = $null
+    $adForestName = $null
+    $adSiteName   = "Unknown"
+
+    try{
+        $cs = Get-CimInstance Win32_ComputerSystem -ErrorAction Stop
+        $adDomainName = $cs.Domain
+    }
+    catch{}
+
+    try{
+        $rootDse      = [ADSI]"LDAP://RootDSE"
+        $adDomainDN   = [string]$rootDse.defaultNamingContext
+        $adForestDN   = [string]$rootDse.rootDomainNamingContext
+    }
+    catch{
+        $adDomainDN = $null
+        $adForestDN = $null
+    }
+
+    try{
+        $nltestSite = & nltest "/server:$env:COMPUTERNAME" /dsgetsite 2>$null
+        if($nltestSite -and $nltestSite[0] -notmatch "error|failed"){
+            $adSiteName = ([string]$nltestSite[0]).Trim()
+        }
+    }
+    catch{}
+
+    $sb = New-Object System.Text.StringBuilder
+    [void]$sb.Append("<div class='kv-list-row'><div class='kv-list-k'>Detection Method</div><div class='kv-list-v'>$(Encode-Cell $ADDetection.Method)</div></div>")
+    [void]$sb.Append("<div class='kv-list-row'><div class='kv-list-k'>Hostname</div><div class='kv-list-v'>$(Encode-Cell $env:COMPUTERNAME)</div></div>")
+    [void]$sb.Append("<div class='kv-list-row'><div class='kv-list-k'>Domain</div><div class='kv-list-v'>$(Encode-Cell $adDomainName)</div></div>")
+    [void]$sb.Append("<div class='kv-list-row'><div class='kv-list-k'>Domain DN</div><div class='kv-list-v'>$(Encode-Cell $adDomainDN)</div></div>")
+    [void]$sb.Append("<div class='kv-list-row'><div class='kv-list-k'>Forest Root DN</div><div class='kv-list-v'>$(Encode-Cell $adForestDN)</div></div>")
+    [void]$sb.Append("<div class='kv-list-row'><div class='kv-list-k'>AD Site</div><div class='kv-list-v'>$(Encode-Cell $adSiteName)</div></div>")
+    $AD_DCInfoFragment = $sb.ToString()
+
+    # ---------------------------------------------------------------------
+    # AD.1 — NTDS database integrity / metadata
+    # ---------------------------------------------------------------------
+    Write-ForensicLog "[*] Collecting NTDS database metadata" -Level INFO -Section "AD"
+
+    $ntdsPath  = "$env:SystemRoot\NTDS"
+    $ntdsFiles = @()
+    if(Test-Path $ntdsPath){
+        $ntdsFiles = @(Get-ChildItem -Path $ntdsPath -File -ErrorAction SilentlyContinue |
+                       Where-Object { $_.Name -match '^(ntds\.dit|edb.*\.log|tmp\.edb|res.*\.log)$' })
+    }
+
+    $Finding = @{
+        finding_id   = "ad-ntds-001"
+        finding_type = "NTDS Database Metadata"
+        category     = "Active Directory"
+        findingtags  = @("credential-access", "persistence", "live-response")
+        severity     = "Notable"
+        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
+        source = @{ collector = "Get-ChildItem $ntdsPath"; artifact = "NTDS Database Files"; command = "Get-ChildItem $ntdsPath -Filter ntds.dit,edb*.log,tmp.edb,res*.log" }
+        summary = @{ title = "Forensicator NTDS Database Metadata"; description = "Collected metadata for the Active Directory database and transaction log files."; total_entries = @($ntdsFiles).Count }
+        risk = @{ score = 70; level = "High"; reason = "The NTDS database contains all domain credential material; unexpected size, timestamps, or a missing file may indicate NTDS theft or offline credential dumping." }
+        mitre = @(@{ technique_id = "T1003.003"; technique = "OS Credential Dumping: NTDS" })
+        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
+        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected NTDS database metadata" })
+        evidence = [System.Collections.Generic.List[object]]::new()
+        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+    }
+
+    if($ntdsFiles.Count -gt 0){
+        foreach($f in $ntdsFiles){
+            $Finding.evidence.Add(@{
+                name             = $f.Name
+                full_path        = $f.FullName
+                size_mb          = [Math]::Round($f.Length/1MB, 2)
+                creation_time    = $f.CreationTime.ToString("o")
+                last_write_time  = $f.LastWriteTime.ToString("o")
+            })
+        }
+    }
+    else{
+        $Finding.evidence.Add(@{ note = "ntds.dit not found — unexpected on a Domain Controller" })
+    }
+
+    $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\ad\ntds-finding.json"
+    $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
+
+    $sb = New-Object System.Text.StringBuilder
+    if($ntdsFiles.Count -gt 0){
+        foreach($item in $Finding.evidence){
+            [void]$sb.Append("<tr><td>$(Encode-Cell $item.name)</td><td>$(Encode-Cell $item.full_path)</td><td>$(Encode-Cell $item.size_mb)</td><td>$(Encode-Cell $item.creation_time)</td><td>$(Encode-Cell $item.last_write_time)</td></tr>")
+        }
+    }
+    else{
+        [void]$sb.Append("<tr><td colspan='5' style='text-align:center;color:#e74c3c;'>ntds.dit not found — unexpected on a Domain Controller</td></tr>")
+    }
+    $AD_NTDSFragment = $sb.ToString()
+
+    # ---------------------------------------------------------------------
+    # AD.2 — SYSVOL / Group Policy script analysis
+    # ---------------------------------------------------------------------
+    Write-ForensicLog "[*] Scanning SYSVOL for suspicious scripts" -Level INFO -Section "AD"
+
+    $sysvolPath = "$env:SystemRoot\SYSVOL\domain"
+
+    $adConfig = $null
+    if($null -ne $configData -and $null -ne $configData.ad){
+        $adConfig = $configData.ad
+    }
+
+    $suspiciousKeywords = @('invoke-mimikatz','invoke-expression','downloadstring','downloadfile','iex(',
+        '-enc ','-encodedcommand','frombase64string','empire','covenant','sliver',
+        'invoke-dcsync','invoke-kerberoast','rubeus','mimikatz','net user','net localgroup')
+    if($null -ne $adConfig -and $null -ne $adConfig.sysvol_suspicious_keywords){
+        $configuredKeywords = ConvertTo-ConfigStringArray $adConfig.sysvol_suspicious_keywords
+        if($configuredKeywords.Count -gt 0){ $suspiciousKeywords = $configuredKeywords }
+    }
+
+    $sysvolExtensions = @('*.bat','*.ps1','*.vbs','*.exe','*.dll','*.cmd','*.js')
+    if($null -ne $adConfig -and $null -ne $adConfig.sysvol_scan_extensions){
+        $configuredExtensions = ConvertTo-ConfigStringArray $adConfig.sysvol_scan_extensions
+        if($configuredExtensions.Count -gt 0){ $sysvolExtensions = $configuredExtensions }
+    }
+
+    $sysvolFindingsList = [System.Collections.Generic.List[object]]::new()
+
+    if(Test-Path $sysvolPath){
+        foreach($ext in $sysvolExtensions){
+            Get-ChildItem -Path $sysvolPath -Recurse -Filter $ext -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.DirectoryName -match '\\(Policies|Scripts|Startup|Shutdown|Logon|Logoff)(\\|$)' } |
+            ForEach-Object {
+
+                $file = $_
+                $matchedKeywords = [System.Collections.Generic.List[string]]::new()
+
+                if($file.Extension -notin @('.exe','.dll') -and $file.Length -lt 2MB){
+                    try{
+                        $content = Get-Content -LiteralPath $file.FullName -Raw -ErrorAction Stop
+                        foreach($kw in $suspiciousKeywords){
+                            if($content -match [regex]::Escape($kw)){
+                                [void]$matchedKeywords.Add($kw)
+                            }
+                        }
+                    }
+                    catch{}
+                }
+
+                $sysvolFindingsList.Add([PSCustomObject]@{
+                    Name            = $file.Name
+                    FullPath        = $file.FullName
+                    Extension       = $file.Extension
+                    SizeKB          = [Math]::Round($file.Length/1KB, 2)
+                    LastWriteTime   = $file.LastWriteTime
+                    MatchedKeywords = ($matchedKeywords -join ", ")
+                })
+            }
+        }
+    }
+
+    $Finding = @{
+        finding_id   = "ad-sysvol-001"
+        finding_type = "SYSVOL Script Analysis"
+        category     = "Active Directory"
+        findingtags  = @("malware", "persistence", "live-response")
+        severity     = "Notable"
+        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
+        source = @{ collector = "Get-ChildItem $sysvolPath"; artifact = "SYSVOL Policies/Scripts/Startup/Shutdown/Logon/Logoff"; command = "Get-ChildItem $sysvolPath -Recurse -Include *.bat,*.ps1,*.vbs,*.exe,*.dll,*.cmd,*.js" }
+        summary = @{ title = "Forensicator SYSVOL Script Analysis"; description = "Collected scripts/binaries from SYSVOL logon/logoff/startup/shutdown/GPO script locations and flagged suspicious content."; total_entries = @($sysvolFindingsList).Count }
+        risk = @{ score = 75; level = "High"; reason = "SYSVOL scripts run on every domain-joined machine that processes the relevant GPO; malicious content here is a domain-wide persistence and execution mechanism." }
+        mitre = @(@{ technique_id = "T1484.001"; technique = "Domain or Tenant Policy Modification: Group Policy Modification" })
+        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
+        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator scanned SYSVOL for suspicious scripts" })
+        evidence = [System.Collections.Generic.List[object]]::new()
+        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+    }
+
+    foreach($item in $sysvolFindingsList){
+        $Finding.evidence.Add(@{
+            name             = $item.Name
+            full_path        = $item.FullPath
+            extension        = $item.Extension
+            size_kb          = $item.SizeKB
+            last_write_time  = $item.LastWriteTime.ToString("o")
+            matched_keywords = $item.MatchedKeywords
+        })
+    }
+
+    $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\ad\sysvol-finding.json"
+    $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
+
+    $sb = New-Object System.Text.StringBuilder
+    if($sysvolFindingsList.Count -gt 0){
+        foreach($item in $sysvolFindingsList){
+            $rowStyle = if($item.MatchedKeywords){ " style='background-color:#3a1a1a;'" } else { "" }
+            [void]$sb.Append("<tr$rowStyle><td>$(Encode-Cell $item.Name)</td><td>$(Encode-Cell $item.FullPath)</td><td>$(Encode-Cell $item.Extension)</td><td>$(Encode-Cell $item.SizeKB)</td><td>$(Encode-Cell $item.LastWriteTime)</td><td>$(Encode-Cell $item.MatchedKeywords)</td></tr>")
+        }
+    }
+    else{
+        [void]$sb.Append("<tr><td colspan='6' style='text-align:center;color:#27ae60;'>No scripts found under SYSVOL Policies/Scripts/Startup/Shutdown/Logon/Logoff</td></tr>")
+    }
+    $AD_SysvolFragment = $sb.ToString()
+
+    # ---------------------------------------------------------------------
+    # AD.3 — Privileged group membership
+    # ---------------------------------------------------------------------
+    Write-ForensicLog "[*] Enumerating privileged AD group membership" -Level INFO -Section "AD"
+
+    function Get-NetGroupMembersDomain {
+        param([string]$GroupName)
+
+        $output = & net group "$GroupName" /domain 2>$null
+        if(-not $output){ return @() }
+
+        $members  = [System.Collections.Generic.List[string]]::new()
+        $inMembers = $false
+        foreach($line in $output){
+            if($line -match '^-+$'){ $inMembers = $true; continue }
+            if($inMembers){
+                if([string]::IsNullOrWhiteSpace($line) -or $line -match 'The command completed successfully'){ break }
+                ($line -split '\s{2,}') | Where-Object { $_ } | ForEach-Object { $members.Add($_.Trim()) }
+            }
+        }
+        return $members
+    }
+
+    $privilegedGroups = @('Domain Admins','Enterprise Admins','Schema Admins','Administrators','Backup Operators','Account Operators','Server Operators','Print Operators')
+    $privGroupMembers = [System.Collections.Generic.List[object]]::new()
+
+    foreach($grp in $privilegedGroups){
+        foreach($member in (Get-NetGroupMembersDomain -GroupName $grp)){
+            $privGroupMembers.Add([PSCustomObject]@{ Group = $grp; Member = $member })
+        }
+    }
+
+    $Finding = @{
+        finding_id   = "ad-priv-groups-001"
+        finding_type = "Privileged AD Group Membership"
+        category     = "Active Directory"
+        findingtags  = @("privilege-escalation", "insider-threat", "credential-access", "live-response")
+        severity     = "Notable"
+        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
+        source = @{ collector = "net group <name> /domain"; artifact = "Privileged Directory Group Membership"; command = "net group `"<GroupName>`" /domain" }
+        summary = @{ title = "Forensicator Privileged Group Membership"; description = "Collected membership of Domain Admins, Enterprise Admins, Schema Admins, and other privileged groups."; total_entries = @($privGroupMembers).Count }
+        risk = @{ score = 80; level = "High"; reason = "Unexpected or unknown members of privileged directory groups are a primary indicator of privilege escalation or a backdoor account." }
+        mitre = @(@{ technique_id = "T1078.002"; technique = "Valid Accounts: Domain Accounts" })
+        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
+        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected privileged AD group membership" })
+        evidence = [System.Collections.Generic.List[object]]::new()
+        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+    }
+
+    foreach($item in $privGroupMembers){
+        $Finding.evidence.Add(@{ group = $item.Group; member = $item.Member })
+    }
+
+    $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\ad\priv-groups-finding.json"
+    $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
+
+    $sb = New-Object System.Text.StringBuilder
+    if($privGroupMembers.Count -gt 0){
+        foreach($item in $privGroupMembers){
+            [void]$sb.Append("<tr><td>$(Encode-Cell $item.Group)</td><td>$(Encode-Cell $item.Member)</td></tr>")
+        }
+    }
+    else{
+        [void]$sb.Append("<tr><td colspan='2' style='text-align:center;color:#e67e22;'>No members enumerated — 'net group /domain' may have failed or returned no data</td></tr>")
+    }
+    $AD_PrivGroupsFragment = $sb.ToString()
+
+    # ---------------------------------------------------------------------
+    # AD.4 — KRBTGT account age
+    # ---------------------------------------------------------------------
+    Write-ForensicLog "[*] Checking KRBTGT account password age" -Level INFO -Section "AD"
+
+    $krbtgtPwdLastSet = $null
+    try{
+        $krbtgtInfo = & net user krbtgt /domain 2>$null
+        $line = $krbtgtInfo | Where-Object { $_ -match 'Password last set' } | Select-Object -First 1
+        if($line -match 'Password last set\s+(.+)$'){
+            $raw = $matches[1].Trim()
+            $parsedDate = [datetime]::MinValue
+            if([datetime]::TryParse($raw, [ref]$parsedDate)){
+                $krbtgtPwdLastSet = $parsedDate
+            }
+        }
+    }
+    catch{}
+
+    $krbtgtAgeDays = if($krbtgtPwdLastSet){ [Math]::Round(((Get-Date) - $krbtgtPwdLastSet).TotalDays, 1) } else { $null }
+    $krbtgtRisk    = if($null -eq $krbtgtAgeDays){ "Unknown" } elseif($krbtgtAgeDays -gt 180){ "High — password older than 180 days" } else { "Low" }
+
+    $Finding = @{
+        finding_id   = "ad-krbtgt-001"
+        finding_type = "KRBTGT Account Age"
+        category     = "Active Directory"
+        findingtags  = @("credential-access", "persistence", "live-response")
+        severity     = "Notable"
+        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
+        source = @{ collector = "net user krbtgt /domain"; artifact = "KRBTGT Account Metadata"; command = "net user krbtgt /domain" }
+        summary = @{ title = "Forensicator KRBTGT Account Age"; description = "Checked KRBTGT password last-set date. Golden Ticket forgery relies on the KRBTGT hash — an old or never-changed password extends the useful life of a stolen hash."; total_entries = 1 }
+        risk = @{ score = $(if($krbtgtRisk -like "High*"){85}elseif($krbtgtRisk -eq "Unknown"){40}else{15}); level = $(if($krbtgtRisk -like "High*"){"High"}elseif($krbtgtRisk -eq "Unknown"){"Medium"}else{"Low"}); reason = "KRBTGT password age directly bounds how long a forged Golden Ticket built from a stolen KRBTGT hash remains valid." }
+        mitre = @(@{ technique_id = "T1558.001"; technique = "Steal or Forge Kerberos Tickets: Golden Ticket" })
+        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
+        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator checked KRBTGT account age" })
+        evidence = [System.Collections.Generic.List[object]]::new()
+        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+    }
+    $Finding.evidence.Add(@{
+        password_last_set = $(if($krbtgtPwdLastSet){ $krbtgtPwdLastSet.ToString("o") } else { "Unknown" })
+        age_days           = $(if($null -ne $krbtgtAgeDays){ "$krbtgtAgeDays" } else { "Unknown" })
+        risk               = $krbtgtRisk
+    })
+
+    $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\ad\krbtgt-finding.json"
+    $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
+
+    $sb = New-Object System.Text.StringBuilder
+    [void]$sb.Append("<div class='kv-list-row'><div class='kv-list-k'>Password Last Set</div><div class='kv-list-v'>$(Encode-Cell $(if($krbtgtPwdLastSet){$krbtgtPwdLastSet}else{'Unknown'}))</div></div>")
+    [void]$sb.Append("<div class='kv-list-row'><div class='kv-list-k'>Age (days)</div><div class='kv-list-v'>$(Encode-Cell $(if($null -ne $krbtgtAgeDays){$krbtgtAgeDays}else{'Unknown'}))</div></div>")
+    [void]$sb.Append("<div class='kv-list-row'><div class='kv-list-k'>Risk</div><div class='kv-list-v'>$(Encode-Cell $krbtgtRisk)</div></div>")
+    $AD_KrbtgtFragment = $sb.ToString()
+
+    # ---------------------------------------------------------------------
+    # AD.5 — Password policy, FSMO roles, LDAP/SMB signing (cheap wins)
+    # ---------------------------------------------------------------------
+    Write-ForensicLog "[*] Collecting domain password policy and FSMO role owners" -Level INFO -Section "AD"
+
+    $sb = New-Object System.Text.StringBuilder
+    try{
+        $pwdPolicyOutput = & net accounts /domain 2>$null
+        if($pwdPolicyOutput){
+            foreach($line in $pwdPolicyOutput){
+                if($line -match '^(.+?):\s+(.+)$'){
+                    [void]$sb.Append("<div class='kv-list-row'><div class='kv-list-k'>$(Encode-Cell $matches[1].Trim())</div><div class='kv-list-v'>$(Encode-Cell $matches[2].Trim())</div></div>")
+                }
+            }
+        }
+    }
+    catch{}
+    if($sb.Length -eq 0){ [void]$sb.Append("<div class='kv-list-row'><div class='kv-list-v' style='color:#e67e22;'>Could not retrieve domain password policy ('net accounts /domain' failed)</div></div>") }
+    $AD_PwdPolicyFragment = $sb.ToString()
+
+    $sb = New-Object System.Text.StringBuilder
+    try{
+        $fsmoOutput = & netdom query fsmo 2>$null
+        if($fsmoOutput){
+            foreach($line in $fsmoOutput){
+                if($line -match '^(.+?master.*?)\s{2,}(\S.+)$'){
+                    [void]$sb.Append("<div class='kv-list-row'><div class='kv-list-k'>$(Encode-Cell $matches[1].Trim())</div><div class='kv-list-v'>$(Encode-Cell $matches[2].Trim())</div></div>")
+                }
+            }
+        }
+    }
+    catch{}
+    if($sb.Length -eq 0){ [void]$sb.Append("<div class='kv-list-row'><div class='kv-list-v' style='color:#e67e22;'>Could not retrieve FSMO role owners ('netdom query fsmo' failed)</div></div>") }
+    $AD_FSMOFragment = $sb.ToString()
+
+    Write-ForensicLog "[*] Checking LDAP and SMB signing configuration" -Level INFO -Section "AD"
+
+    $ldapIntegrity       = (Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Services\NTDS\Parameters" -Name "LDAPServerIntegrity" -ErrorAction SilentlyContinue).LDAPServerIntegrity
+    $ldapChannelBinding  = (Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Services\NTDS\Parameters" -Name "LdapEnforceChannelBinding" -ErrorAction SilentlyContinue).LdapEnforceChannelBinding
+    $smbSigningRequired  = (Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Services\LanManServer\Parameters" -Name "RequireSecuritySignature" -ErrorAction SilentlyContinue).RequireSecuritySignature
+
+    $ldapIntegrityText = switch($ldapIntegrity){ 2 {"Require signing (secure)"} 1 {"None (insecure — unsigned LDAP allowed)"} default {"Not configured (default = None, insecure)"} }
+    $channelBindingText = switch($ldapChannelBinding){ 2 {"Always (secure)"} 1 {"When supported"} 0 {"Never (insecure)"} default {"Not configured (default = disabled, insecure)"} }
+    $smbSigningText = switch($smbSigningRequired){ 1 {"Required (secure)"} 0 {"Not required (insecure — relay risk)"} default {"Not configured (default = not required, insecure)"} }
+
+    $Finding = @{
+        finding_id   = "ad-ldap-smb-signing-001"
+        finding_type = "LDAP / SMB Signing Configuration"
+        category     = "Active Directory"
+        findingtags  = @("defense-evasion", "lateral-movement", "live-response")
+        severity     = "Notable"
+        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
+        source = @{ collector = "Registry (NTDS\Parameters, LanManServer\Parameters)"; artifact = "LDAP/SMB Signing Configuration"; command = "Get-ItemProperty HKLM:\SYSTEM\CurrentControlSet\Services\NTDS\Parameters, HKLM:\SYSTEM\CurrentControlSet\Services\LanManServer\Parameters" }
+        summary = @{ title = "Forensicator LDAP/SMB Signing Configuration"; description = "Checked LDAP signing/channel binding and SMB signing enforcement on the Domain Controller."; total_entries = 1 }
+        risk = @{ score = 55; level = "Medium"; reason = "Unsigned LDAP or SMB allows credential relay attacks (e.g. NTLM relay to LDAP/LDAPS) against the Domain Controller." }
+        mitre = @(@{ technique_id = "T1557"; technique = "Adversary-in-the-Middle" })
+        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
+        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator checked LDAP/SMB signing configuration" })
+        evidence = [System.Collections.Generic.List[object]]::new()
+        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+    }
+    $Finding.evidence.Add(@{
+        ldap_server_integrity = $ldapIntegrityText
+        ldap_channel_binding  = $channelBindingText
+        smb_signing           = $smbSigningText
+    })
+
+    $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\ad\ldap-smb-signing-finding.json"
+    $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
+
+    $sb = New-Object System.Text.StringBuilder
+    [void]$sb.Append("<div class='kv-list-row'><div class='kv-list-k'>LDAP Server Integrity (Signing)</div><div class='kv-list-v'>$(Encode-Cell $ldapIntegrityText)</div></div>")
+    [void]$sb.Append("<div class='kv-list-row'><div class='kv-list-k'>LDAP Channel Binding</div><div class='kv-list-v'>$(Encode-Cell $channelBindingText)</div></div>")
+    [void]$sb.Append("<div class='kv-list-row'><div class='kv-list-k'>SMB Signing</div><div class='kv-list-v'>$(Encode-Cell $smbSigningText)</div></div>")
+    $AD_LDAPSigningFragment = $sb.ToString()
+
+    # ---------------------------------------------------------------------
+    # AD.6 — SPNs / Kerberoasting candidates, AD.7 — Delegation, AD.8 — DCSync
+    # (all via ADSI/LDAP — gracefully skipped if LDAP is unreachable)
+    # ---------------------------------------------------------------------
+    $AD_SPNFragment        = "<tr><td colspan='6' style='text-align:center;color:#e67e22;'>LDAP query unavailable — skipped</td></tr>"
+    $AD_DelegationFragment = "<tr><td colspan='4' style='text-align:center;color:#e67e22;'>LDAP query unavailable — skipped</td></tr>"
+    $AD_DCSyncFragment     = "<tr><td colspan='3' style='text-align:center;color:#e67e22;'>dsacls query unavailable — skipped</td></tr>"
+
+    if($adDomainDN){
+
+        try{ Add-Type -AssemblyName System.DirectoryServices -ErrorAction SilentlyContinue } catch{}
+
+        # --- AD.6 SPN enumeration / Kerberoasting candidates ---
+        Write-ForensicLog "[*] Enumerating Service Principal Names (Kerberoasting exposure)" -Level INFO -Section "AD"
+
+        $spnRows = [System.Collections.Generic.List[object]]::new()
+        try{
+            $searcher = New-Object System.DirectoryServices.DirectorySearcher([ADSI]"LDAP://$adDomainDN")
+            $searcher.Filter     = "(&(objectCategory=person)(objectClass=user)(servicePrincipalName=*))"
+            $searcher.PageSize   = 1000
+            [void]$searcher.PropertiesToLoad.AddRange(@('sAMAccountName','servicePrincipalName','adminCount','userAccountControl'))
+            $spnResults = $searcher.FindAll()
+
+            foreach($r in $spnResults){
+                $props   = $r.Properties
+                $uac     = if($props['useraccountcontrol'].Count -gt 0){ [int]$props['useraccountcontrol'][0] } else { 0 }
+                $pwdNeverExpires = (($uac -band 0x10000) -ne 0)
+                $accountDisabled = (($uac -band 0x2) -ne 0)
+                $isPrivileged    = ($props['admincount'].Count -gt 0 -and [int]$props['admincount'][0] -eq 1)
+                $spns = @($props['serviceprincipalname'])
+
+                $spnRows.Add([PSCustomObject]@{
+                    SamAccountName   = "$($props['samaccountname'])"
+                    SPNs             = ($spns -join ", ")
+                    Privileged       = $isPrivileged
+                    PasswordNeverExpires = $pwdNeverExpires
+                    Disabled         = $accountDisabled
+                })
+            }
+            $spnResults.Dispose()
+            $searcher.Dispose()
+        }
+        catch{
+            Write-ForensicLog "[!] SPN enumeration failed: $($_.Exception.Message)" -Level WARN -Section "AD"
+        }
+
+        $Finding = @{
+            finding_id   = "ad-spn-001"
+            finding_type = "Service Principal Names (Kerberoasting Exposure)"
+            category     = "Active Directory"
+            findingtags  = @("credential-access", "live-response")
+            severity     = "Notable"
+            host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
+            source = @{ collector = "DirectorySearcher (servicePrincipalName=*)"; artifact = "User Accounts with Service Principal Names"; command = "(&(objectCategory=person)(objectClass=user)(servicePrincipalName=*))" }
+            summary = @{ title = "Forensicator SPN Enumeration"; description = "Collected user accounts with registered Service Principal Names — each is a Kerberoasting candidate, especially privileged accounts and those with non-expiring passwords."; total_entries = @($spnRows).Count }
+            risk = @{ score = 70; level = "High"; reason = "Accounts with an SPN can have their Kerberos service ticket requested and cracked offline (Kerberoasting); privileged or weakly-configured accounts are high-value targets." }
+            mitre = @(@{ technique_id = "T1558.003"; technique = "Steal or Forge Kerberos Tickets: Kerberoasting" })
+            ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
+            timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator enumerated SPNs" })
+            evidence = [System.Collections.Generic.List[object]]::new()
+            metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+        }
+        foreach($row in $spnRows){
+            $Finding.evidence.Add(@{
+                sam_account_name        = $row.SamAccountName
+                spns                    = $row.SPNs
+                privileged               = "$($row.Privileged)"
+                password_never_expires   = "$($row.PasswordNeverExpires)"
+                disabled                 = "$($row.Disabled)"
+            })
+        }
+        $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\ad\spn-finding.json"
+        $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
+
+        if($spnRows.Count -gt 0){
+            $sb = New-Object System.Text.StringBuilder
+            foreach($row in $spnRows){
+                $rowStyle = if($row.Privileged){ " style='background-color:#3a1a1a;'" } else { "" }
+                [void]$sb.Append("<tr$rowStyle><td>$(Encode-Cell $row.SamAccountName)</td><td>$(Encode-Cell $row.SPNs)</td><td>$(Encode-Cell $row.Privileged)</td><td>$(Encode-Cell $row.PasswordNeverExpires)</td><td>$(Encode-Cell $row.Disabled)</td></tr>")
+            }
+            $AD_SPNFragment = $sb.ToString()
+        }
+        else{
+            $AD_SPNFragment = "<tr><td colspan='5' style='text-align:center;color:#27ae60;'>No user accounts with Service Principal Names found</td></tr>"
+        }
+
+        # --- AD.7 Kerberos delegation (unconstrained / constrained / RBCD) ---
+        Write-ForensicLog "[*] Enumerating Kerberos delegation configuration" -Level INFO -Section "AD"
+
+        $delegationRows = [System.Collections.Generic.List[object]]::new()
+        try{
+            $searcher = New-Object System.DirectoryServices.DirectorySearcher([ADSI]"LDAP://$adDomainDN")
+            $searcher.Filter   = "(&(|(objectCategory=person)(objectCategory=computer))(|(userAccountControl:1.2.840.113556.1.4.803:=524288)(userAccountControl:1.2.840.113556.1.4.803:=16777216)(msDS-AllowedToDelegateTo=*)(msDS-AllowedToActOnBehalfOfOtherIdentity=*)))"
+            $searcher.PageSize = 1000
+            [void]$searcher.PropertiesToLoad.AddRange(@('sAMAccountName','userAccountControl','msDS-AllowedToDelegateTo','objectCategory'))
+            $delegResults = $searcher.FindAll()
+
+            foreach($r in $delegResults){
+                $props = $r.Properties
+                $uac   = if($props['useraccountcontrol'].Count -gt 0){ [int]$props['useraccountcontrol'][0] } else { 0 }
+
+                $types = [System.Collections.Generic.List[string]]::new()
+                if(($uac -band 0x80000) -ne 0){ [void]$types.Add("Unconstrained") }
+                if(($uac -band 0x1000000) -ne 0){ [void]$types.Add("Constrained (protocol transition)") }
+                if($props['msds-allowedtodelegateto'].Count -gt 0){ [void]$types.Add("Constrained") }
+                if($r.Properties.PropertyNames -contains 'msds-allowedtoactonbehalfofotheridentity'){ [void]$types.Add("Resource-Based Constrained Delegation") }
+
+                $delegationRows.Add([PSCustomObject]@{
+                    SamAccountName = "$($props['samaccountname'])"
+                    ObjectType     = ("$($props['objectcategory'])" -replace '^CN=([^,]+),.*$','$1')
+                    DelegationType = ($types -join ", ")
+                    AllowedTo      = ($props['msds-allowedtodelegateto'] -join ", ")
+                })
+            }
+            $delegResults.Dispose()
+            $searcher.Dispose()
+        }
+        catch{
+            Write-ForensicLog "[!] Delegation enumeration failed: $($_.Exception.Message)" -Level WARN -Section "AD"
+        }
+
+        $Finding = @{
+            finding_id   = "ad-delegation-001"
+            finding_type = "Kerberos Delegation"
+            category     = "Active Directory"
+            findingtags  = @("privilege-escalation", "lateral-movement", "live-response")
+            severity     = "Notable"
+            host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
+            source = @{ collector = "DirectorySearcher (userAccountControl delegation bits, msDS-AllowedToDelegateTo, RBCD)"; artifact = "Accounts/Computers Configured for Kerberos Delegation"; command = "LDAP filter on TRUSTED_FOR_DELEGATION / TRUSTED_TO_AUTH_FOR_DELEGATION / msDS-AllowedToDelegateTo / msDS-AllowedToActOnBehalfOfOtherIdentity" }
+            summary = @{ title = "Forensicator Kerberos Delegation Enumeration"; description = "Collected accounts and computers configured for unconstrained, constrained, or resource-based constrained delegation."; total_entries = @($delegationRows).Count }
+            risk = @{ score = 75; level = "High"; reason = "Delegation, especially unconstrained delegation, allows an attacker who compromises the delegated host to impersonate any user (including Domain Admins) that authenticates to it." }
+            mitre = @(@{ technique_id = "T1187"; technique = "Forced Authentication" })
+            ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
+            timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator enumerated Kerberos delegation configuration" })
+            evidence = [System.Collections.Generic.List[object]]::new()
+            metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+        }
+        foreach($row in $delegationRows){
+            $Finding.evidence.Add(@{
+                sam_account_name = $row.SamAccountName
+                object_type      = $row.ObjectType
+                delegation_type  = $row.DelegationType
+                allowed_to       = $row.AllowedTo
+            })
+        }
+        $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\ad\delegation-finding.json"
+        $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
+
+        if($delegationRows.Count -gt 0){
+            $sb = New-Object System.Text.StringBuilder
+            foreach($row in $delegationRows){
+                $rowStyle = if($row.DelegationType -match 'Unconstrained'){ " style='background-color:#3a1a1a;'" } else { "" }
+                [void]$sb.Append("<tr$rowStyle><td>$(Encode-Cell $row.SamAccountName)</td><td>$(Encode-Cell $row.ObjectType)</td><td>$(Encode-Cell $row.DelegationType)</td><td>$(Encode-Cell $row.AllowedTo)</td></tr>")
+            }
+            $AD_DelegationFragment = $sb.ToString()
+        }
+        else{
+            $AD_DelegationFragment = "<tr><td colspan='4' style='text-align:center;color:#27ae60;'>No accounts configured for Kerberos delegation</td></tr>"
+        }
+
+        # --- AD.8 DCSync rights (Replicating Directory Changes / All) ---
+        Write-ForensicLog "[*] Checking for DCSync rights on the domain object" -Level INFO -Section "AD"
+
+        $expectedDCSyncPrincipals = @(
+            'ENTERPRISE DOMAIN CONTROLLERS', 'DOMAIN ADMINS', 'ENTERPRISE ADMINS',
+            'ADMINISTRATORS', 'SYSTEM', 'DOMAIN CONTROLLERS'
+        )
+        $dcSyncRows = [System.Collections.Generic.List[object]]::new()
+
+        try{
+            $dsaclsOutput = & dsacls "$adDomainDN" 2>$null
+            foreach($line in $dsaclsOutput){
+                if($line -match 'Replicating Directory Changes'){
+                    $aceType  = "Unknown"
+                    $principal = $line.Trim()
+                    if($line -match '^\s*(Allow|Deny)\s+(.*?)\s{2,}'){
+                        $aceType   = $matches[1]
+                        $principal = $matches[2].Trim()
+                    }
+
+                    $rightText = if($line -match 'Replicating Directory Changes All'){ "Replicating Directory Changes All" }
+                                 elseif($line -match 'Replicating Directory Changes In Filtered Set'){ "Replicating Directory Changes In Filtered Set" }
+                                 else{ "Replicating Directory Changes" }
+
+                    $principalUpper = $principal.ToUpperInvariant()
+                    $isExpected = $false
+                    foreach($expected in $expectedDCSyncPrincipals){
+                        if($principalUpper -like "*$expected*"){ $isExpected = $true; break }
+                    }
+
+                    $dcSyncRows.Add([PSCustomObject]@{
+                        AceType   = $aceType
+                        Principal = $principal
+                        Right     = $rightText
+                        Expected  = $isExpected
+                    })
+                }
+            }
+        }
+        catch{
+            Write-ForensicLog "[!] dsacls query failed: $($_.Exception.Message)" -Level WARN -Section "AD"
+        }
+
+        $Finding = @{
+            finding_id   = "ad-dcsync-001"
+            finding_type = "DCSync Rights"
+            category     = "Active Directory"
+            findingtags  = @("credential-access", "privilege-escalation", "live-response")
+            severity     = "Notable"
+            host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
+            source = @{ collector = "dsacls <domain DN>"; artifact = "Domain Object ACL — Replicating Directory Changes rights"; command = "dsacls `"$adDomainDN`"" }
+            summary = @{ title = "Forensicator DCSync Rights Enumeration"; description = "Collected security principals granted 'Replicating Directory Changes' / 'Replicating Directory Changes All' on the domain object. Unexpected grantees can perform a DCSync attack to dump all domain credentials."; total_entries = @($dcSyncRows).Count }
+            risk = @{ score = 90; level = "Critical"; reason = "Any principal with both Replicating Directory Changes and Replicating Directory Changes All can extract every credential in the domain (DCSync) without ever touching the Domain Controller's disk." }
+            mitre = @(@{ technique_id = "T1003.006"; technique = "OS Credential Dumping: DCSync" })
+            ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
+            timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator enumerated DCSync rights" })
+            evidence = [System.Collections.Generic.List[object]]::new()
+            metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+        }
+        foreach($row in $dcSyncRows){
+            $Finding.evidence.Add(@{
+                ace_type  = $row.AceType
+                principal = $row.Principal
+                right     = $row.Right
+                expected  = "$($row.Expected)"
+            })
+        }
+        $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\ad\dcsync-finding.json"
+        $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
+
+        if($dcSyncRows.Count -gt 0){
+            $sb = New-Object System.Text.StringBuilder
+            foreach($row in $dcSyncRows){
+                $rowStyle = if(-not $row.Expected -and $row.AceType -eq "Allow"){ " style='background-color:#3a1a1a;'" } else { "" }
+                [void]$sb.Append("<tr$rowStyle><td>$(Encode-Cell $row.AceType)</td><td>$(Encode-Cell $row.Principal)</td><td>$(Encode-Cell $row.Right)</td><td>$(Encode-Cell $(if($row.Expected){'Standard'}else{'Review'}))</td></tr>")
+            }
+            $AD_DCSyncFragment = $sb.ToString()
+        }
+        else{
+            $AD_DCSyncFragment = "<tr><td colspan='4' style='text-align:center;color:#e67e22;'>Could not enumerate DCSync rights — dsacls may have failed or returned no matching ACEs</td></tr>"
+        }
+    }
+
+    # ---------------------------------------------------------------------
+    # AD.9 — DC-specific Security & Kerberos events, directory object changes
+    # ---------------------------------------------------------------------
+    Write-ForensicLog "[*] Collecting DC-specific privileged/Kerberos security events" -Level INFO -Section "AD"
+
+    $adPrivEventIds = @(4648, 4672, 4735, 4738, 4742, 4756, 4768, 4769, 4771, 4776, 4781)
+    $adPrivEvents = [System.Collections.Generic.List[object]]::new()
+    try{
+        $events = Get-ForensicWinEvent -LogName 'Security' -ProviderName 'Microsoft-Windows-Security-Auditing' -Id $adPrivEventIds -MaxEvents 2000
+        foreach($evt in $events){
+            $xml  = ([xml]$evt.ToXml()).Event
+            $data = @{}
+            foreach($node in @($xml.EventData.Data)){
+                if($node.Name){ $data[[string]$node.Name] = [string]$node.'#text' }
+            }
+            $adPrivEvents.Add([PSCustomObject]@{
+                Time     = Format-ForensicEventTime $evt.TimeCreated
+                EventId  = $evt.Id
+                User     = Get-ADFirstNonNull @($data["TargetUserName"], $data["SubjectUserName"])
+                Detail   = Get-ADFirstNonNull @($data["ServiceName"], $data["TargetSid"], $data["PrivilegeList"], $data["TargetDomainName"])
+            })
+        }
+    }
+    catch{
+        Write-ForensicLog "[!] Failed to collect AD privileged/Kerberos events: $($_.Exception.Message)" -Level WARN -Section "AD"
+    }
+
+    $Finding = @{
+        finding_id   = "ad-priv-events-001"
+        finding_type = "Privileged & Kerberos Security Events"
+        category     = "Active Directory"
+        findingtags  = @("credential-access", "privilege-escalation", "live-response")
+        severity     = "Interesting"
+        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
+        source = @{ collector = "Get-ForensicWinEvent Security"; artifact = "DC Privileged/Kerberos Events (4648,4672,4735,4738,4742,4756,4768,4769,4771,4776,4781)"; command = "Get-WinEvent -Id 4648,4672,4735,4738,4742,4756,4768,4769,4771,4776,4781" }
+        summary = @{ title = "Forensicator Privileged & Kerberos Events"; description = "Collected DC-specific privileged logon, Kerberos ticket, and account-change events not already covered by the generic Event Log section."; total_entries = @($adPrivEvents).Count }
+        risk = @{ score = 55; level = "Medium"; reason = "These events cover explicit-credential logons, special-privilege assignment, Kerberos TGT/service-ticket requests, and NTLM fallback — key signals for Golden/Silver Ticket, Kerberoasting, and pass-the-hash activity." }
+        mitre = @(@{ technique_id = "T1558"; technique = "Steal or Forge Kerberos Tickets" })
+        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
+        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected privileged/Kerberos events" })
+        evidence = [System.Collections.Generic.List[object]]::new()
+        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+    }
+    foreach($row in $adPrivEvents){
+        $Finding.evidence.Add(@{ time = "$($row.Time)"; event_id = "$($row.EventId)"; user = $row.User; detail = $row.Detail })
+    }
+    $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\ad\priv-events-finding.json"
+    $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
+
+    $sb = New-Object System.Text.StringBuilder
+    if($adPrivEvents.Count -gt 0){
+        foreach($row in $adPrivEvents){
+            [void]$sb.Append("<tr><td>$(Encode-Cell $row.Time)</td><td>$(Encode-Cell $row.EventId)</td><td>$(Encode-Cell $row.User)</td><td>$(Encode-Cell $row.Detail)</td></tr>")
+        }
+    }
+    else{
+        [void]$sb.Append("<tr><td colspan='4' style='text-align:center;color:#27ae60;'>No matching events in the configured lookback window</td></tr>")
+    }
+    $AD_PrivEventsFragment = $sb.ToString()
+
+    Write-ForensicLog "[*] Collecting directory object change events" -Level INFO -Section "AD"
+
+    $adObjEventIds = @(5136, 5137, 5139, 5141)
+    $adObjEvents = [System.Collections.Generic.List[object]]::new()
+    try{
+        $events = Get-ForensicWinEvent -LogName 'Security' -ProviderName 'Microsoft-Windows-Security-Auditing' -Id $adObjEventIds -MaxEvents 2000
+        foreach($evt in $events){
+            $xml  = ([xml]$evt.ToXml()).Event
+            $data = @{}
+            foreach($node in @($xml.EventData.Data)){
+                if($node.Name){ $data[[string]$node.Name] = [string]$node.'#text' }
+            }
+            $adObjEvents.Add([PSCustomObject]@{
+                Time       = Format-ForensicEventTime $evt.TimeCreated
+                EventId    = $evt.Id
+                SubjectUser = $data["SubjectUserName"]
+                ObjectDN   = Get-ADFirstNonNull @($data["ObjectDN"], $data["ObjectName"])
+                Class      = $data["ObjectClass"]
+            })
+        }
+    }
+    catch{
+        Write-ForensicLog "[!] Failed to collect directory object change events: $($_.Exception.Message)" -Level WARN -Section "AD"
+    }
+
+    $Finding = @{
+        finding_id   = "ad-object-changes-001"
+        finding_type = "Directory Object Changes"
+        category     = "Active Directory"
+        findingtags  = @("persistence", "privilege-escalation", "live-response")
+        severity     = "Interesting"
+        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
+        source = @{ collector = "Get-ForensicWinEvent Security"; artifact = "Directory Object Change Events (5136,5137,5139,5141)"; command = "Get-WinEvent -Id 5136,5137,5139,5141" }
+        summary = @{ title = "Forensicator Directory Object Changes"; description = "Collected directory object modify/create/move/delete events. Requires 'Audit Directory Service Changes' to be enabled — an empty result here often just means that audit policy isn't configured."; total_entries = @($adObjEvents).Count }
+        risk = @{ score = 45; level = "Medium"; reason = "Directory object changes (ACL edits, new objects, moves, deletions) can reveal attacker persistence such as AdminSDHolder tampering or unexpected OU/GPO manipulation." }
+        mitre = @(@{ technique_id = "T1098"; technique = "Account Manipulation" })
+        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
+        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected directory object change events" })
+        evidence = [System.Collections.Generic.List[object]]::new()
+        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+    }
+    foreach($row in $adObjEvents){
+        $Finding.evidence.Add(@{ time = "$($row.Time)"; event_id = "$($row.EventId)"; subject_user = $row.SubjectUser; object_dn = $row.ObjectDN; class = $row.Class })
+    }
+    $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\ad\object-changes-finding.json"
+    $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
+
+    $sb = New-Object System.Text.StringBuilder
+    if($adObjEvents.Count -gt 0){
+        foreach($row in $adObjEvents){
+            [void]$sb.Append("<tr><td>$(Encode-Cell $row.Time)</td><td>$(Encode-Cell $row.EventId)</td><td>$(Encode-Cell $row.SubjectUser)</td><td>$(Encode-Cell $row.ObjectDN)</td><td>$(Encode-Cell $row.Class)</td></tr>")
+        }
+    }
+    else{
+        [void]$sb.Append("<tr><td colspan='5' style='text-align:center;color:#27ae60;'>No directory object change events found (Audit Directory Service Changes may not be enabled)</td></tr>")
+    }
+    $AD_ObjectChangesFragment = $sb.ToString()
+
+    # ---------------------------------------------------------------------
+    # AD.10 — WMI permanent event subscriptions (DC persistence)
+    # ---------------------------------------------------------------------
+    Write-ForensicLog "[*] Checking for WMI permanent event subscriptions" -Level INFO -Section "AD"
+
+    $wmiSubs = [System.Collections.Generic.List[object]]::new()
+    try{
+        $filters   = @(Get-CimInstance -Namespace root\subscription -Class __EventFilter -ErrorAction Stop)
+        $consumers = @(Get-CimInstance -Namespace root\subscription -Class __EventConsumer -ErrorAction SilentlyContinue)
+
+        foreach($f in $filters){
+            $wmiSubs.Add([PSCustomObject]@{ Type = "EventFilter"; Name = "$($f.Name)"; Detail = "$($f.Query)" })
+        }
+        foreach($c in $consumers){
+            $detail = if($c.CommandLineTemplate){ "$($c.CommandLineTemplate)" } elseif($c.ScriptText){ "$($c.ScriptText)" } else { "" }
+            $wmiSubs.Add([PSCustomObject]@{ Type = "EventConsumer"; Name = "$($c.Name)"; Detail = $detail })
+        }
+    }
+    catch{
+        Write-ForensicLog "[!] Could not enumerate WMI event subscriptions: $($_.Exception.Message)" -Level WARN -Section "AD"
+    }
+
+    $Finding = @{
+        finding_id   = "ad-wmi-subs-001"
+        finding_type = "WMI Permanent Event Subscriptions"
+        category     = "Active Directory"
+        findingtags  = @("persistence", "malware", "live-response")
+        severity     = "Notable"
+        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
+        source = @{ collector = "Get-CimInstance root\subscription"; artifact = "WMI Event Filters/Consumers/Bindings"; command = "Get-CimInstance -Namespace root\subscription -Class __EventFilter, __EventConsumer" }
+        summary = @{ title = "Forensicator WMI Permanent Event Subscriptions"; description = "Collected permanent WMI event subscriptions on the Domain Controller — a well-known fileless persistence mechanism."; total_entries = @($wmiSubs).Count }
+        risk = @{ score = 65; level = "High"; reason = "WMI permanent event subscriptions execute code on trigger without touching disk and survive reboots; unrecognized filters/consumers on a DC warrant immediate review." }
+        mitre = @(@{ technique_id = "T1546.003"; technique = "Event Triggered Execution: WMI Event Subscription" })
+        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
+        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected WMI event subscriptions" })
+        evidence = [System.Collections.Generic.List[object]]::new()
+        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+    }
+    foreach($row in $wmiSubs){
+        $Finding.evidence.Add(@{ type = $row.Type; name = $row.Name; detail = $row.Detail })
+    }
+    $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\ad\wmi-subs-finding.json"
+    $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
+
+    $sb = New-Object System.Text.StringBuilder
+    if($wmiSubs.Count -gt 0){
+        foreach($row in $wmiSubs){
+            [void]$sb.Append("<tr style='background-color:#3a1a1a;'><td>$(Encode-Cell $row.Type)</td><td>$(Encode-Cell $row.Name)</td><td>$(Encode-Cell $row.Detail)</td></tr>")
+        }
+    }
+    else{
+        [void]$sb.Append("<tr><td colspan='3' style='text-align:center;color:#27ae60;'>No permanent WMI event subscriptions found</td></tr>")
+    }
+    $AD_WMISubsFragment = $sb.ToString()
+
+    # ---------------------------------------------------------------------
+    # AD.11 — Known attacker-tool process cross-check (reuses already
+    # collected process list — no re-collection needed)
+    # ---------------------------------------------------------------------
+    Write-ForensicLog "[*] Cross-checking running processes for known AD attack tooling" -Level INFO -Section "AD"
+
+    $knownBadToolNames = @('mimikatz','nanodump','procdump','rclone','winscp','adfind','pingcastle','sharphound','bloodhound','certify','rubeus','kekeo','dsamain')
+    if($null -ne $adConfig -and $null -ne $adConfig.known_attack_tool_names){
+        $configuredToolNames = ConvertTo-ConfigStringArray $adConfig.known_attack_tool_names
+        if($configuredToolNames.Count -gt 0){ $knownBadToolNames = $configuredToolNames }
+    }
+
+    $suspiciousDCProcesses = @($ProcessFragment | Where-Object {
+        $procName = "$($_.Name)".ToLower()
+        $procPath = "$($_.ExecutablePath)".ToLower()
+        $hit = $false
+        foreach($tool in $knownBadToolNames){
+            if($procName -like "*$tool*" -or $procPath -like "*$tool*"){ $hit = $true; break }
+        }
+        $hit
+    })
+
+    $Finding = @{
+        finding_id   = "ad-suspicious-proc-001"
+        finding_type = "Known AD Attack Tooling (Process Cross-Check)"
+        category     = "Active Directory"
+        findingtags  = @("malware", "credential-access", "live-response")
+        severity     = "Notable"
+        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
+        source = @{ collector = "Cross-check against Win32_Process collection"; artifact = "Known AD Attack Tooling"; command = "Filter collected process list against known tool name list" }
+        summary = @{ title = "Forensicator Known AD Attack Tooling"; description = "Cross-checked the already-collected process list for names associated with common AD attack tooling (Mimikatz, Rubeus, SharpHound, adfind, etc.)."; total_entries = @($suspiciousDCProcesses).Count }
+        risk = @{ score = 90; level = "Critical"; reason = "Presence of well-known offensive AD tooling running on a Domain Controller is a strong indicator of active compromise; some names (procdump, dsamain) can also be legitimate — verify context." }
+        mitre = @(@{ technique_id = "T1003"; technique = "OS Credential Dumping" })
+        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
+        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator cross-checked processes against known AD tooling" })
+        evidence = [System.Collections.Generic.List[object]]::new()
+        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+    }
+    foreach($proc in $suspiciousDCProcesses){
+        $Finding.evidence.Add(@{
+            name             = $proc.Name
+            pid              = "$($proc.PID)"
+            executable_path  = $proc.ExecutablePath
+            command_line     = $proc.CommandLine
+        })
+    }
+    $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\ad\suspicious-proc-finding.json"
+    $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
+
+    $sb = New-Object System.Text.StringBuilder
+    if($suspiciousDCProcesses.Count -gt 0){
+        foreach($proc in $suspiciousDCProcesses){
+            [void]$sb.Append("<tr style='background-color:#3a1a1a;'><td>$(Encode-Cell $proc.Name)</td><td>$(Encode-Cell $proc.PID)</td><td class='path-cell'>$(Encode-Cell $proc.ExecutablePath)</td><td class='cmd-cell'>$(Encode-Cell $proc.CommandLine)</td></tr>")
+        }
+    }
+    else{
+        [void]$sb.Append("<tr><td colspan='4' style='text-align:center;color:#27ae60;'>No known AD attack tooling found in the running process list</td></tr>")
+    }
+    $AD_SuspiciousProcFragment = $sb.ToString()
+
+    # ---------------------------------------------------------------------
+    # Build sidebar entry + full view section
+    # ---------------------------------------------------------------------
+    $AD_SidebarHtml = @"
+
+  <div class="sb-divider"></div>
+
+  <div class="sb-section">
+    <div class="sb-label">Active Directory</div>
+    <div class="sb-link" onclick="nav('ad')">
+      <i class="sb-icon">🏛</i> Active Directory
+    </div>
+  </div>
+"@
+
+    $AD_ViewHtml = @"
+<div class="view" id="view-ad">
+
+  <div class="view-header">
+    <div>
+      <div class="view-title">Active Directory</div>
+      <div class="view-sub">Domain Controller detected — AD-specific checks (NTDS, SYSVOL, privileged groups, Kerberos, DCSync, persistence)</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">🏛 Domain Controller Overview</div></div>
+      <div class="kv-list">$AD_DCInfoFragment</div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">🔑 KRBTGT Account</div></div>
+      <div class="kv-list">$AD_KrbtgtFragment</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">🔒 Domain Password Policy</div></div>
+      <div class="kv-list">$AD_PwdPolicyFragment</div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">👑 FSMO Role Owners</div></div>
+      <div class="kv-list">$AD_FSMOFragment</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">🔏 LDAP / SMB Signing</div></div>
+    <div class="kv-list">$AD_LDAPSigningFragment</div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">💾 NTDS Database Metadata <span class="panel-count" id="ad-ntds-count">0</span></div></div>
+    <div class="tbl-wrap">
+      <table class="std">
+        <thead><tr><th>File</th><th>Path</th><th>Size (MB)</th><th>Created</th><th>Modified</th></tr></thead>
+        <tbody id="ad-ntds-tbody">$AD_NTDSFragment</tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">📜 SYSVOL Script Analysis <span class="panel-count" id="ad-sysvol-count">0</span></div></div>
+    <div class="search-bar">
+      <div class="search-wrap">
+        <span class="search-ico">⌕</span>
+        <input type="text" placeholder="Filter by name, path, keyword match..." oninput="filterTable('ad-sysvol-tbody', this.value, [0,1,2,3,4,5])"/>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table class="std">
+        <thead><tr><th>Name</th><th>Path</th><th>Extension</th><th>Size (KB)</th><th>Modified</th><th>Matched Keywords</th></tr></thead>
+        <tbody id="ad-sysvol-tbody">$AD_SysvolFragment</tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">👥 Privileged Group Membership <span class="panel-count" id="ad-priv-groups-count">0</span></div></div>
+    <div class="search-bar">
+      <div class="search-wrap">
+        <span class="search-ico">⌕</span>
+        <input type="text" placeholder="Filter by group or member..." oninput="filterTable('ad-priv-groups-tbody', this.value, [0,1])"/>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table class="std">
+        <thead><tr><th>Group</th><th>Member</th></tr></thead>
+        <tbody id="ad-priv-groups-tbody">$AD_PrivGroupsFragment</tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">🎫 Service Principal Names (Kerberoasting) <span class="panel-count" id="ad-spn-count">0</span></div></div>
+    <div class="search-bar">
+      <div class="search-wrap">
+        <span class="search-ico">⌕</span>
+        <input type="text" placeholder="Filter by account or SPN..." oninput="filterTable('ad-spn-tbody', this.value, [0,1])"/>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table class="std">
+        <thead><tr><th>Account</th><th>SPNs</th><th>Privileged (adminCount)</th><th>Password Never Expires</th><th>Disabled</th></tr></thead>
+        <tbody id="ad-spn-tbody">$AD_SPNFragment</tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">🔀 Kerberos Delegation <span class="panel-count" id="ad-delegation-count">0</span></div></div>
+    <div class="tbl-wrap">
+      <table class="std">
+        <thead><tr><th>Account</th><th>Object Type</th><th>Delegation Type</th><th>Allowed To Delegate To</th></tr></thead>
+        <tbody id="ad-delegation-tbody">$AD_DelegationFragment</tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">🩸 DCSync Rights <span class="panel-count" id="ad-dcsync-count">0</span></div></div>
+    <div class="tbl-wrap">
+      <table class="std">
+        <thead><tr><th>ACE Type</th><th>Principal</th><th>Right</th><th>Status</th></tr></thead>
+        <tbody id="ad-dcsync-tbody">$AD_DCSyncFragment</tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">🎟 Privileged &amp; Kerberos Events <span class="panel-count" id="ad-priv-events-count">0</span></div></div>
+    <div class="search-bar">
+      <div class="search-wrap">
+        <span class="search-ico">⌕</span>
+        <input type="text" placeholder="Filter by event ID, user, detail..." oninput="filterTable('ad-priv-events-tbody', this.value, [0,1,2,3])"/>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table class="std">
+        <thead><tr><th>Time</th><th>Event ID</th><th>User</th><th>Detail</th></tr></thead>
+        <tbody id="ad-priv-events-tbody">$AD_PrivEventsFragment</tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">🗂 Directory Object Changes <span class="panel-count" id="ad-object-changes-count">0</span></div></div>
+    <div class="tbl-wrap">
+      <table class="std">
+        <thead><tr><th>Time</th><th>Event ID</th><th>Subject User</th><th>Object DN</th><th>Class</th></tr></thead>
+        <tbody id="ad-object-changes-tbody">$AD_ObjectChangesFragment</tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">🧬 WMI Permanent Event Subscriptions <span class="panel-count" id="ad-wmi-subs-count">0</span></div></div>
+    <div class="tbl-wrap">
+      <table class="std">
+        <thead><tr><th>Type</th><th>Name</th><th>Detail</th></tr></thead>
+        <tbody id="ad-wmi-subs-tbody">$AD_WMISubsFragment</tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">☠ Known AD Attack Tooling <span class="panel-count" id="ad-suspicious-proc-count">0</span></div></div>
+    <div class="tbl-wrap">
+      <table class="std">
+        <thead><tr><th>Name</th><th>PID</th><th>Path</th><th>Command Line</th></tr></thead>
+        <tbody id="ad-suspicious-proc-tbody">$AD_SuspiciousProcFragment</tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /ad -->
+"@
+
+    Write-ForensicLog "[!] Active Directory checks complete" -Level SUCCESS -Section "AD"
+}
+else{
+    Write-ForensicLog "[!] Not a Domain Controller ($($ADDetection.Method)) — skipping Active Directory checks" -Level INFO -Section "AD"
+}
+
+#endregion
+
+
+
+Write-ForensicLog ""
+
+#############################################################################################################
+#region   MSSQL SERVER CHECKS
+#############################################################################################################
+
+Write-ForensicLog "[*] Checking whether Microsoft SQL Server is installed" -Level INFO -Section "MSSQL"
+
+function Test-IsMSSQLServer {
+
+    $installed = $false
+    $method    = "not detected"
+    $instances = @()
+
+    try{
+        $regInstances = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\Instance Names\SQL" -ErrorAction Stop
+        $instances = @($regInstances.PSObject.Properties | Where-Object { $_.Name -notmatch '^PS' } | ForEach-Object { $_.Name })
+        if($instances.Count -gt 0){
+            $installed = $true
+            $method    = "registry (Instance Names\SQL)"
+        }
+    }
+    catch{}
+
+    if(-not $installed){
+        $svc = Get-Service -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "MSSQL*" -or $_.DisplayName -like "SQL Server (*" }
+        if($svc){
+            $installed = $true
+            $method    = "service enumeration"
+        }
+    }
+
+    if($installed -and $instances.Count -eq 0){ $instances = @("MSSQLSERVER") }
+
+    return [PSCustomObject]@{ Installed = $installed; Method = $method; Instances = $instances }
+}
+
+$MSSQLDetection = Test-IsMSSQLServer
+$IsMSSQLServer  = $MSSQLDetection.Installed
+
+$MSSQL_SidebarHtml = ""
+$MSSQL_ViewHtml     = ""
+
+if($IsMSSQLServer){
+
+    Write-ForensicLog "[!] Microsoft SQL Server detected — running MSSQL checks" -Level SUCCESS -Section "MSSQL" -Detail "Detection method: $($MSSQLDetection.Method) | Instances: $($MSSQLDetection.Instances -join ', ')"
+
+    New-Item -ItemType Directory -Force -Path "$PSScriptRoot\$env:COMPUTERNAME\investigation\mssql" | Out-Null
+
+    $mssqlConfig = $null
+    if($null -ne $configData -and $null -ne $configData.mssql){ $mssqlConfig = $configData.mssql }
+
+    $mssqlAgentSuspiciousSubsystems = @('CmdExec','ActiveScripting','PowerShell')
+    if($null -ne $mssqlConfig -and $null -ne $mssqlConfig.agent_job_suspicious_subsystems){
+        $configuredSubsystems = ConvertTo-ConfigStringArray $mssqlConfig.agent_job_suspicious_subsystems
+        if($configuredSubsystems.Count -gt 0){ $mssqlAgentSuspiciousSubsystems = $configuredSubsystems }
+    }
+
+    $mssqlAgentSuspiciousKeywords = @('cmd.exe','powershell','certutil','bitsadmin','-enc','-encodedcommand','downloadstring','downloadfile','iex(','xp_cmdshell','mshta','regsvr32','rundll32')
+    if($null -ne $mssqlConfig -and $null -ne $mssqlConfig.agent_job_suspicious_keywords){
+        $configuredKeywords = ConvertTo-ConfigStringArray $mssqlConfig.agent_job_suspicious_keywords
+        if($configuredKeywords.Count -gt 0){ $mssqlAgentSuspiciousKeywords = $configuredKeywords }
+    }
+
+    # ---------------------------------------------------------------------
+    # MSSQL.1 — service inventory
+    # ---------------------------------------------------------------------
+    Write-ForensicLog "[*] Collecting SQL Server service inventory" -Level INFO -Section "MSSQL"
+
+    $mssqlServices = @(Get-CimInstance Win32_Service -ErrorAction SilentlyContinue | Where-Object {
+        $_.Name -like 'MSSQL*' -or $_.Name -like 'SQLAgent*' -or $_.Name -eq 'SQLBrowser' -or $_.Name -eq 'SQLWriter' -or $_.Name -like 'MsDtsServer*' -or $_.Name -like 'ReportServer*'
+    })
+
+    $Finding = @{
+        finding_id   = "mssql-services-001"
+        finding_type = "SQL Server Service Inventory"
+        category     = "Database"
+        findingtags  = @("privilege-escalation", "live-response")
+        severity     = "Notable"
+        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
+        source = @{ collector = "Get-CimInstance Win32_Service"; artifact = "SQL Server Services"; command = "Get-CimInstance Win32_Service (Name like 'MSSQL%'/'SQLAgent%'/SQLBrowser/SQLWriter/'MsDtsServer%'/'ReportServer%')" }
+        summary = @{ title = "Forensicator SQL Server Service Inventory"; description = "Collected SQL Server-related Windows services and their run-as accounts."; total_entries = @($mssqlServices).Count }
+        risk = @{ score = 45; level = "Medium"; reason = "SQL Server services running as LocalSystem or an overly privileged domain account expand the blast radius of a SQL injection or xp_cmdshell compromise." }
+        mitre = @(@{ technique_id = "T1078"; technique = "Valid Accounts" })
+        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
+        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected SQL Server service inventory" })
+        evidence = [System.Collections.Generic.List[object]]::new()
+        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+    }
+    foreach($svc in $mssqlServices){
+        $Finding.evidence.Add(@{ name = $svc.Name; display_name = $svc.DisplayName; state = $svc.State; start_mode = $svc.StartMode; start_name = $svc.StartName })
+    }
+    $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\mssql\services-finding.json"
+    $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
+
+    $sb = New-Object System.Text.StringBuilder
+    if($mssqlServices.Count -gt 0){
+        foreach($svc in $mssqlServices){
+            $rowStyle = if($svc.StartName -match 'LocalSystem|NT AUTHORITY\\SYSTEM'){ " style='background-color:#3a2a1a;'" } else { "" }
+            [void]$sb.Append("<tr$rowStyle><td>$(Encode-Cell $svc.Name)</td><td>$(Encode-Cell $svc.DisplayName)</td><td>$(Encode-Cell $svc.State)</td><td>$(Encode-Cell $svc.StartMode)</td><td>$(Encode-Cell $svc.StartName)</td></tr>")
+        }
+    }
+    else{
+        [void]$sb.Append("<tr><td colspan='5' style='text-align:center;color:#e67e22;'>No SQL Server services enumerated</td></tr>")
+    }
+    $MSSQL_ServicesFragment = $sb.ToString()
+
+    # ---------------------------------------------------------------------
+    # sqlcmd discovery — every subsequent check needs this
+    # ---------------------------------------------------------------------
+    $sqlcmdPath = $null
+    $sqlcmdCmd  = Get-Command sqlcmd.exe -ErrorAction SilentlyContinue
+    if($sqlcmdCmd){ $sqlcmdPath = $sqlcmdCmd.Source }
+    if(-not $sqlcmdPath){
+        $sqlcmdCandidates = @(Get-ChildItem "C:\Program Files\Microsoft SQL Server\*\Tools\Binn\SQLCMD.EXE" -ErrorAction SilentlyContinue) +
+                            @(Get-ChildItem "C:\Program Files (x86)\Microsoft SQL Server\*\Tools\Binn\SQLCMD.EXE" -ErrorAction SilentlyContinue)
+        if($sqlcmdCandidates.Count -gt 0){ $sqlcmdPath = $sqlcmdCandidates[0].FullName }
+    }
+
+    function Invoke-MSSQLQuery {
+        param([string]$ServerInstance, [string]$Query)
+
+        if(-not $sqlcmdPath){ return @() }
+        try{
+            $sep    = [char]0x1F
+            $output = & $sqlcmdPath -S $ServerInstance -E -Q $Query -h -1 -W -s "$sep" -b 2>$null
+            if($LASTEXITCODE -ne 0){ return @() }
+            return @($output | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+        }
+        catch{ return @() }
+    }
+
+    function Get-MSSQLServerInstance {
+        param([string]$InstanceName)
+        if($InstanceName -eq "MSSQLSERVER"){ return $env:COMPUTERNAME }
+        return "$env:COMPUTERNAME\$InstanceName"
+    }
+
+    if(-not $sqlcmdPath){
+        Write-ForensicLog "[!] sqlcmd.exe not found — skipping SQL-query-based checks (xp_cmdshell, CLR, OLE Automation, sysadmin, linked servers, trustworthy DBs, agent jobs, sa account, logins)" -Level WARN -Section "MSSQL"
+    }
+
+    $mssqlConfigRows      = [System.Collections.Generic.List[object]]::new()
+    $mssqlSysadminRows    = [System.Collections.Generic.List[object]]::new()
+    $mssqlLinkedRows      = [System.Collections.Generic.List[object]]::new()
+    $mssqlTrustworthyRows = [System.Collections.Generic.List[object]]::new()
+    $mssqlAgentJobRows    = [System.Collections.Generic.List[object]]::new()
+    $mssqlSaRows          = [System.Collections.Generic.List[object]]::new()
+    $mssqlLoginRows       = [System.Collections.Generic.List[object]]::new()
+
+    if($sqlcmdPath){
+        foreach($instanceName in $MSSQLDetection.Instances){
+
+            $serverInstance = Get-MSSQLServerInstance -InstanceName $instanceName
+            Write-ForensicLog "[*] Querying SQL Server instance $instanceName" -Level INFO -Section "MSSQL"
+
+            # --- dangerous configuration options ---
+            $xpCmdshellOut    = Invoke-MSSQLQuery -ServerInstance $serverInstance -Query "SET NOCOUNT ON; SELECT value_in_use FROM sys.configurations WHERE name = 'xp_cmdshell';"
+            $oleAutomationOut = Invoke-MSSQLQuery -ServerInstance $serverInstance -Query "SET NOCOUNT ON; SELECT value_in_use FROM sys.configurations WHERE name = 'Ole Automation Procedures';"
+            $clrEnabledOut    = Invoke-MSSQLQuery -ServerInstance $serverInstance -Query "SET NOCOUNT ON; SELECT value_in_use FROM sys.configurations WHERE name = 'clr enabled';"
+
+            $mssqlConfigRows.Add([PSCustomObject]@{
+                Instance      = $instanceName
+                XpCmdshell    = $(if($xpCmdshellOut.Count -gt 0){ $(if($xpCmdshellOut[0].Trim() -eq "1"){"Enabled"}else{"Disabled"}) } else { "Unknown" })
+                OleAutomation = $(if($oleAutomationOut.Count -gt 0){ $(if($oleAutomationOut[0].Trim() -eq "1"){"Enabled"}else{"Disabled"}) } else { "Unknown" })
+                ClrEnabled    = $(if($clrEnabledOut.Count -gt 0){ $(if($clrEnabledOut[0].Trim() -eq "1"){"Enabled"}else{"Disabled"}) } else { "Unknown" })
+            })
+
+            # --- sysadmin role members ---
+            $sysadminOut = Invoke-MSSQLQuery -ServerInstance $serverInstance -Query "SET NOCOUNT ON; SELECT name FROM sys.server_principals WHERE IS_SRVROLEMEMBER('sysadmin', name) = 1 AND type IN ('S','U','G');"
+            foreach($login in $sysadminOut){
+                $mssqlSysadminRows.Add([PSCustomObject]@{ Instance = $instanceName; Login = $login.Trim() })
+            }
+
+            # --- linked servers ---
+            $linkedOut = Invoke-MSSQLQuery -ServerInstance $serverInstance -Query "SET NOCOUNT ON; SELECT name + CHAR(31) + ISNULL(product,'') + CHAR(31) + ISNULL(provider,'') + CHAR(31) + ISNULL(data_source,'') FROM sys.servers WHERE is_linked = 1;"
+            foreach($row in $linkedOut){
+                $parts = $row -split [char]31
+                $mssqlLinkedRows.Add([PSCustomObject]@{
+                    Instance   = $instanceName
+                    Name       = $(if($parts.Count -gt 0){$parts[0]}else{""})
+                    Product    = $(if($parts.Count -gt 1){$parts[1]}else{""})
+                    Provider   = $(if($parts.Count -gt 2){$parts[2]}else{""})
+                    DataSource = $(if($parts.Count -gt 3){$parts[3]}else{""})
+                })
+            }
+
+            # --- trustworthy databases ---
+            $trustworthyOut = Invoke-MSSQLQuery -ServerInstance $serverInstance -Query "SET NOCOUNT ON; SELECT name FROM sys.databases WHERE is_trustworthy_on = 1;"
+            foreach($db in $trustworthyOut){
+                $mssqlTrustworthyRows.Add([PSCustomObject]@{ Instance = $instanceName; Database = $db.Trim() })
+            }
+
+            # --- SQL Agent jobs with risky step subsystems (CmdExec/ActiveScripting/PowerShell) ---
+            $subsystemList = ($mssqlAgentSuspiciousSubsystems | ForEach-Object { "'$($_)'" }) -join ","
+            $agentJobsOut  = Invoke-MSSQLQuery -ServerInstance $serverInstance -Query "SET NOCOUNT ON; SELECT j.name + CHAR(31) + s.step_name + CHAR(31) + s.subsystem + CHAR(31) + ISNULL(s.command,'') FROM msdb.dbo.sysjobs j JOIN msdb.dbo.sysjobsteps s ON j.job_id = s.job_id WHERE s.subsystem IN ($subsystemList);"
+            foreach($row in $agentJobsOut){
+                $parts   = $row -split [char]31
+                $command = $(if($parts.Count -gt 3){$parts[3]}else{""})
+                $matchedKeywords = [System.Collections.Generic.List[string]]::new()
+                foreach($kw in $mssqlAgentSuspiciousKeywords){
+                    if($command -match [regex]::Escape($kw)){ [void]$matchedKeywords.Add($kw) }
+                }
+                $mssqlAgentJobRows.Add([PSCustomObject]@{
+                    Instance        = $instanceName
+                    JobName         = $(if($parts.Count -gt 0){$parts[0]}else{""})
+                    StepName        = $(if($parts.Count -gt 1){$parts[1]}else{""})
+                    Subsystem       = $(if($parts.Count -gt 2){$parts[2]}else{""})
+                    Command         = $command
+                    MatchedKeywords = ($matchedKeywords -join ", ")
+                })
+            }
+
+            # --- sa account status ---
+            $saOut = Invoke-MSSQLQuery -ServerInstance $serverInstance -Query "SET NOCOUNT ON; SELECT name + CHAR(31) + CAST(is_disabled AS VARCHAR(1)) FROM sys.sql_logins WHERE name = 'sa';"
+            foreach($row in $saOut){
+                $parts = $row -split [char]31
+                $mssqlSaRows.Add([PSCustomObject]@{
+                    Instance   = $instanceName
+                    Name       = $(if($parts.Count -gt 0){$parts[0]}else{"sa"})
+                    IsDisabled = $(if($parts.Count -gt 1 -and $parts[1].Trim() -eq "1"){"Yes"}else{"No"})
+                })
+            }
+
+            # --- SQL logins — recency review ---
+            $loginsOut = Invoke-MSSQLQuery -ServerInstance $serverInstance -Query "SET NOCOUNT ON; SELECT name + CHAR(31) + CONVERT(VARCHAR(19),create_date,120) + CHAR(31) + CONVERT(VARCHAR(19),modify_date,120) + CHAR(31) + CAST(is_disabled AS VARCHAR(1)) FROM sys.sql_logins ORDER BY modify_date DESC;"
+            foreach($row in $loginsOut){
+                $parts = $row -split [char]31
+                $mssqlLoginRows.Add([PSCustomObject]@{
+                    Instance   = $instanceName
+                    Name       = $(if($parts.Count -gt 0){$parts[0]}else{""})
+                    CreateDate = $(if($parts.Count -gt 1){$parts[1]}else{""})
+                    ModifyDate = $(if($parts.Count -gt 2){$parts[2]}else{""})
+                    IsDisabled = $(if($parts.Count -gt 3 -and $parts[3].Trim() -eq "1"){"Yes"}else{"No"})
+                })
+            }
+        }
+    }
+
+    # --- config options finding/fragment ---
+    $Finding = @{
+        finding_id   = "mssql-config-001"
+        finding_type = "SQL Server Dangerous Configuration Options"
+        category     = "Database"
+        findingtags  = @("credential-access", "privilege-escalation", "live-response")
+        severity     = "Notable"
+        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
+        source = @{ collector = "sqlcmd sys.configurations"; artifact = "SQL Server Configuration Options"; command = "SELECT value_in_use FROM sys.configurations WHERE name IN ('xp_cmdshell','Ole Automation Procedures','clr enabled')" }
+        summary = @{ title = "Forensicator SQL Server Dangerous Configuration"; description = "Checked whether xp_cmdshell, Ole Automation Procedures, and CLR integration are enabled — each is a well-known SQL Server-to-OS command execution vector."; total_entries = @($mssqlConfigRows).Count }
+        risk = @{ score = 85; level = "High"; reason = "xp_cmdshell, OLE Automation, and CLR integration each allow a database-level compromise (e.g. SQL injection) to execute arbitrary OS commands." }
+        mitre = @(@{ technique_id = "T1505.001"; technique = "Server Software Component: SQL Stored Procedures" })
+        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
+        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator checked SQL Server dangerous configuration options" })
+        evidence = [System.Collections.Generic.List[object]]::new()
+        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+    }
+    foreach($row in $mssqlConfigRows){
+        $Finding.evidence.Add(@{ instance = $row.Instance; xp_cmdshell = $row.XpCmdshell; ole_automation_procedures = $row.OleAutomation; clr_enabled = $row.ClrEnabled })
+    }
+    $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\mssql\config-finding.json"
+    $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
+
+    $sb = New-Object System.Text.StringBuilder
+    if($mssqlConfigRows.Count -gt 0){
+        foreach($row in $mssqlConfigRows){
+            $rowStyle = if($row.XpCmdshell -eq "Enabled" -or $row.OleAutomation -eq "Enabled" -or $row.ClrEnabled -eq "Enabled"){ " style='background-color:#3a1a1a;'" } else { "" }
+            [void]$sb.Append("<tr$rowStyle><td>$(Encode-Cell $row.Instance)</td><td>$(Encode-Cell $row.XpCmdshell)</td><td>$(Encode-Cell $row.OleAutomation)</td><td>$(Encode-Cell $row.ClrEnabled)</td></tr>")
+        }
+    }
+    else{
+        [void]$sb.Append("<tr><td colspan='4' style='text-align:center;color:#e67e22;'>sqlcmd unavailable or query failed — could not check dangerous configuration options</td></tr>")
+    }
+    $MSSQL_ConfigFragment = $sb.ToString()
+
+    # --- sysadmin members finding/fragment ---
+    $Finding = @{
+        finding_id   = "mssql-sysadmin-001"
+        finding_type = "SQL Server sysadmin Role Members"
+        category     = "Database"
+        findingtags  = @("privilege-escalation", "insider-threat", "live-response")
+        severity     = "Notable"
+        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
+        source = @{ collector = "sqlcmd IS_SRVROLEMEMBER"; artifact = "SQL Server sysadmin Role Members"; command = "SELECT name FROM sys.server_principals WHERE IS_SRVROLEMEMBER('sysadmin', name) = 1" }
+        summary = @{ title = "Forensicator SQL Server sysadmin Members"; description = "Collected logins holding the sysadmin server role — full control of the SQL Server instance."; total_entries = @($mssqlSysadminRows).Count }
+        risk = @{ score = 75; level = "High"; reason = "sysadmin membership grants complete control of the instance, including the ability to enable xp_cmdshell for OS command execution." }
+        mitre = @(@{ technique_id = "T1078"; technique = "Valid Accounts" })
+        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
+        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected SQL Server sysadmin role members" })
+        evidence = [System.Collections.Generic.List[object]]::new()
+        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+    }
+    foreach($row in $mssqlSysadminRows){ $Finding.evidence.Add(@{ instance = $row.Instance; login = $row.Login }) }
+    $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\mssql\sysadmin-finding.json"
+    $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
+
+    $sb = New-Object System.Text.StringBuilder
+    if($mssqlSysadminRows.Count -gt 0){
+        foreach($row in $mssqlSysadminRows){
+            [void]$sb.Append("<tr><td>$(Encode-Cell $row.Instance)</td><td>$(Encode-Cell $row.Login)</td></tr>")
+        }
+    }
+    else{
+        [void]$sb.Append("<tr><td colspan='2' style='text-align:center;color:#e67e22;'>sqlcmd unavailable, query failed, or no sysadmin members found</td></tr>")
+    }
+    $MSSQL_SysadminFragment = $sb.ToString()
+
+    # --- linked servers finding/fragment ---
+    $Finding = @{
+        finding_id   = "mssql-linked-001"
+        finding_type = "SQL Server Linked Servers"
+        category     = "Database"
+        findingtags  = @("lateral-movement", "live-response")
+        severity     = "Interesting"
+        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
+        source = @{ collector = "sqlcmd sys.servers"; artifact = "SQL Server Linked Servers"; command = "SELECT name, product, provider, data_source FROM sys.servers WHERE is_linked = 1" }
+        summary = @{ title = "Forensicator SQL Server Linked Servers"; description = "Collected configured linked servers — a common lateral movement path between SQL Server instances."; total_entries = @($mssqlLinkedRows).Count }
+        risk = @{ score = 55; level = "Medium"; reason = "Linked servers can be abused to pivot between SQL Server instances, especially when configured with stored 'sa'-equivalent credentials." }
+        mitre = @(@{ technique_id = "T1210"; technique = "Exploitation of Remote Services" })
+        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
+        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected SQL Server linked servers" })
+        evidence = [System.Collections.Generic.List[object]]::new()
+        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+    }
+    foreach($row in $mssqlLinkedRows){ $Finding.evidence.Add(@{ instance = $row.Instance; name = $row.Name; product = $row.Product; provider = $row.Provider; data_source = $row.DataSource }) }
+    $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\mssql\linked-servers-finding.json"
+    $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
+
+    $sb = New-Object System.Text.StringBuilder
+    if($mssqlLinkedRows.Count -gt 0){
+        foreach($row in $mssqlLinkedRows){
+            [void]$sb.Append("<tr><td>$(Encode-Cell $row.Instance)</td><td>$(Encode-Cell $row.Name)</td><td>$(Encode-Cell $row.Product)</td><td>$(Encode-Cell $row.Provider)</td><td>$(Encode-Cell $row.DataSource)</td></tr>")
+        }
+    }
+    else{
+        [void]$sb.Append("<tr><td colspan='5' style='text-align:center;color:#27ae60;'>No linked servers configured</td></tr>")
+    }
+    $MSSQL_LinkedServersFragment = $sb.ToString()
+
+    # --- trustworthy databases finding/fragment ---
+    $Finding = @{
+        finding_id   = "mssql-trustworthy-001"
+        finding_type = "SQL Server TRUSTWORTHY Databases"
+        category     = "Database"
+        findingtags  = @("privilege-escalation", "live-response")
+        severity     = "Notable"
+        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
+        source = @{ collector = "sqlcmd sys.databases"; artifact = "TRUSTWORTHY Databases"; command = "SELECT name FROM sys.databases WHERE is_trustworthy_on = 1" }
+        summary = @{ title = "Forensicator SQL Server TRUSTWORTHY Databases"; description = "Collected databases with the TRUSTWORTHY property enabled — combined with a CLR assembly or ownership chaining, this can be used to escalate to sysadmin."; total_entries = @($mssqlTrustworthyRows).Count }
+        risk = @{ score = 65; level = "Medium"; reason = "TRUSTWORTHY ON, combined with db_owner access, is a well-known SQL Server privilege escalation path to sysadmin." }
+        mitre = @(@{ technique_id = "T1078"; technique = "Valid Accounts" })
+        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
+        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected TRUSTWORTHY databases" })
+        evidence = [System.Collections.Generic.List[object]]::new()
+        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+    }
+    foreach($row in $mssqlTrustworthyRows){ $Finding.evidence.Add(@{ instance = $row.Instance; database = $row.Database }) }
+    $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\mssql\trustworthy-finding.json"
+    $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
+
+    $sb = New-Object System.Text.StringBuilder
+    if($mssqlTrustworthyRows.Count -gt 0){
+        foreach($row in $mssqlTrustworthyRows){
+            [void]$sb.Append("<tr style='background-color:#3a2a1a;'><td>$(Encode-Cell $row.Instance)</td><td>$(Encode-Cell $row.Database)</td></tr>")
+        }
+    }
+    else{
+        [void]$sb.Append("<tr><td colspan='2' style='text-align:center;color:#27ae60;'>No databases with TRUSTWORTHY enabled</td></tr>")
+    }
+    $MSSQL_TrustworthyFragment = $sb.ToString()
+
+    # --- agent jobs finding/fragment ---
+    $Finding = @{
+        finding_id   = "mssql-agent-jobs-001"
+        finding_type = "SQL Server Agent Jobs (Risky Step Types)"
+        category     = "Database"
+        findingtags  = @("persistence", "malware", "live-response")
+        severity     = "Notable"
+        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
+        source = @{ collector = "sqlcmd msdb.dbo.sysjobs/sysjobsteps"; artifact = "SQL Server Agent Jobs with CmdExec/ActiveScripting/PowerShell Steps"; command = "SELECT ... FROM msdb.dbo.sysjobs j JOIN msdb.dbo.sysjobsteps s ON j.job_id = s.job_id WHERE s.subsystem IN (...)" }
+        summary = @{ title = "Forensicator SQL Server Agent Jobs"; description = "Collected SQL Server Agent job steps that execute OS commands, scripts, or PowerShell — a common SQL Server persistence mechanism."; total_entries = @($mssqlAgentJobRows).Count }
+        risk = @{ score = 70; level = "High"; reason = "SQL Server Agent jobs with CmdExec/PowerShell steps run with the Agent service account's privileges and are a common persistence and scheduled-execution mechanism." }
+        mitre = @(@{ technique_id = "T1053.005"; technique = "Scheduled Task/Job: Scheduled Task" })
+        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
+        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected SQL Server Agent jobs" })
+        evidence = [System.Collections.Generic.List[object]]::new()
+        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+    }
+    foreach($row in $mssqlAgentJobRows){
+        $Finding.evidence.Add(@{ instance = $row.Instance; job_name = $row.JobName; step_name = $row.StepName; subsystem = $row.Subsystem; command = $row.Command; matched_keywords = $row.MatchedKeywords })
+    }
+    $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\mssql\agent-jobs-finding.json"
+    $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
+
+    $sb = New-Object System.Text.StringBuilder
+    if($mssqlAgentJobRows.Count -gt 0){
+        foreach($row in $mssqlAgentJobRows){
+            $rowStyle = if($row.MatchedKeywords){ " style='background-color:#3a1a1a;'" } else { "" }
+            [void]$sb.Append("<tr$rowStyle><td>$(Encode-Cell $row.Instance)</td><td>$(Encode-Cell $row.JobName)</td><td>$(Encode-Cell $row.StepName)</td><td>$(Encode-Cell $row.Subsystem)</td><td class='cmd-cell'>$(Encode-Cell $row.Command)</td><td>$(Encode-Cell $row.MatchedKeywords)</td></tr>")
+        }
+    }
+    else{
+        [void]$sb.Append("<tr><td colspan='6' style='text-align:center;color:#27ae60;'>No Agent jobs with CmdExec/ActiveScripting/PowerShell steps found</td></tr>")
+    }
+    $MSSQL_AgentJobsFragment = $sb.ToString()
+
+    # --- sa account + logins finding/fragment ---
+    $Finding = @{
+        finding_id   = "mssql-logins-001"
+        finding_type = "SQL Server Logins (sa Status + Recency Review)"
+        category     = "Database"
+        findingtags  = @("credential-access", "insider-threat", "live-response")
+        severity     = "Notable"
+        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
+        source = @{ collector = "sqlcmd sys.sql_logins"; artifact = "SQL Server Logins"; command = "SELECT name, create_date, modify_date, is_disabled FROM sys.sql_logins" }
+        summary = @{ title = "Forensicator SQL Server Logins"; description = "Collected SQL Server logins including the built-in 'sa' account status, sorted by most recently modified — recently created or modified logins may indicate a backdoor account."; total_entries = @($mssqlLoginRows).Count }
+        risk = @{ score = 60; level = "Medium"; reason = "An enabled 'sa' account or an unexpected recently created/modified SQL login is a strong indicator of credential-based persistence." }
+        mitre = @(@{ technique_id = "T1136"; technique = "Create Account" })
+        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
+        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected SQL Server logins" })
+        evidence = [System.Collections.Generic.List[object]]::new()
+        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+    }
+    foreach($row in $mssqlSaRows){ $Finding.evidence.Add(@{ instance = $row.Instance; name = $row.Name; is_disabled = $row.IsDisabled; type = "sa_status" }) }
+    foreach($row in $mssqlLoginRows){ $Finding.evidence.Add(@{ instance = $row.Instance; name = $row.Name; create_date = $row.CreateDate; modify_date = $row.ModifyDate; is_disabled = $row.IsDisabled; type = "login" }) }
+    $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\mssql\logins-finding.json"
+    $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
+
+    $sb = New-Object System.Text.StringBuilder
+    if($mssqlSaRows.Count -gt 0){
+        foreach($row in $mssqlSaRows){
+            $rowStyle = if($row.IsDisabled -eq "No"){ " style='background-color:#3a2a1a;'" } else { "" }
+            [void]$sb.Append("<div class='kv-list-row'$rowStyle><div class='kv-list-k'>sa account ($(Encode-Cell $row.Instance))</div><div class='kv-list-v'>$(if($row.IsDisabled -eq 'No'){'Enabled — review'}else{'Disabled'})</div></div>")
+        }
+    }
+    else{
+        [void]$sb.Append("<div class='kv-list-row'><div class='kv-list-v' style='color:#e67e22;'>Could not determine 'sa' account status</div></div>")
+    }
+    $MSSQL_SaFragment = $sb.ToString()
+
+    $sb = New-Object System.Text.StringBuilder
+    if($mssqlLoginRows.Count -gt 0){
+        foreach($row in $mssqlLoginRows){
+            [void]$sb.Append("<tr><td>$(Encode-Cell $row.Instance)</td><td>$(Encode-Cell $row.Name)</td><td>$(Encode-Cell $row.CreateDate)</td><td>$(Encode-Cell $row.ModifyDate)</td><td>$(Encode-Cell $row.IsDisabled)</td></tr>")
+        }
+    }
+    else{
+        [void]$sb.Append("<tr><td colspan='5' style='text-align:center;color:#e67e22;'>sqlcmd unavailable or query failed — could not enumerate SQL logins</td></tr>")
+    }
+    $MSSQL_LoginsFragment = $sb.ToString()
+
+    # ---------------------------------------------------------------------
+    # MSSQL.2 — SQL Server login failure events (18456) from Application log
+    # ---------------------------------------------------------------------
+    Write-ForensicLog "[*] Collecting SQL Server login failure events" -Level INFO -Section "MSSQL"
+
+    $mssqlLoginFailures = [System.Collections.Generic.List[object]]::new()
+    try{
+        $events = Get-ForensicWinEvent -LogName 'Application' -Id 18456 -MaxEvents 1000
+        foreach($evt in $events){
+            $mssqlLoginFailures.Add([PSCustomObject]@{
+                Time    = Format-ForensicEventTime $evt.TimeCreated
+                Source  = "$($evt.ProviderName)"
+                Message = ($evt.Message -replace '\s+',' ')
+            })
+        }
+    }
+    catch{
+        Write-ForensicLog "[!] Failed to collect SQL Server login failure events: $($_.Exception.Message)" -Level WARN -Section "MSSQL"
+    }
+
+    $Finding = @{
+        finding_id   = "mssql-login-failures-001"
+        finding_type = "SQL Server Login Failures"
+        category     = "Database"
+        findingtags  = @("credential-access", "live-response")
+        severity     = "Interesting"
+        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
+        source = @{ collector = "Get-ForensicWinEvent Application 18456"; artifact = "SQL Server Login Failure Events"; command = "Get-WinEvent -LogName Application -Id 18456" }
+        summary = @{ title = "Forensicator SQL Server Login Failures"; description = "Collected SQL Server authentication failure events (18456) from the Windows Application log."; total_entries = @($mssqlLoginFailures).Count }
+        risk = @{ score = 50; level = "Medium"; reason = "A spike in SQL Server login failures may indicate brute-force or credential-stuffing against exposed SQL authentication." }
+        mitre = @(@{ technique_id = "T1110"; technique = "Brute Force" })
+        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
+        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected SQL Server login failure events" })
+        evidence = [System.Collections.Generic.List[object]]::new()
+        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+    }
+    foreach($row in $mssqlLoginFailures){ $Finding.evidence.Add(@{ time = "$($row.Time)"; source = $row.Source; message = $row.Message }) }
+    $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\mssql\login-failures-finding.json"
+    $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
+
+    $sb = New-Object System.Text.StringBuilder
+    if($mssqlLoginFailures.Count -gt 0){
+        foreach($row in $mssqlLoginFailures){
+            [void]$sb.Append("<tr><td>$(Encode-Cell $row.Time)</td><td>$(Encode-Cell $row.Source)</td><td>$(Encode-Cell $row.Message)</td></tr>")
+        }
+    }
+    else{
+        [void]$sb.Append("<tr><td colspan='3' style='text-align:center;color:#27ae60;'>No SQL Server login failure events (18456) found in the configured lookback window</td></tr>")
+    }
+    $MSSQL_LoginFailuresFragment = $sb.ToString()
+
+    # ---------------------------------------------------------------------
+    # Build sidebar entry + full view section
+    # ---------------------------------------------------------------------
+    $MSSQL_SidebarHtml = @"
+
+  <div class="sb-divider"></div>
+
+  <div class="sb-section">
+    <div class="sb-label">MSSQL Server</div>
+    <div class="sb-link" onclick="nav('mssql')">
+      <i class="sb-icon">🗄</i> MSSQL Server
+    </div>
+  </div>
+"@
+
+    $MSSQL_ViewHtml = @"
+<div class="view" id="view-mssql">
+
+  <div class="view-header">
+    <div>
+      <div class="view-title">Microsoft SQL Server</div>
+      <div class="view-sub">SQL Server detected — dangerous configuration, sysadmin membership, linked servers, Agent jobs, login review</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">🗄 SQL Server Services <span class="panel-count" id="mssql-services-count">0</span></div></div>
+    <div class="tbl-wrap">
+      <table class="std">
+        <thead><tr><th>Name</th><th>Display Name</th><th>State</th><th>Start Mode</th><th>Start Name</th></tr></thead>
+        <tbody id="mssql-services-tbody">$MSSQL_ServicesFragment</tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">☣ Dangerous Configuration Options <span class="panel-count" id="mssql-config-count">0</span></div></div>
+    <div class="tbl-wrap">
+      <table class="std">
+        <thead><tr><th>Instance</th><th>xp_cmdshell</th><th>Ole Automation Procedures</th><th>CLR Enabled</th></tr></thead>
+        <tbody id="mssql-config-tbody">$MSSQL_ConfigFragment</tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">👑 sysadmin Role Members <span class="panel-count" id="mssql-sysadmin-count">0</span></div></div>
+      <div class="tbl-wrap">
+        <table class="std">
+          <thead><tr><th>Instance</th><th>Login</th></tr></thead>
+          <tbody id="mssql-sysadmin-tbody">$MSSQL_SysadminFragment</tbody>
+        </table>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">🔑 sa Account Status</div></div>
+      <div class="kv-list">$MSSQL_SaFragment</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">🔀 Linked Servers <span class="panel-count" id="mssql-linked-count">0</span></div></div>
+    <div class="tbl-wrap">
+      <table class="std">
+        <thead><tr><th>Instance</th><th>Name</th><th>Product</th><th>Provider</th><th>Data Source</th></tr></thead>
+        <tbody id="mssql-linked-tbody">$MSSQL_LinkedServersFragment</tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">🩹 TRUSTWORTHY Databases <span class="panel-count" id="mssql-trustworthy-count">0</span></div></div>
+    <div class="tbl-wrap">
+      <table class="std">
+        <thead><tr><th>Instance</th><th>Database</th></tr></thead>
+        <tbody id="mssql-trustworthy-tbody">$MSSQL_TrustworthyFragment</tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">⏱ Agent Jobs (Risky Steps) <span class="panel-count" id="mssql-agent-jobs-count">0</span></div></div>
+    <div class="search-bar">
+      <div class="search-wrap">
+        <span class="search-ico">⌕</span>
+        <input type="text" placeholder="Filter by job, step, command..." oninput="filterTable('mssql-agent-jobs-tbody', this.value, [0,1,2,3,4,5])"/>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table class="std">
+        <thead><tr><th>Instance</th><th>Job</th><th>Step</th><th>Subsystem</th><th>Command</th><th>Matched Keywords</th></tr></thead>
+        <tbody id="mssql-agent-jobs-tbody">$MSSQL_AgentJobsFragment</tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">👤 SQL Logins <span class="panel-count" id="mssql-logins-count">0</span></div></div>
+    <div class="search-bar">
+      <div class="search-wrap">
+        <span class="search-ico">⌕</span>
+        <input type="text" placeholder="Filter by login name..." oninput="filterTable('mssql-logins-tbody', this.value, [0,1])"/>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table class="std">
+        <thead><tr><th>Instance</th><th>Login</th><th>Created</th><th>Modified</th><th>Disabled</th></tr></thead>
+        <tbody id="mssql-logins-tbody">$MSSQL_LoginsFragment</tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">🚫 Login Failures (Event 18456) <span class="panel-count" id="mssql-login-failures-count">0</span></div></div>
+    <div class="tbl-wrap">
+      <table class="std">
+        <thead><tr><th>Time</th><th>Source</th><th>Message</th></tr></thead>
+        <tbody id="mssql-login-failures-tbody">$MSSQL_LoginFailuresFragment</tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /mssql -->
+"@
+
+    Write-ForensicLog "[!] MSSQL Server checks complete" -Level SUCCESS -Section "MSSQL"
+}
+else{
+    Write-ForensicLog "[!] Microsoft SQL Server not detected — skipping MSSQL checks" -Level INFO -Section "MSSQL"
+}
+
+#endregion
+
+
+
+Write-ForensicLog ""
+
+#############################################################################################################
+#region   SHAREPOINT SERVER CHECKS
+#############################################################################################################
+
+Write-ForensicLog "[*] Checking whether Microsoft SharePoint Server is installed" -Level INFO -Section "SHAREPOINT"
+
+function Test-IsSharePointServer {
+
+    $installed = $false
+    $method    = "not detected"
+    $version   = $null
+    $farmServices = [System.Collections.Generic.List[string]]::new()
+
+    foreach($svcName in @('SPTimerV4','SPAdminV4','SPWriterV4','SPUserCodeV4')){
+        $svc = Get-Service -Name $svcName -ErrorAction SilentlyContinue
+        if($svc){
+            [void]$farmServices.Add("$svcName ($($svc.Status))")
+            if(-not $installed){
+                $installed = $true
+                $method    = "service ($svcName)"
+            }
+        }
+    }
+
+    $verRoot = "HKLM:\SOFTWARE\Microsoft\Shared Tools\Web Server Extensions"
+    if(-not $installed -and (Test-Path $verRoot)){
+        $installed = $true
+        $method    = "registry (Web Server Extensions)"
+    }
+
+    if($installed -and (Test-Path $verRoot)){
+        try{
+            $verKey = Get-ChildItem $verRoot -ErrorAction SilentlyContinue |
+                      Where-Object { $_.PSChildName -match '^\d+\.\d+$' } |
+                      Sort-Object { [double]$_.PSChildName } -Descending |
+                      Select-Object -First 1
+            if($verKey){
+                $buildProp = Get-ItemProperty "$($verKey.PSPath)\WSS" -Name "BuildVersion" -ErrorAction SilentlyContinue
+                $version   = $(if($buildProp){ $buildProp.BuildVersion } else { $verKey.PSChildName })
+            }
+        }
+        catch{}
+    }
+
+    return [PSCustomObject]@{ Installed = $installed; Method = $method; Version = $version; FarmServices = $farmServices }
+}
+
+$SPDetection      = Test-IsSharePointServer
+$IsSharePointServer = $SPDetection.Installed
+
+$SP_SidebarHtml = ""
+$SP_ViewHtml    = ""
+
+if($IsSharePointServer){
+
+    Write-ForensicLog "[!] Microsoft SharePoint Server detected — running SharePoint checks" -Level SUCCESS -Section "SHAREPOINT" -Detail "Detection method: $($SPDetection.Method) | Version: $($SPDetection.Version)"
+
+    New-Item -ItemType Directory -Force -Path "$PSScriptRoot\$env:COMPUTERNAME\investigation\sharepoint" | Out-Null
+
+    $spConfig = $null
+    if($null -ne $configData -and $null -ne $configData.sharepoint){ $spConfig = $configData.sharepoint }
+
+    $spWebshellExtensions = @('*.aspx','*.ashx','*.asmx','*.dll','*.asax')
+    if($null -ne $spConfig -and $null -ne $spConfig.webshell_scan_extensions){
+        $configured = ConvertTo-ConfigStringArray $spConfig.webshell_scan_extensions
+        if($configured.Count -gt 0){ $spWebshellExtensions = $configured }
+    }
+
+    $spWebshellKeywords = @('eval(','request.form','request.querystring','process.start','system.diagnostics.process','cmd.exe','powershell','frombase64string','getstring(','shell_exec','runtime.getruntime','assembly.load','unsafe','webshell')
+    if($null -ne $spConfig -and $null -ne $spConfig.webshell_suspicious_keywords){
+        $configured = ConvertTo-ConfigStringArray $spConfig.webshell_suspicious_keywords
+        if($configured.Count -gt 0){ $spWebshellKeywords = $configured }
+    }
+
+    $spSuspiciousUriPatterns = @('toolpane.aspx','spinstall0.aspx','spinstall.aspx','/_layouts/15/toolpane.aspx','/_layouts/16/toolpane.aspx','/_vti_bin/','spfileshell','cmd.aspx')
+    if($null -ne $spConfig -and $null -ne $spConfig.suspicious_iis_uri_patterns){
+        $configured = ConvertTo-ConfigStringArray $spConfig.suspicious_iis_uri_patterns
+        if($configured.Count -gt 0){ $spSuspiciousUriPatterns = $configured }
+    }
+
+    # ---------------------------------------------------------------------
+    # SP.0 — overview
+    # ---------------------------------------------------------------------
+    $sb = New-Object System.Text.StringBuilder
+    [void]$sb.Append("<div class='kv-list-row'><div class='kv-list-k'>Detection Method</div><div class='kv-list-v'>$(Encode-Cell $SPDetection.Method)</div></div>")
+    [void]$sb.Append("<div class='kv-list-row'><div class='kv-list-k'>Build Version</div><div class='kv-list-v'>$(Encode-Cell $SPDetection.Version)</div></div>")
+    [void]$sb.Append("<div class='kv-list-row'><div class='kv-list-k'>Farm Services Present</div><div class='kv-list-v'>$(Encode-Cell $(if($SPDetection.FarmServices.Count -gt 0){$SPDetection.FarmServices -join ', '}else{'None running'}))</div></div>")
+    $SP_OverviewFragment = $sb.ToString()
+
+    # ---------------------------------------------------------------------
+    # SP.1 — service / IIS app pool account exposure
+    # ---------------------------------------------------------------------
+    Write-ForensicLog "[*] Collecting SharePoint service and IIS app pool accounts" -Level INFO -Section "SHAREPOINT"
+
+    $spAccountRows = [System.Collections.Generic.List[object]]::new()
+
+    $spServices = @(Get-CimInstance Win32_Service -ErrorAction SilentlyContinue | Where-Object { $_.Name -in @('SPTimerV4','SPAdminV4','SPWriterV4','SPUserCodeV4','SPSearchHostController','OSearch16','SPTraceV4') })
+    foreach($svc in $spServices){
+        $spAccountRows.Add([PSCustomObject]@{ Type = "Windows Service"; Name = $svc.Name; Account = $svc.StartName; State = $svc.State })
+    }
+
+    try{
+        Import-Module WebAdministration -ErrorAction Stop
+        $appPools = @(Get-ChildItem "IIS:\AppPools" -ErrorAction SilentlyContinue)
+        foreach($pool in $appPools){
+            try{
+                $identity = (Get-ItemProperty "IIS:\AppPools\$($pool.Name)" -Name processModel -ErrorAction SilentlyContinue).userName
+                $identityType = (Get-ItemProperty "IIS:\AppPools\$($pool.Name)" -Name processModel -ErrorAction SilentlyContinue).identityType
+                $account = $(if($identity){ $identity } else { "$identityType" })
+                $spAccountRows.Add([PSCustomObject]@{ Type = "IIS App Pool"; Name = $pool.Name; Account = $account; State = "$($pool.State)" })
+            }
+            catch{}
+        }
+    }
+    catch{
+        Write-ForensicLog "[!] WebAdministration module unavailable — skipping IIS app pool identity enumeration" -Level WARN -Section "SHAREPOINT"
+    }
+
+    $Finding = @{
+        finding_id   = "sp-accounts-001"
+        finding_type = "SharePoint Service & App Pool Accounts"
+        category     = "Web Application"
+        findingtags  = @("privilege-escalation", "live-response")
+        severity     = "Notable"
+        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
+        source = @{ collector = "Get-CimInstance Win32_Service + WebAdministration IIS:\AppPools"; artifact = "SharePoint Service and App Pool Accounts"; command = "Get-CimInstance Win32_Service | Where Name -in SPTimerV4,SPAdminV4,... ; Get-ChildItem IIS:\AppPools" }
+        summary = @{ title = "Forensicator SharePoint Service Accounts"; description = "Collected the run-as identities for SharePoint farm services and IIS application pools."; total_entries = @($spAccountRows).Count }
+        risk = @{ score = 55; level = "Medium"; reason = "SharePoint farm/app pool accounts often hold broad AD or database permissions; a compromised app pool identity can be used to pivot into the farm or SQL back-end." }
+        mitre = @(@{ technique_id = "T1078"; technique = "Valid Accounts" })
+        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
+        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected SharePoint service/app pool accounts" })
+        evidence = [System.Collections.Generic.List[object]]::new()
+        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+    }
+    foreach($row in $spAccountRows){ $Finding.evidence.Add(@{ type = $row.Type; name = $row.Name; account = "$($row.Account)"; state = "$($row.State)" }) }
+    $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\sharepoint\accounts-finding.json"
+    $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
+
+    $sb = New-Object System.Text.StringBuilder
+    if($spAccountRows.Count -gt 0){
+        foreach($row in $spAccountRows){
+            [void]$sb.Append("<tr><td>$(Encode-Cell $row.Type)</td><td>$(Encode-Cell $row.Name)</td><td>$(Encode-Cell $row.Account)</td><td>$(Encode-Cell $row.State)</td></tr>")
+        }
+    }
+    else{
+        [void]$sb.Append("<tr><td colspan='4' style='text-align:center;color:#e67e22;'>No SharePoint services or IIS app pools enumerated</td></tr>")
+    }
+    $SP_AccountsFragment = $sb.ToString()
+
+    # ---------------------------------------------------------------------
+    # SP.2 — suspicious w3wp.exe (IIS worker process) child processes
+    # Classic webshell / in-memory RCE execution signature
+    # ---------------------------------------------------------------------
+    Write-ForensicLog "[*] Checking for suspicious IIS worker process (w3wp.exe) child processes" -Level INFO -Section "SHAREPOINT"
+
+    $suspiciousChildNames = @('cmd.exe','powershell.exe','powershell_ise.exe','cscript.exe','wscript.exe','certutil.exe','mshta.exe','rundll32.exe','regsvr32.exe','bitsadmin.exe','whoami.exe','net.exe','net1.exe','nltest.exe')
+    $w3wpPids = @($ProcessFragment | Where-Object { "$($_.Name)" -ieq 'w3wp.exe' } | ForEach-Object { "$($_.PID)" })
+
+    $spSuspiciousChildren = @($ProcessFragment | Where-Object {
+        $w3wpPids -contains "$($_.PPID)" -and (@($suspiciousChildNames) -icontains "$($_.Name)")
+    })
+
+    $Finding = @{
+        finding_id   = "sp-w3wp-children-001"
+        finding_type = "Suspicious IIS Worker Process Children"
+        category     = "Web Application"
+        findingtags  = @("malware", "credential-access", "live-response")
+        severity     = "Notable"
+        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
+        source = @{ collector = "Cross-check against Win32_Process collection (PPID -> w3wp.exe)"; artifact = "Suspicious w3wp.exe Child Processes"; command = "Filter collected process list where ParentProcessId is a w3wp.exe PID and Name is a shell/LOLBin" }
+        summary = @{ title = "Forensicator Suspicious IIS Worker Process Children"; description = "Collected processes spawned directly by an IIS worker process (w3wp.exe) that match shell or living-off-the-land binary names — the classic signature of webshell-based remote code execution."; total_entries = @($spSuspiciousChildren).Count }
+        risk = @{ score = 90; level = "Critical"; reason = "IIS/SharePoint worker processes do not normally spawn shells; a cmd.exe or powershell.exe child of w3wp.exe is a strong indicator of an active webshell or deserialization RCE (e.g. ViewState/ToolShell-style exploitation)." }
+        mitre = @(@{ technique_id = "T1505.003"; technique = "Server Software Component: Web Shell" })
+        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
+        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator checked for suspicious w3wp.exe child processes" })
+        evidence = [System.Collections.Generic.List[object]]::new()
+        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+    }
+    foreach($proc in $spSuspiciousChildren){
+        $Finding.evidence.Add(@{ name = $proc.Name; pid = "$($proc.PID)"; ppid = "$($proc.PPID)"; executable_path = $proc.ExecutablePath; command_line = $proc.CommandLine })
+    }
+    $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\sharepoint\w3wp-children-finding.json"
+    $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
+
+    $sb = New-Object System.Text.StringBuilder
+    if($spSuspiciousChildren.Count -gt 0){
+        foreach($proc in $spSuspiciousChildren){
+            [void]$sb.Append("<tr style='background-color:#3a1a1a;'><td>$(Encode-Cell $proc.Name)</td><td>$(Encode-Cell $proc.PID)</td><td>$(Encode-Cell $proc.PPID)</td><td class='path-cell'>$(Encode-Cell $proc.ExecutablePath)</td><td class='cmd-cell'>$(Encode-Cell $proc.CommandLine)</td></tr>")
+        }
+    }
+    else{
+        [void]$sb.Append("<tr><td colspan='5' style='text-align:center;color:#27ae60;'>No suspicious w3wp.exe child processes found</td></tr>")
+    }
+    $SP_SuspiciousChildFragment = $sb.ToString()
+
+    # ---------------------------------------------------------------------
+    # SP.3 — webshell scan (LAYOUTS + SharePoint IIS virtual directories)
+    # ---------------------------------------------------------------------
+    Write-ForensicLog "[*] Scanning SharePoint LAYOUTS and web application folders for webshells" -Level INFO -Section "SHAREPOINT"
+
+    $spScanPaths = [System.Collections.Generic.List[string]]::new()
+    if($env:CommonProgramFiles){
+        [void]$spScanPaths.Add((Join-Path $env:CommonProgramFiles "Microsoft Shared\Web Server Extensions"))
+    }
+    [void]$spScanPaths.Add("C:\inetpub\wwwroot\wss\VirtualDirectories")
+
+    $spWebshellFindingsList = [System.Collections.Generic.List[object]]::new()
+
+    foreach($scanRoot in $spScanPaths){
+        if(-not (Test-Path $scanRoot)){ continue }
+
+        foreach($ext in $spWebshellExtensions){
+            Get-ChildItem -Path $scanRoot -Recurse -Filter $ext -File -ErrorAction SilentlyContinue |
+            ForEach-Object {
+
+                $file = $_
+                $matchedKeywords = [System.Collections.Generic.List[string]]::new()
+
+                if($file.Extension -notin @('.dll') -and $file.Length -lt 3MB){
+                    try{
+                        $content = Get-Content -LiteralPath $file.FullName -Raw -ErrorAction Stop
+                        foreach($kw in $spWebshellKeywords){
+                            if($content -match [regex]::Escape($kw)){ [void]$matchedKeywords.Add($kw) }
+                        }
+                    }
+                    catch{}
+                }
+
+                # Only surface files that are either flagged by keyword or modified in the last 30 days —
+                # LAYOUTS ships thousands of legitimate .aspx files; noise control matters here.
+                $recentlyModified = $file.LastWriteTime -gt (Get-Date).AddDays(-30)
+                if($matchedKeywords.Count -gt 0 -or $recentlyModified){
+                    $spWebshellFindingsList.Add([PSCustomObject]@{
+                        Name             = $file.Name
+                        FullPath         = $file.FullName
+                        Extension        = $file.Extension
+                        SizeKB           = [Math]::Round($file.Length/1KB, 2)
+                        LastWriteTime    = $file.LastWriteTime
+                        MatchedKeywords  = ($matchedKeywords -join ", ")
+                    })
+                }
+            }
+        }
+    }
+
+    $Finding = @{
+        finding_id   = "sp-webshell-001"
+        finding_type = "SharePoint Webshell / Dropped File Scan"
+        category     = "Web Application"
+        findingtags  = @("malware", "persistence", "live-response")
+        severity     = "Notable"
+        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
+        source = @{ collector = "Get-ChildItem (LAYOUTS + IIS virtual directories)"; artifact = "SharePoint Webshell/Dropped File Candidates"; command = "Get-ChildItem -Recurse -Include *.aspx,*.ashx,*.asmx,*.dll,*.asax" }
+        summary = @{ title = "Forensicator SharePoint Webshell Scan"; description = "Scanned SharePoint's LAYOUTS folder and IIS web application content for recently modified or keyword-flagged files — the classic location for a dropped webshell (e.g. spinstall0.aspx-style artifacts)."; total_entries = @($spWebshellFindingsList).Count }
+        risk = @{ score = 85; level = "High"; reason = "A recently added or keyword-flagged .aspx/.ashx/.asmx file in the SharePoint content or LAYOUTS tree is a primary indicator of a dropped webshell following exploitation." }
+        mitre = @(@{ technique_id = "T1505.003"; technique = "Server Software Component: Web Shell" })
+        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
+        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator scanned SharePoint folders for webshells" })
+        evidence = [System.Collections.Generic.List[object]]::new()
+        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+    }
+    foreach($item in $spWebshellFindingsList){
+        $Finding.evidence.Add(@{ name = $item.Name; full_path = $item.FullPath; extension = $item.Extension; size_kb = $item.SizeKB; last_write_time = $item.LastWriteTime.ToString("o"); matched_keywords = $item.MatchedKeywords })
+    }
+    $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\sharepoint\webshell-finding.json"
+    $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
+
+    $sb = New-Object System.Text.StringBuilder
+    if($spWebshellFindingsList.Count -gt 0){
+        foreach($item in $spWebshellFindingsList){
+            $rowStyle = if($item.MatchedKeywords){ " style='background-color:#3a1a1a;'" } else { "" }
+            [void]$sb.Append("<tr$rowStyle><td>$(Encode-Cell $item.Name)</td><td>$(Encode-Cell $item.FullPath)</td><td>$(Encode-Cell $item.Extension)</td><td>$(Encode-Cell $item.SizeKB)</td><td>$(Encode-Cell $item.LastWriteTime)</td><td>$(Encode-Cell $item.MatchedKeywords)</td></tr>")
+        }
+    }
+    else{
+        [void]$sb.Append("<tr><td colspan='6' style='text-align:center;color:#27ae60;'>No recently modified or keyword-flagged files found</td></tr>")
+    }
+    $SP_WebshellFragment = $sb.ToString()
+
+    # ---------------------------------------------------------------------
+    # SP.4 — web.config security review (machineKey / ViewState MAC)
+    # ---------------------------------------------------------------------
+    Write-ForensicLog "[*] Reviewing SharePoint web.config files for ViewState/machineKey misconfiguration" -Level INFO -Section "SHAREPOINT"
+
+    $spWebConfigRows = [System.Collections.Generic.List[object]]::new()
+
+    foreach($scanRoot in $spScanPaths){
+        if(-not (Test-Path $scanRoot)){ continue }
+
+        Get-ChildItem -Path $scanRoot -Recurse -Filter "web.config" -File -ErrorAction SilentlyContinue |
+        ForEach-Object {
+            $file = $_
+            try{
+                [xml]$xml = Get-Content -LiteralPath $file.FullName -Raw -ErrorAction Stop
+
+                $machineKeyNode = $xml.SelectSingleNode("//machineKey")
+                $pagesNode      = $xml.SelectSingleNode("//pages")
+
+                $hasMachineKey = $null -ne $machineKeyNode
+                $validation    = $(if($hasMachineKey){ "$($machineKeyNode.validation)" } else { "" })
+                $viewStateMac  = $(if($pagesNode -and $pagesNode.enableViewStateMac){ "$($pagesNode.enableViewStateMac)" } else { "true (default)" })
+
+                $spWebConfigRows.Add([PSCustomObject]@{
+                    Path            = $file.FullName
+                    HasMachineKey   = $hasMachineKey
+                    Validation      = $validation
+                    ViewStateMac    = $viewStateMac
+                    ViewStateMacOff = ($viewStateMac -ieq "false")
+                })
+            }
+            catch{}
+        }
+    }
+
+    $Finding = @{
+        finding_id   = "sp-webconfig-001"
+        finding_type = "SharePoint web.config ViewState/machineKey Review"
+        category     = "Web Application"
+        findingtags  = @("defense-evasion", "live-response")
+        severity     = "Notable"
+        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
+        source = @{ collector = "Get-ChildItem web.config + XML parse"; artifact = "web.config machineKey/enableViewStateMac Settings"; command = "Select-Xml //machineKey, //pages on discovered web.config files" }
+        summary = @{ title = "Forensicator SharePoint web.config Review"; description = "Checked discovered web.config files for machineKey configuration and ViewState MAC validation — ASP.NET ViewState deserialization RCE (e.g. the ToolShell exploit chain) relies on a known/leaked machineKey and/or enableViewStateMac disabled."; total_entries = @($spWebConfigRows).Count }
+        risk = @{ score = 80; level = "High"; reason = "enableViewStateMac explicitly set to false disables ViewState tamper protection entirely, enabling remote code execution via crafted ViewState payloads." }
+        mitre = @(@{ technique_id = "T1190"; technique = "Exploit Public-Facing Application" })
+        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
+        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator reviewed web.config ViewState/machineKey configuration" })
+        evidence = [System.Collections.Generic.List[object]]::new()
+        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+    }
+    foreach($row in $spWebConfigRows){
+        $Finding.evidence.Add(@{ path = $row.Path; has_machine_key = "$($row.HasMachineKey)"; validation = $row.Validation; enable_view_state_mac = $row.ViewStateMac })
+    }
+    $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\sharepoint\webconfig-finding.json"
+    $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
+
+    $sb = New-Object System.Text.StringBuilder
+    if($spWebConfigRows.Count -gt 0){
+        foreach($row in $spWebConfigRows){
+            $rowStyle = if($row.ViewStateMacOff){ " style='background-color:#3a1a1a;'" } else { "" }
+            [void]$sb.Append("<tr$rowStyle><td>$(Encode-Cell $row.Path)</td><td>$(Encode-Cell $row.HasMachineKey)</td><td>$(Encode-Cell $row.Validation)</td><td>$(Encode-Cell $row.ViewStateMac)</td></tr>")
+        }
+    }
+    else{
+        [void]$sb.Append("<tr><td colspan='4' style='text-align:center;color:#e67e22;'>No web.config files discovered under the scanned SharePoint paths</td></tr>")
+    }
+    $SP_WebConfigFragment = $sb.ToString()
+
+    # ---------------------------------------------------------------------
+    # SP.5 — IIS log scan for known exploit URI patterns
+    # ---------------------------------------------------------------------
+    Write-ForensicLog "[*] Scanning recent IIS logs for known SharePoint exploit URI patterns" -Level INFO -Section "SHAREPOINT"
+
+    $spIisHitRows = [System.Collections.Generic.List[object]]::new()
+    $iisLogRoot   = "C:\inetpub\logs\LogFiles"
+
+    if(Test-Path $iisLogRoot){
+        $recentLogs = @(Get-ChildItem -Path $iisLogRoot -Recurse -Filter "*.log" -File -ErrorAction SilentlyContinue |
+                        Sort-Object LastWriteTime -Descending |
+                        Select-Object -First 20)
+
+        $patternRegex = ($spSuspiciousUriPatterns | ForEach-Object { [regex]::Escape($_) }) -join "|"
+
+        foreach($logFile in $recentLogs){
+            try{
+                Select-String -Path $logFile.FullName -Pattern $patternRegex -SimpleMatch:$false -ErrorAction SilentlyContinue |
+                Select-Object -First 200 |
+                ForEach-Object {
+                    $spIisHitRows.Add([PSCustomObject]@{
+                        LogFile = $logFile.Name
+                        Line    = $_.Line.Trim()
+                    })
+                }
+            }
+            catch{}
+        }
+    }
+
+    $Finding = @{
+        finding_id   = "sp-iis-exploit-uri-001"
+        finding_type = "SharePoint Exploit URI Pattern Matches (IIS Logs)"
+        category     = "Web Application"
+        findingtags  = @("malware", "live-response")
+        severity     = "Notable"
+        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
+        source = @{ collector = "Select-String on recent IIS W3C logs"; artifact = "IIS Log Lines Matching Known SharePoint Exploit URIs"; command = "Select-String -Path C:\inetpub\logs\LogFiles\**\*.log -Pattern <configured URI patterns>" }
+        summary = @{ title = "Forensicator SharePoint Exploit URI Scan"; description = "Scanned the most recently modified IIS log files for requests matching known SharePoint exploitation URI patterns (e.g. ToolPane.aspx abuse, dropped spinstall-style shells)."; total_entries = @($spIisHitRows).Count }
+        risk = @{ score = 80; level = "High"; reason = "Requests to these URI patterns are strongly associated with known SharePoint RCE exploit chains and webshell deployment/retrieval." }
+        mitre = @(@{ technique_id = "T1190"; technique = "Exploit Public-Facing Application" })
+        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
+        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator scanned IIS logs for known exploit URI patterns" })
+        evidence = [System.Collections.Generic.List[object]]::new()
+        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+    }
+    foreach($row in $spIisHitRows){ $Finding.evidence.Add(@{ log_file = $row.LogFile; line = $row.Line }) }
+    $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\sharepoint\iis-exploit-uri-finding.json"
+    $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
+
+    $sb = New-Object System.Text.StringBuilder
+    if($spIisHitRows.Count -gt 0){
+        foreach($row in $spIisHitRows){
+            [void]$sb.Append("<tr style='background-color:#3a1a1a;'><td>$(Encode-Cell $row.LogFile)</td><td class='cmd-cell'>$(Encode-Cell $row.Line)</td></tr>")
+        }
+    }
+    else{
+        [void]$sb.Append("<tr><td colspan='2' style='text-align:center;color:#27ae60;'>No matches found in the most recent IIS log files (or IIS logging is not enabled/collected)</td></tr>")
+    }
+    $SP_IISExploitFragment = $sb.ToString()
+
+    # ---------------------------------------------------------------------
+    # Build sidebar entry + full view section
+    # ---------------------------------------------------------------------
+    $SP_SidebarHtml = @"
+
+  <div class="sb-divider"></div>
+
+  <div class="sb-section">
+    <div class="sb-label">SharePoint</div>
+    <div class="sb-link" onclick="nav('sharepoint')">
+      <i class="sb-icon">📘</i> SharePoint
+    </div>
+  </div>
+"@
+
+    $SP_ViewHtml = @"
+<div class="view" id="view-sharepoint">
+
+  <div class="view-header">
+    <div>
+      <div class="view-title">Microsoft SharePoint Server</div>
+      <div class="view-sub">SharePoint detected — webshell scan, web.config review, suspicious IIS worker process children, exploit URI matches</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">📘 Farm Overview</div></div>
+    <div class="kv-list">$SP_OverviewFragment</div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">👤 Service &amp; App Pool Accounts <span class="panel-count" id="sp-accounts-count">0</span></div></div>
+    <div class="tbl-wrap">
+      <table class="std">
+        <thead><tr><th>Type</th><th>Name</th><th>Account</th><th>State</th></tr></thead>
+        <tbody id="sp-accounts-tbody">$SP_AccountsFragment</tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">☠ Suspicious IIS Worker Process Children <span class="panel-count" id="sp-suspicious-child-count">0</span></div></div>
+    <div class="tbl-wrap">
+      <table class="std">
+        <thead><tr><th>Name</th><th>PID</th><th>PPID</th><th>Path</th><th>Command Line</th></tr></thead>
+        <tbody id="sp-suspicious-child-tbody">$SP_SuspiciousChildFragment</tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">🐚 Webshell / Dropped File Scan <span class="panel-count" id="sp-webshell-count">0</span></div></div>
+    <div class="search-bar">
+      <div class="search-wrap">
+        <span class="search-ico">⌕</span>
+        <input type="text" placeholder="Filter by name, path, keyword match..." oninput="filterTable('sp-webshell-tbody', this.value, [0,1,2,3,4,5])"/>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table class="std">
+        <thead><tr><th>Name</th><th>Path</th><th>Extension</th><th>Size (KB)</th><th>Modified</th><th>Matched Keywords</th></tr></thead>
+        <tbody id="sp-webshell-tbody">$SP_WebshellFragment</tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">🔐 web.config ViewState / machineKey Review <span class="panel-count" id="sp-webconfig-count">0</span></div></div>
+    <div class="tbl-wrap">
+      <table class="std">
+        <thead><tr><th>Path</th><th>Has machineKey</th><th>Validation</th><th>enableViewStateMac</th></tr></thead>
+        <tbody id="sp-webconfig-tbody">$SP_WebConfigFragment</tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">📡 IIS Log Exploit URI Matches <span class="panel-count" id="sp-iis-exploit-count">0</span></div></div>
+    <div class="tbl-wrap">
+      <table class="std">
+        <thead><tr><th>Log File</th><th>Matched Line</th></tr></thead>
+        <tbody id="sp-iis-exploit-tbody">$SP_IISExploitFragment</tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /sharepoint -->
+"@
+
+    Write-ForensicLog "[!] SharePoint Server checks complete" -Level SUCCESS -Section "SHAREPOINT"
+}
+else{
+    Write-ForensicLog "[!] Microsoft SharePoint Server not detected — skipping SharePoint checks" -Level INFO -Section "SHAREPOINT"
+}
+
+#endregion
+
+
+
+Write-ForensicLog ""
+
+#############################################################################################################
 #region   BITLOCKER KEY EXTRACTION
 #############################################################################################################
 
@@ -8396,7 +10704,7 @@ if(Get-Command Get-BitLockerVolume -ErrorAction SilentlyContinue){
     Write-ForensicLog "[*] BitLocker PowerShell module available, I will use it" -Level Info -Section "BitLocker"
 }
 else{
-    Write-ForensicLog "[!] BitLocker module not available — falling back to WMI/manage-bde" -Level Warning -Section "BitLocker"
+    Write-ForensicLog "[!] BitLocker module not available — falling back to WMI/manage-bde" -Level WARN -Section "BitLocker"
 }
 
 # ---------------------------------------------------------
@@ -8492,6 +10800,13 @@ if($useBitLockerModule){
 # ---------------------------------------------------------
 else{
 
+    # Confirm manage-bde.exe is actually present before looping over drives —
+    # avoids spamming a CommandNotFoundException per drive with a confusing message
+    if(-not (Get-Command manage-bde.exe -ErrorAction SilentlyContinue)){
+        Write-ForensicLog "[!] manage-bde.exe not found on this system — BitLocker recovery key collection via manage-bde is unavailable. This is expected on editions/environments without the BitLocker administration tools (e.g. Windows Home, some locked-down or Server Core installs), or if System32 is missing from PATH. Skipping this fallback." -Level WARN -Section "BITLOCKER"
+    }
+    else{
+
     # Get all fixed and removable drive letters
     $drives = Get-CimInstance Win32_LogicalDisk |
               Where-Object { $_.DriveType -in @(2,3) } |
@@ -8563,6 +10878,7 @@ else{
         catch{
             Write-ForensicLog "[!] manage-bde failed on $drive — $($_.Exception.Message)" -Level ERROR -Section "BITLOCKER"
         }
+    }
     }
 }
 
@@ -11112,6 +13428,9 @@ var TOP_EVENT_IDS   = $($script:topEventIdsJson);
       <i class="sb-icon">📅</i> Scheduled Tasks
     </div>
   </div>
+$AD_SidebarHtml
+$MSSQL_SidebarHtml
+$SP_SidebarHtml
 
   <div class="sb-divider"></div>
 
@@ -12615,6 +14934,12 @@ window.nav = window.nav || function(id) {
 
 </div><!-- /extras -->
 
+$AD_ViewHtml
+
+$MSSQL_ViewHtml
+
+$SP_ViewHtml
+
 <!-- ╔══════════════════════════════════════════════════════════════════════════
      ║  VIEW: DETECTIONS  (Sigma / Rules — Discover style)
 ══════════════════════════════════════════════════════════════════════════ -->
@@ -13597,7 +15922,7 @@ foreach ($fragment in @($GroupMembershipFragment, $RDPLoginsFragment, $RDPAuthsF
 }
 $script:topEventIdsJson = if ($topEventIdsRaw.Count -gt 0) { $topEventIdsRaw | ConvertTo-Json -Compress } else { '{}' }
 
-HTMLFiles | Out-File -FilePath $HTMLFiles
+HTMLFiles | Out-File -FilePath $HTMLFiles -Encoding utf8
 
 $ReportRuntimeScriptSource = Join-Path $PSScriptRoot 'forensicator-runtime.js'
 $ReportRuntimeScriptTarget = Join-Path "$PSScriptRoot\$env:COMPUTERNAME\reports" 'forensicator-runtime.js'
@@ -13839,7 +16164,7 @@ Pop-Location
     $KeyB64   = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($Password))
 
     Write-ForensicLog "[!] ENCRYPTION KEY: $KeyB64" -Level SUCCESS -Section "ENCRYPTION" -Detail "This key is required for decryption — keep it safe!"
-    "YOUR ENCRYPTION KEY IS: $KeyB64" | Out-File -Force "$PSScriptRoot\key.txt"
+    "YOUR ENCRYPTION KEY IS: $KeyB64" | Out-File -Force "$PSScriptRoot\key.txt" -Encoding utf8
     Write-ForensicLog "[!] Key saved to key.txt — keep it safe" -Level INFO -Section "ENCRYPTION" -Detail "Key saved to key.txt — keep it safe"
 
     # ---------------------------------------------------------

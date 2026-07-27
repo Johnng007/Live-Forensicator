@@ -1,0 +1,43 @@
+{
+  "title": "Audio Capture via PowerShell",
+  "rule_id": "932fb0d8-692b-4b0f-a26e-5643a50fe7d6",
+  "description": "Detects audio capture via PowerShell Cmdlet.",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.collection",
+    "attack.t1123"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_powershell_audio_capture.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "WindowsAudioDevice-Powershell-Cmdlet",
+            "Toggle-AudioDevice",
+            "Get-AudioDevice ",
+            "Set-AudioDevice ",
+            "Write-AudioDevice "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

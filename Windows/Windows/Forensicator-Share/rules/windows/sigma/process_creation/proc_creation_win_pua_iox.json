@@ -1,0 +1,76 @@
+{
+  "title": "PUA- IOX Tunneling Tool Execution",
+  "rule_id": "d7654f02-e04b-4934-9838-65c46f187ebc",
+  "description": "Detects the use of IOX - a tool for port forwarding and intranet proxy purposes",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.command-and-control",
+    "attack.t1090"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_pua_iox.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\iox.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_commandline": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            ".exe fwd -l ",
+            ".exe fwd -r ",
+            ".exe proxy -l ",
+            ".exe proxy -r "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_hashes": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Hashes",
+          "operator": "contains",
+          "values": [
+            "MD5=9DB2D314DD3F704A02051EF5EA210993",
+            "SHA1=039130337E28A6623ECF9A0A3DA7D92C5964D8DD",
+            "SHA256=C6CF82919B809967D9D90EA73772A8AA1C1EB3BC59252D977500F64F1A0D6731"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "any",
+    "pattern": "selection*"
+  }
+}

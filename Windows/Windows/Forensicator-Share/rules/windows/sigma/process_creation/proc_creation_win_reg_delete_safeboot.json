@@ -1,0 +1,77 @@
+{
+  "title": "SafeBoot Registry Key Deleted Via Reg.EXE",
+  "rule_id": "fc0e89b5-adb0-43c1-b749-c12a10ec37de",
+  "description": "Detects execution of \"reg.exe\" commands with the \"delete\" flag on safe boot registry keys. Often used by attacker to prevent safeboot execution of security products",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.defense-impairment",
+    "attack.t1685"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_reg_delete_safeboot.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "reg.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "reg.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_delete": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " delete ",
+            "\\SYSTEM\\CurrentControlSet\\Control\\SafeBoot"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

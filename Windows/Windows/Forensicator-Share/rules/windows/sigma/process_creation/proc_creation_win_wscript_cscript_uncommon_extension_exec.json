@@ -1,0 +1,89 @@
+{
+  "title": "Cscript/Wscript Uncommon Script Extension Execution",
+  "rule_id": "99b7460d-c9f1-40d7-a316-1f36f61d52ee",
+  "description": "Detects Wscript/Cscript executing a file with an uncommon (i.e. non-script) extension",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1059.005",
+    "attack.t1059.007"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_wscript_cscript_uncommon_extension_exec.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "wscript.exe",
+                "cscript.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\wscript.exe",
+                "\\cscript.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_extension": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            ".csv",
+            ".dat",
+            ".doc",
+            ".gif",
+            ".jpeg",
+            ".jpg",
+            ".png",
+            ".ppt",
+            ".txt",
+            ".xls",
+            ".xml"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

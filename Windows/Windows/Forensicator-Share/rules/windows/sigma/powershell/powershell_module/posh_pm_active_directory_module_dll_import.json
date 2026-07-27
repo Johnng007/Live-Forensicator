@@ -1,0 +1,57 @@
+{
+  "title": "Potential Active Directory Enumeration Using AD Module - PsModule",
+  "rule_id": "74176142-4684-4d8a-8b0a-713257e7df8e",
+  "description": "Detects usage of the \"Import-Module\" cmdlet to load the \"Microsoft.ActiveDirectory.Management.dl\" DLL. Which is often used by attackers to perform AD enumeration.",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.reconnaissance",
+    "attack.discovery",
+    "attack.impact"
+  ],
+  "category": "ps_module",
+  "rule_file": "rules/windows/powershell/powershell_module/posh_pm_active_directory_module_dll_import.yml",
+  "sources": [
+    "powershell_module_logging"
+  ],
+  "items": {
+    "selection_cmdlet": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Payload",
+          "operator": "contains",
+          "values": [
+            "Import-Module ",
+            "ipmo "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_dll": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Payload",
+          "operator": "contains",
+          "values": [
+            "Microsoft.ActiveDirectory.Management.dll"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

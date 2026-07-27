@@ -1,0 +1,41 @@
+{
+  "title": "VolumeShadowCopy Symlink Creation Via Mklink",
+  "rule_id": "40b19fa6-d835-400c-b301-41f3a2baacaf",
+  "description": "Shadow Copies storage symbolic link creation using operating systems utilities",
+  "level": "high",
+  "status": "stable",
+  "tags": [
+    "attack.credential-access",
+    "attack.t1003.002",
+    "attack.t1003.003"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_cmd_mklink_shadow_copies_access_symlink.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "mklink",
+            "HarddiskVolumeShadowCopy"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

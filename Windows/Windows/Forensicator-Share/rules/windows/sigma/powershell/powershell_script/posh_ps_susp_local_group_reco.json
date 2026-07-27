@@ -1,0 +1,84 @@
+{
+  "title": "Suspicious Get Local Groups Information - PowerShell",
+  "rule_id": "fa6a5a45-3ee2-4529-aa14-ee5edc9e29cb",
+  "description": "Detects the use of PowerShell modules and cmdlets to gather local group information.\nAdversaries may use local system permission groups to determine which groups exist and which users belong to a particular group such as the local administrators group.\n",
+  "level": "low",
+  "status": "test",
+  "tags": [
+    "attack.discovery",
+    "attack.t1069.001"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_susp_local_group_reco.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection_localgroup": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "get-localgroup ",
+            "get-localgroupmember "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_wmi_module": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "get-wmiobject ",
+            "gwmi ",
+            "get-ciminstance ",
+            "gcim "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_wmi_class": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "win32_group"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "any",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection_localgroup"
+      },
+      {
+        "type": "wildcard_ref",
+        "mode": "all",
+        "pattern": "selection_wmi_*"
+      }
+    ]
+  }
+}

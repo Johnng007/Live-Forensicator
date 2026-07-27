@@ -1,0 +1,50 @@
+{
+  "title": "Communication To Ngrok Tunneling Service Initiated",
+  "rule_id": "1d08ac94-400d-4469-a82f-daee9a908849",
+  "description": "Detects an executable initiating a network connection to \"ngrok\" tunneling domains.\nAttackers were seen using this \"ngrok\" in order to store their second stage payloads and malware.\nWhile communication with such domains can be legitimate, often times is a sign of either data exfiltration by malicious actors or additional download.\n",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.exfiltration",
+    "attack.command-and-control",
+    "attack.t1567",
+    "attack.t1568.002",
+    "attack.t1572",
+    "attack.t1090",
+    "attack.t1102",
+    "attack.s0508"
+  ],
+  "category": "network_connection",
+  "rule_file": "rules/windows/network_connection/net_connection_win_domain_ngrok_tunnel.yml",
+  "sources": [
+    "sysmon_network_connection"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "DestinationHostname",
+          "operator": "contains",
+          "values": [
+            "tunnel.us.ngrok.com",
+            "tunnel.eu.ngrok.com",
+            "tunnel.ap.ngrok.com",
+            "tunnel.au.ngrok.com",
+            "tunnel.sa.ngrok.com",
+            "tunnel.jp.ngrok.com",
+            "tunnel.in.ngrok.com"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

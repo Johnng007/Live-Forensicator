@@ -1,0 +1,54 @@
+{
+  "title": "AspNetCompiler Execution",
+  "rule_id": "a01b8329-5953-4f73-ae2d-aa01e1f35f00",
+  "description": "Detects execution of \"aspnet_compiler.exe\" which can be abused to compile and execute C# code.",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.stealth",
+    "attack.t1127"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_aspnet_compiler_exectuion.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "contains",
+          "values": [
+            ":\\Windows\\Microsoft.NET\\Framework\\",
+            ":\\Windows\\Microsoft.NET\\Framework64\\",
+            ":\\Windows\\Microsoft.NET\\FrameworkArm\\",
+            ":\\Windows\\Microsoft.NET\\FrameworkArm64\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\aspnet_compiler.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

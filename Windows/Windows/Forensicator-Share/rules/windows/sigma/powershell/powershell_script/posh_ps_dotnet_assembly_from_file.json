@@ -1,0 +1,38 @@
+{
+  "title": "Potential In-Memory Execution Using Reflection.Assembly",
+  "rule_id": "ddcd88cb-7f62-4ce5-86f9-1704190feb0a",
+  "description": "Detects usage of \"Reflection.Assembly\" load functions to dynamically load assemblies in memory",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.stealth",
+    "attack.t1620"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_dotnet_assembly_from_file.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "[Reflection.Assembly]::load"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

@@ -1,0 +1,237 @@
+{
+  "title": "Alternate PowerShell Hosts Pipe",
+  "rule_id": "58cb02d5-78ce-4692-b3e1-dce850aae41a",
+  "description": "Detects alternate PowerShell hosts potentially bypassing detections looking for powershell.exe",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1059.001"
+  ],
+  "category": "pipe_created",
+  "rule_file": "rules/windows/pipe_created/pipe_created_powershell_alternate_host_pipe.yml",
+  "sources": [
+    "sysmon_pipe_created"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "PipeName",
+          "operator": "startswith",
+          "values": [
+            "\\PSHost"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main_generic": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "contains",
+              "values": [
+                ":\\Program Files\\PowerShell\\7-preview\\pwsh.exe",
+                ":\\Program Files\\PowerShell\\7\\pwsh.exe",
+                ":\\Windows\\system32\\dsac.exe",
+                ":\\Windows\\system32\\inetsrv\\w3wp.exe",
+                ":\\Windows\\System32\\sdiagnhost.exe",
+                ":\\Windows\\system32\\ServerManager.exe",
+                ":\\Windows\\system32\\wbem\\wmiprvse.exe",
+                ":\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell_ise.exe",
+                ":\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+                ":\\Windows\\System32\\wsmprovhost.exe",
+                ":\\Windows\\SysWOW64\\WindowsPowerShell\\v1.0\\powershell_ise.exe",
+                ":\\Windows\\SysWOW64\\WindowsPowerShell\\v1.0\\powershell.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "contains",
+              "values": [
+                "C:\\Program Files\\WindowsApps\\Microsoft.PowerShellPreview",
+                "\\pwsh.exe"
+              ],
+              "match": "all",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "contains",
+              "values": [
+                "\\AppData\\Local\\Microsoft\\WindowsApps\\Microsoft.PowerShellPreview",
+                "\\pwsh.exe"
+              ],
+              "match": "all",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "filter_optional_sqlserver": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "startswith",
+          "values": [
+            "C:\\Program Files (x86)\\",
+            "C:\\Program Files\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "contains",
+          "values": [
+            "\\Microsoft SQL Server\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\Tools\\Binn\\SQLPS.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_optional_azure_connected_machine_agent": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "startswith",
+          "values": [
+            "C:\\Program Files\\AzureConnectedMachineAgent\\GCArcService"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\GC\\gc_worker.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_optional_citrix": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "startswith",
+          "values": [
+            "C:\\Program Files\\Citrix\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_optional_exchange": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "startswith",
+          "values": [
+            "C:\\Program Files\\Microsoft\\Exchange Server\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main_null": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "is_null",
+          "values": [],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_main_*"
+        }
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_optional_*"
+        }
+      }
+    ]
+  }
+}

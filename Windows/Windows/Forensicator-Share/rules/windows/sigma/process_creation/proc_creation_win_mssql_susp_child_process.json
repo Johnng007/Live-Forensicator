@@ -1,0 +1,128 @@
+{
+  "title": "Suspicious Child Process Of SQL Server",
+  "rule_id": "869b9ca7-9ea2-4a5a-8325-e80e62f75445",
+  "description": "Detects suspicious child processes of the SQLServer process. This could indicate potential RCE or SQL Injection.",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.t1505.003",
+    "attack.t1190",
+    "attack.initial-access",
+    "attack.persistence",
+    "attack.privilege-escalation"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_mssql_susp_child_process.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "endswith",
+          "values": [
+            "\\sqlservr.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\bash.exe",
+            "\\bitsadmin.exe",
+            "\\cmd.exe",
+            "\\netstat.exe",
+            "\\nltest.exe",
+            "\\ping.exe",
+            "\\powershell.exe",
+            "\\pwsh.exe",
+            "\\regsvr32.exe",
+            "\\rundll32.exe",
+            "\\sh.exe",
+            "\\systeminfo.exe",
+            "\\tasklist.exe",
+            "\\wsl.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_optional_datev": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "startswith",
+          "values": [
+            "C:\\Program Files\\Microsoft SQL Server\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "endswith",
+          "values": [
+            "DATEV_DBENGINE\\MSSQL\\Binn\\sqlservr.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "exact",
+          "values": [
+            "C:\\Windows\\System32\\cmd.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "startswith",
+          "values": [
+            "\"C:\\Windows\\system32\\cmd.exe\" "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_optional_*"
+        }
+      }
+    ]
+  }
+}

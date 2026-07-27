@@ -1,0 +1,181 @@
+{
+  "title": "CobaltStrike Named Pipe Patterns",
+  "rule_id": "85adeb13-4fc9-4e68-8a4a-c7cb2c336eb7",
+  "description": "Detects the creation of a named pipe with a pattern found in CobaltStrike malleable C2 profiles",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.privilege-escalation",
+    "attack.stealth",
+    "attack.t1055",
+    "stp.1k"
+  ],
+  "category": "pipe_created",
+  "rule_file": "rules/windows/pipe_created/pipe_created_hktl_cobaltstrike_susp_pipe_patterns.yml",
+  "sources": [
+    "sysmon_pipe_created"
+  ],
+  "items": {
+    "selection_malleable_profile_generic": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "PipeName",
+              "operator": "startswith",
+              "values": [
+                "\\DserNamePipe",
+                "\\f4c3",
+                "\\f53f",
+                "\\fullduplex_",
+                "\\mojo.5688.8052.183894939787088877",
+                "\\mojo.5688.8052.35780273329370473",
+                "\\MsFteWds",
+                "\\msrpc_",
+                "\\mypipe-f",
+                "\\mypipe-h",
+                "\\ntsvcs",
+                "\\PGMessagePipe",
+                "\\rpc_",
+                "\\scerpc",
+                "\\SearchTextHarvester",
+                "\\spoolss",
+                "\\win_svc",
+                "\\win\\msrpc_",
+                "\\windows.update.manager",
+                "\\wkssvc"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "PipeName",
+              "operator": "exact",
+              "values": [
+                "\\demoagent_11",
+                "\\demoagent_22"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_malleable_profile_catalog_change_listener": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "PipeName",
+          "operator": "startswith",
+          "values": [
+            "\\Winsock2\\CatalogChangeListener-"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "PipeName",
+          "operator": "endswith",
+          "values": [
+            "-0,"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main_generic": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "PipeName",
+          "operator": "exact",
+          "values": [
+            "\\wkssvc",
+            "\\spoolss",
+            "\\scerpc",
+            "\\ntsvcs",
+            "\\SearchTextHarvester",
+            "\\PGMessagePipe",
+            "\\MsFteWds"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_optional_websense": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "contains",
+          "values": [
+            ":\\Program Files\\Websense\\",
+            ":\\Program Files (x86)\\Websense\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "PipeName",
+          "operator": "startswith",
+          "values": [
+            "\\DserNamePipeR",
+            "\\DserNamePipeW"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "wildcard_ref",
+        "mode": "any",
+        "pattern": "selection_malleable_profile_*"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_main_*"
+        }
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_optional_*"
+        }
+      }
+    ]
+  }
+}

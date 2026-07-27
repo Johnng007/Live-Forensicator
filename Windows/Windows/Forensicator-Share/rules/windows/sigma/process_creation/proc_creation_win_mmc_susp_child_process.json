@@ -1,0 +1,85 @@
+{
+  "title": "MMC Spawning Windows Shell",
+  "rule_id": "05a2ab7e-ce11-4b63-86db-ab32e763e11d",
+  "description": "Detects a Windows command line executable started from MMC",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.lateral-movement",
+    "attack.t1021.003"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_mmc_susp_child_process.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection1": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "endswith",
+          "values": [
+            "\\mmc.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection2": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\cmd.exe",
+                "\\powershell.exe",
+                "\\pwsh.exe",
+                "\\wscript.exe",
+                "\\cscript.exe",
+                "\\sh.exe",
+                "\\bash.exe",
+                "\\reg.exe",
+                "\\regsvr32.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "contains",
+              "values": [
+                "\\BITSADMIN"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection*"
+  }
+}

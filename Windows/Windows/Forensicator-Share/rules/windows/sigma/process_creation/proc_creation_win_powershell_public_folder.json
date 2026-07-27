@@ -1,0 +1,62 @@
+{
+  "title": "Execution of Powershell Script in Public Folder",
+  "rule_id": "fb9d3ff7-7348-46ab-af8c-b55f5fbf39b4",
+  "description": "This rule detects execution of PowerShell scripts located in the \"C:\\Users\\Public\" folder",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1059.001"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_powershell_public_folder.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\powershell.exe",
+            "\\pwsh.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "-f C:\\Users\\Public",
+            "-f \"C:\\Users\\Public",
+            "-f %Public%",
+            "-fi C:\\Users\\Public",
+            "-fi \"C:\\Users\\Public",
+            "-fi %Public%",
+            "-fil C:\\Users\\Public",
+            "-fil \"C:\\Users\\Public",
+            "-fil %Public%",
+            "-file C:\\Users\\Public",
+            "-file \"C:\\Users\\Public",
+            "-file %Public%"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

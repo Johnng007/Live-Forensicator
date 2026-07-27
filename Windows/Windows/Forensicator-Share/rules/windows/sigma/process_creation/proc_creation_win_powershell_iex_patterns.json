@@ -1,0 +1,104 @@
+{
+  "title": "Suspicious PowerShell IEX Execution Patterns",
+  "rule_id": "09576804-7a05-458e-a817-eb718ca91f54",
+  "description": "Detects suspicious ways to run Invoke-Execution using IEX alias",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1059.001"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_powershell_iex_patterns.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_combined_1": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\powershell.exe",
+            "\\pwsh.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " | iex;",
+            " | iex ",
+            " | iex}",
+            " | IEX ;",
+            " | IEX -Error",
+            " | IEX (new",
+            ");IEX "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_combined_2": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "::FromBase64String",
+            ".GetString([System.Convert]::"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_standalone": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            ")|iex;$",
+            ");iex($",
+            ");iex $",
+            " | IEX | ",
+            " | iex\\\""
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "any",
+    "children": [
+      {
+        "type": "wildcard_ref",
+        "mode": "all",
+        "pattern": "selection_combined_*"
+      },
+      {
+        "type": "item_ref",
+        "name": "selection_standalone"
+      }
+    ]
+  }
+}

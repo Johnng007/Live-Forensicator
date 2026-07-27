@@ -1,0 +1,75 @@
+{
+  "title": "Usage Of Web Request Commands And Cmdlets - ScriptBlock",
+  "rule_id": "1139d2e2-84b1-4226-b445-354492eba8ba",
+  "description": "Detects the use of various web request commands with commandline tools and Windows PowerShell cmdlets (including aliases) via PowerShell scriptblock logs",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1059.001"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_web_request_cmd_and_cmdlets.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "[System.Net.WebRequest]::create",
+            "curl ",
+            "Invoke-RestMethod",
+            "Invoke-WebRequest",
+            " irm ",
+            "iwr ",
+            "Resume-BitsTransfer",
+            "Start-BitsTransfer",
+            "wget ",
+            "WinHttp.WinHttpRequest"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Path",
+          "operator": "startswith",
+          "values": [
+            "C:\\Packages\\Plugins\\Microsoft.GuestConfiguration.ConfigurationforWindows\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "item_ref",
+          "name": "filter"
+        }
+      }
+    ]
+  }
+}

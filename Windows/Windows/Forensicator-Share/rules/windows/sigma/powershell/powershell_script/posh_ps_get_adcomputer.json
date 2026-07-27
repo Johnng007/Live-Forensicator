@@ -1,0 +1,58 @@
+{
+  "title": "Active Directory Computers Enumeration With Get-AdComputer",
+  "rule_id": "36bed6b2-e9a0-4fff-beeb-413a92b86138",
+  "description": "Detects usage of the \"Get-AdComputer\" to enumerate Computers or properties within Active Directory.",
+  "level": "low",
+  "status": "test",
+  "tags": [
+    "attack.discovery",
+    "attack.t1018",
+    "attack.t1087.002"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_get_adcomputer.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection_cmdlet": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "Get-AdComputer "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_option": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "-Filter ",
+            "-LDAPFilter ",
+            "-Properties "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

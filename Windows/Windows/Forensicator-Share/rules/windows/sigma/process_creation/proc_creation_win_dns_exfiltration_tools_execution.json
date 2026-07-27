@@ -1,0 +1,63 @@
+{
+  "title": "DNS Exfiltration and Tunneling Tools Execution",
+  "rule_id": "98a96a5a-64a0-4c42-92c5-489da3866cb0",
+  "description": "Well-known DNS Exfiltration tools execution",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.exfiltration",
+    "attack.t1048.001",
+    "attack.command-and-control",
+    "attack.t1071.004",
+    "attack.t1132.001"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_dns_exfiltration_tools_execution.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\iodine.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "contains",
+              "values": [
+                "\\dnscat2"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "title": "Root Certificate Installed - PowerShell",
+  "rule_id": "42821614-9264-4761-acfc-5772c3286f76",
+  "description": "Adversaries may install a root certificate on a compromised system to avoid warnings when connecting to adversary controlled web servers.",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.defense-impairment",
+    "attack.t1553.004"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_root_certificate_installed.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection1": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "Move-Item",
+            "Cert:\\LocalMachine\\Root"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection2": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "Import-Certificate",
+            "Cert:\\LocalMachine\\Root"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "any",
+    "pattern": "selection*"
+  }
+}

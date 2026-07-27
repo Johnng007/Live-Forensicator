@@ -1,0 +1,70 @@
+{
+  "title": "Renamed Remote Utilities RAT (RURAT) Execution",
+  "rule_id": "9ef27c24-4903-4192-881a-3adde7ff92a5",
+  "description": "Detects execution of renamed Remote Utilities (RURAT) via Product PE header field",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.collection",
+    "attack.command-and-control",
+    "attack.discovery",
+    "attack.stealth",
+    "attack.s0592"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_renamed_rurat.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Product",
+          "operator": "exact",
+          "values": [
+            "Remote Utilities"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\rutserv.exe",
+            "\\rfusclient.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "item_ref",
+          "name": "filter"
+        }
+      }
+    ]
+  }
+}

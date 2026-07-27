@@ -1,0 +1,49 @@
+{
+  "title": "Unsigned Image Loaded Into LSASS Process",
+  "rule_id": "857c8db3-c89b-42fb-882b-f681c7cf4da2",
+  "description": "Loading unsigned image (DLL, EXE) into LSASS process",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.credential-access",
+    "attack.t1003.001"
+  ],
+  "category": "image_load",
+  "rule_file": "rules/windows/image_load/image_load_lsass_unsigned_image_load.yml",
+  "sources": [
+    "sysmon_image_load"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\lsass.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Signed",
+          "operator": "exact",
+          "values": [
+            "false"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

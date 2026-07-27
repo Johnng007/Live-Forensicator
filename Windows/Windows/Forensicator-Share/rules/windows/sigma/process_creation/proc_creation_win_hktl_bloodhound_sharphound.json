@@ -1,0 +1,156 @@
+{
+  "title": "HackTool - Bloodhound/Sharphound Execution",
+  "rule_id": "f376c8a7-a2d0-4ddc-aa0c-16c17236d962",
+  "description": "Detects command line parameters used by Bloodhound and Sharphound hack tools",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.discovery",
+    "attack.t1087.001",
+    "attack.t1087.002",
+    "attack.t1482",
+    "attack.t1069.001",
+    "attack.t1069.002",
+    "attack.execution",
+    "attack.t1059.001"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_hktl_bloodhound_sharphound.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Product",
+              "operator": "contains",
+              "values": [
+                "SharpHound"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Description",
+              "operator": "contains",
+              "values": [
+                "SharpHound"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Company",
+              "operator": "contains",
+              "values": [
+                "SpecterOps",
+                "evil corp"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "contains",
+              "values": [
+                "\\Bloodhound.exe",
+                "\\SharpHound.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_cli_1": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " -CollectionMethod All ",
+            " --CollectionMethods Session ",
+            " --Loop --Loopduration ",
+            " --PortScanTimeout ",
+            ".exe -c All -d ",
+            "Invoke-Bloodhound",
+            "Get-BloodHoundData"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_cli_2": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " -JsonFolder ",
+            " -ZipFileName "
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_cli_3": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " DCOnly ",
+            " --NoSaveCache "
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "any",
+    "pattern": "selection_*"
+  }
+}

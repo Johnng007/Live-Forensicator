@@ -1,0 +1,39 @@
+{
+  "title": "HackTool - Sliver C2 Implant Activity Pattern",
+  "rule_id": "42333b2c-b425-441c-b70e-99404a17170f",
+  "description": "Detects process activity patterns as seen being used by Sliver C2 framework implants",
+  "level": "critical",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1059"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_hktl_sliver_c2_execution_pattern.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "-NoExit -Command [Console]::OutputEncoding=[Text.UTF8Encoding]::UTF8"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

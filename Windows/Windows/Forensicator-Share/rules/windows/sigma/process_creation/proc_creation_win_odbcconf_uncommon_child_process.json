@@ -1,0 +1,39 @@
+{
+  "title": "Uncommon Child Process Spawned By Odbcconf.EXE",
+  "rule_id": "8e3c7994-131e-4ba5-b6ea-804d49113a26",
+  "description": "Detects an uncommon child process of \"odbcconf.exe\" binary which normally shouldn't have any child processes.",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.stealth",
+    "attack.t1218.008"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_odbcconf_uncommon_child_process.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "endswith",
+          "values": [
+            "\\odbcconf.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "title": "Invoke-Obfuscation Via Stdin - PowerShell Module",
+  "rule_id": "c72aca44-8d52-45ad-8f81-f96c4d3c755e",
+  "description": "Detects Obfuscated Powershell via Stdin in Scripts",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.stealth",
+    "attack.t1027",
+    "attack.execution",
+    "attack.t1059.001"
+  ],
+  "category": "ps_module",
+  "rule_file": "rules/windows/powershell/powershell_module/posh_pm_invoke_obfuscation_via_stdin.yml",
+  "sources": [
+    "powershell_module_logging"
+  ],
+  "items": {
+    "selection_4103": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Payload",
+          "operator": "re",
+          "values": [
+            "(?i)(set).*&&\\s?set.*(environment|invoke|\\$?\\{?input).*&&.*\""
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": false
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection_4103"
+  }
+}

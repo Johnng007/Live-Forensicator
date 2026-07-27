@@ -1,0 +1,40 @@
+{
+  "title": "Suspicious GetTypeFromCLSID ShellExecute",
+  "rule_id": "8bc063d5-3a3a-4f01-a140-bc15e55e8437",
+  "description": "Detects suspicious Powershell code that execute COM Objects",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.privilege-escalation",
+    "attack.persistence",
+    "attack.t1546.015"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_susp_gettypefromclsid.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "::GetTypeFromCLSID(",
+            ".ShellExecute("
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

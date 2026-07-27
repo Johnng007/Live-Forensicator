@@ -1,0 +1,275 @@
+{
+  "title": "PUA - PingCastle Execution From Potentially Suspicious Parent",
+  "rule_id": "b37998de-a70b-4f33-b219-ec36bf433dc0",
+  "description": "Detects the execution of PingCastle, a tool designed to quickly assess the Active Directory security level via a script located in a potentially suspicious or uncommon location.\n",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.reconnaissance",
+    "attack.t1595"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_pua_pingcastle_script_parent.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_parent_ext": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentCommandLine",
+          "operator": "contains",
+          "values": [
+            ".bat",
+            ".chm",
+            ".cmd",
+            ".hta",
+            ".htm",
+            ".html",
+            ".js",
+            ".lnk",
+            ".ps1",
+            ".vbe",
+            ".vbs",
+            ".wsf"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_parent_path_1": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentCommandLine",
+          "operator": "contains",
+          "values": [
+            ":\\Perflogs\\",
+            ":\\Temp\\",
+            ":\\Users\\Public\\",
+            ":\\Windows\\Temp\\",
+            "\\AppData\\Local\\Temp",
+            "\\AppData\\Roaming\\",
+            "\\Temporary Internet"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_parent_path_2": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "ParentCommandLine",
+              "operator": "contains",
+              "values": [
+                ":\\Users\\",
+                "\\Favorites\\"
+              ],
+              "match": "all",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "ParentCommandLine",
+              "operator": "contains",
+              "values": [
+                ":\\Users\\",
+                "\\Favourites\\"
+              ],
+              "match": "all",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "ParentCommandLine",
+              "operator": "contains",
+              "values": [
+                ":\\Users\\",
+                "\\Contacts\\"
+              ],
+              "match": "all",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_cli": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\PingCastle.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "PingCastle.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Product",
+              "operator": "exact",
+              "values": [
+                "Ping Castle"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "contains",
+              "values": [
+                "--scanner aclcheck",
+                "--scanner antivirus",
+                "--scanner computerversion",
+                "--scanner foreignusers",
+                "--scanner laps_bitlocker",
+                "--scanner localadmin",
+                "--scanner nullsession",
+                "--scanner nullsession-trust",
+                "--scanner oxidbindings",
+                "--scanner remote",
+                "--scanner share",
+                "--scanner smb",
+                "--scanner smb3querynetwork",
+                "--scanner spooler",
+                "--scanner startup",
+                "--scanner zerologon"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "contains",
+              "values": [
+                "--no-enum-limit"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "contains",
+              "values": [
+                "--healthcheck",
+                "--level Full"
+              ],
+              "match": "all",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "contains",
+              "values": [
+                "--healthcheck",
+                "--server "
+              ],
+              "match": "all",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "wildcard_ref",
+        "mode": "any",
+        "pattern": "selection_parent_*"
+      },
+      {
+        "type": "item_ref",
+        "name": "selection_parent_ext"
+      },
+      {
+        "type": "item_ref",
+        "name": "selection_cli"
+      }
+    ]
+  }
+}

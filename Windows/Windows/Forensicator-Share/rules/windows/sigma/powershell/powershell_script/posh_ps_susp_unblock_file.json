@@ -1,0 +1,39 @@
+{
+  "title": "Suspicious Unblock-File",
+  "rule_id": "5947497f-1aa4-41dd-9693-c9848d58727d",
+  "description": "Remove the Zone.Identifier alternate data stream which identifies the file as downloaded from the internet.",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.defense-impairment",
+    "attack.t1553.005"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_susp_unblock_file.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "Unblock-File ",
+            "-Path "
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "title": "WINEKEY Registry Modification",
+  "rule_id": "b98968aa-dbc0-4a9c-ac35-108363cbf8d5",
+  "description": "Detects potential malicious modification of run keys by winekey or team9 backdoor",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.privilege-escalation",
+    "attack.persistence",
+    "attack.t1547"
+  ],
+  "category": "registry_event",
+  "rule_file": "rules/windows/registry/registry_event/registry_event_runkey_winekey.yml",
+  "sources": [
+    "sysmon_registry_event"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "TargetObject",
+          "operator": "endswith",
+          "values": [
+            "Software\\Microsoft\\Windows\\CurrentVersion\\Run\\Backup Mgr"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

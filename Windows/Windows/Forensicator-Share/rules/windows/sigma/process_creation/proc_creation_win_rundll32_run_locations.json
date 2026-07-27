@@ -1,0 +1,69 @@
+{
+  "title": "Suspicious Process Start Locations",
+  "rule_id": "15b75071-74cc-47e0-b4c6-b43744a62a2b",
+  "description": "Detects suspicious process run from unusual locations",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.stealth",
+    "attack.t1036",
+    "car.2013-05-002"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_rundll32_run_locations.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "contains",
+              "values": [
+                ":\\RECYCLER\\",
+                ":\\SystemVolumeInformation\\"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "startswith",
+              "values": [
+                "C:\\Windows\\Tasks\\",
+                "C:\\Windows\\debug\\",
+                "C:\\Windows\\fonts\\",
+                "C:\\Windows\\help\\",
+                "C:\\Windows\\drivers\\",
+                "C:\\Windows\\addins\\",
+                "C:\\Windows\\cursors\\",
+                "C:\\Windows\\system32\\tasks\\"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

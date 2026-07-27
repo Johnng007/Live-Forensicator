@@ -1,0 +1,99 @@
+{
+  "title": "Security Tools Keyword Lookup Via Findstr.EXE",
+  "rule_id": "4fe074b4-b833-4081-8f24-7dcfeca72b42",
+  "description": "Detects execution of \"findstr\" to search for common names of security tools. Attackers often pipe the results of recon commands such as \"tasklist\" or \"whoami\" to \"findstr\" in order to filter out the results.\nThis detection focuses on the keywords that the attacker might use as a filter.\n",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.discovery",
+    "attack.t1518.001"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_findstr_security_keyword_lookup.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\find.exe",
+                "\\findstr.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "FIND.EXE",
+                "FINDSTR.EXE"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_cli": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "endswith",
+          "values": [
+            " avira",
+            " avira\"",
+            " cb",
+            " cb\"",
+            " cylance",
+            " cylance\"",
+            " defender",
+            " defender\"",
+            " kaspersky",
+            " kaspersky\"",
+            " kes",
+            " kes\"",
+            " mc",
+            " mc\"",
+            " sec",
+            " sec\"",
+            " sentinel",
+            " sentinel\"",
+            " symantec",
+            " symantec\"",
+            " virus",
+            " virus\""
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

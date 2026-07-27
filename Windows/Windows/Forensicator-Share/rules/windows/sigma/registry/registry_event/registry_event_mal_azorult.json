@@ -1,0 +1,63 @@
+{
+  "title": "Registry Entries For Azorult Malware",
+  "rule_id": "f7f9ab88-7557-4a69-b30e-0a8f91b3a0e7",
+  "description": "Detects the presence of a registry key created during Azorult execution",
+  "level": "critical",
+  "status": "test",
+  "tags": [
+    "attack.persistence",
+    "attack.execution",
+    "attack.defense-impairment",
+    "attack.t1112"
+  ],
+  "category": "registry_event",
+  "rule_file": "rules/windows/registry/registry_event/registry_event_mal_azorult.yml",
+  "sources": [
+    "sysmon_registry_event"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "EventID",
+          "operator": "exact",
+          "values": [
+            "12",
+            "13"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "TargetObject",
+          "operator": "contains",
+          "values": [
+            "SYSTEM\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "TargetObject",
+          "operator": "endswith",
+          "values": [
+            "\\services\\localNETService"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

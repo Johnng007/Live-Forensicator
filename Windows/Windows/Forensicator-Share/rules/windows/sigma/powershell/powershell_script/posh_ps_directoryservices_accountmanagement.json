@@ -1,0 +1,38 @@
+{
+  "title": "Manipulation of User Computer or Group Security Principals Across AD",
+  "rule_id": "b29a93fb-087c-4b5b-a84d-ee3309e69d08",
+  "description": "Adversaries may create a domain account to maintain access to victim systems.\nDomain accounts are those managed by Active Directory Domain Services where access and permissions are configured across systems and services that are part of that domain..\n",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.persistence",
+    "attack.t1136.002"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_directoryservices_accountmanagement.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "System.DirectoryServices.AccountManagement"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

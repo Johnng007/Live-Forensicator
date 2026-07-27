@@ -1,0 +1,63 @@
+{
+  "title": "HackTool - Quarks PwDump Execution",
+  "rule_id": "0685b176-c816-4837-8e7b-1216f346636b",
+  "description": "Detects usage of the Quarks PwDump tool via commandline arguments",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.credential-access",
+    "attack.t1003.002"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_hktl_quarks_pwdump.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\QuarksPwDump.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_cli": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "exact",
+          "values": [
+            " -dhl",
+            " --dump-hash-local",
+            " -dhdc",
+            " --dump-hash-domain-cached",
+            " --dump-bitlocker",
+            " -dhd ",
+            " --dump-hash-domain ",
+            "--ntds-file"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "any",
+    "pattern": "selection_*"
+  }
+}

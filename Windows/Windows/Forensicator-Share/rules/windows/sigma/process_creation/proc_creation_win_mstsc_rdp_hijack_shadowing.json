@@ -1,0 +1,40 @@
+{
+  "title": "Potential MSTSC Shadowing Activity",
+  "rule_id": "6ba5a05f-b095-4f0a-8654-b825f4f16334",
+  "description": "Detects RDP session hijacking by using MSTSC shadowing",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.lateral-movement",
+    "attack.t1563.002"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_mstsc_rdp_hijack_shadowing.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "noconsentprompt",
+            "shadow:"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

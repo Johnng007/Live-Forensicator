@@ -1,0 +1,51 @@
+{
+  "title": "Network Communication Initiated To Portmap.IO Domain",
+  "rule_id": "07837ab9-60e1-481f-a74d-c31fb496a94c",
+  "description": "Detects an executable accessing the portmap.io domain, which could be a sign of forbidden C2 traffic or data exfiltration by malicious actors",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.t1041",
+    "attack.command-and-control",
+    "attack.t1090.002",
+    "attack.exfiltration"
+  ],
+  "category": "network_connection",
+  "rule_file": "rules/windows/network_connection/net_connection_win_domain_portmap.yml",
+  "sources": [
+    "sysmon_network_connection"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Initiated",
+          "operator": "exact",
+          "values": [
+            "true"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "DestinationHostname",
+          "operator": "endswith",
+          "values": [
+            ".portmap.io"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

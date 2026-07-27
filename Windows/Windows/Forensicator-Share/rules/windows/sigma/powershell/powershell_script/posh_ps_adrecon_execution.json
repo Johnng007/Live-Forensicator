@@ -1,0 +1,42 @@
+{
+  "title": "PowerShell ADRecon Execution",
+  "rule_id": "bf72941a-cba0-41ea-b18c-9aca3925690d",
+  "description": "Detects execution of ADRecon.ps1 for AD reconnaissance which has been reported to be actively used by FIN7",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.discovery",
+    "attack.execution",
+    "attack.t1059.001"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_adrecon_execution.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "Function Get-ADRExcelComOb",
+            "Get-ADRGPO",
+            "Get-ADRDomainController",
+            "ADRecon-Report.xlsx"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

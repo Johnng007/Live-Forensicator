@@ -1,0 +1,139 @@
+{
+  "title": "Suspicious ScreenSave Change by Reg.exe",
+  "rule_id": "0fc35fc3-efe6-4898-8a37-0b233339524f",
+  "description": "Adversaries may establish persistence by executing malicious content triggered by user inactivity.\nScreensavers are programs that execute after a configurable time of user inactivity and consist of Portable Executable (PE) files with a .scr file extension\n",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.persistence",
+    "attack.privilege-escalation",
+    "attack.t1546.002"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_reg_screensaver.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_reg": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\reg.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "HKEY_CURRENT_USER\\Control Panel\\Desktop",
+            "HKCU\\Control Panel\\Desktop"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_option_1": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "/v ScreenSaveActive",
+            "/t REG_SZ",
+            "/d 1",
+            "/f"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_option_2": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "/v ScreenSaveTimeout",
+            "/t REG_SZ",
+            "/d ",
+            "/f"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_option_3": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "/v ScreenSaverIsSecure",
+            "/t REG_SZ",
+            "/d 0",
+            "/f"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_option_4": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "/v SCRNSAVE.EXE",
+            "/t REG_SZ",
+            "/d ",
+            ".scr",
+            "/f"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection_reg"
+      },
+      {
+        "type": "wildcard_ref",
+        "mode": "any",
+        "pattern": "selection_option_*"
+      }
+    ]
+  }
+}

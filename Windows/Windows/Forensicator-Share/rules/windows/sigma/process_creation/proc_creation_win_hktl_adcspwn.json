@@ -1,0 +1,41 @@
+{
+  "title": "HackTool - ADCSPwn Execution",
+  "rule_id": "cd8c163e-a19b-402e-bdd5-419ff5859f12",
+  "description": "Detects command line parameters used by ADCSPwn, a tool to escalate privileges in an active directory network by coercing authenticate from machine accounts and relaying to the certificate service",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.collection",
+    "attack.credential-access",
+    "attack.t1557.001"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_hktl_adcspwn.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " --adcs ",
+            " --port "
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

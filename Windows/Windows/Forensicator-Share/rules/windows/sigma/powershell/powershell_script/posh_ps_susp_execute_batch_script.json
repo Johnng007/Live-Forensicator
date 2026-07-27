@@ -1,0 +1,56 @@
+{
+  "title": "Powershell Execute Batch Script",
+  "rule_id": "b5522a23-82da-44e5-9c8b-e10ed8955f88",
+  "description": "Adversaries may abuse the Windows command shell for execution.\nThe Windows command shell ([cmd](https://attack.mitre.org/software/S0106)) is the primary command prompt on Windows systems.\nThe Windows command prompt can be used to control almost any aspect of a system, with various permission levels required for different subsets of commands.\nBatch files (ex: .bat or .cmd) also provide the shell with a list of sequential commands to run, as well as normal scripting operations such as conditionals and loops.\nCommon uses of batch files include long or repetitive tasks, or the need to run the same set of commands on multiple system\n",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1059.003"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_susp_execute_batch_script.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection_start": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "Start-Process"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_batch": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            ".cmd",
+            ".bat"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

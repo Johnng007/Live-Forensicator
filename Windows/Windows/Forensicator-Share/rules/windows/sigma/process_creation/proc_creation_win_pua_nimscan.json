@@ -1,0 +1,61 @@
+{
+  "title": "PUA - NimScan Execution",
+  "rule_id": "4fd6b1c7-19b8-4488-97f6-00f0924991a3",
+  "description": "Detects usage of NimScan, a portscanner utility.\nIn early 2025, adversaries were observed using this utility to scan for open ports on remote hosts in a compromised environment.\nThis rule identifies the execution of NimScan based on the process image name and specific hash values associated with different versions of the tool.\n",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.discovery",
+    "attack.t1046"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_pua_nimscan.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\NimScan.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Hashes",
+              "operator": "contains",
+              "values": [
+                "IMPHASH=41BB1C7571B3A724EB83A1D2B96DBB8C",
+                "IMPHASH=B1B6ADACB172795480179EFD18A29549",
+                "IMPHASH=0D1F896DC7642AD8384F9042F30279C2"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "title": "Taskkill Symantec Endpoint Protection",
+  "rule_id": "4a6713f6-3331-11ed-a261-0242ac120002",
+  "description": "Detects one of the possible scenarios for disabling Symantec Endpoint Protection.\nSymantec Endpoint Protection antivirus software services incorrectly implement the protected service mechanism.\nAs a result, the NT AUTHORITY/SYSTEM user can execute the taskkill /im command several times ccSvcHst.exe /f, thereby killing the process belonging to the service, and thus shutting down the service.\n",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.defense-impairment",
+    "attack.t1685"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_taskkill_sep.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "taskkill",
+            " /F ",
+            " /IM ",
+            "ccSvcHst.exe"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

@@ -1,0 +1,104 @@
+{
+  "title": "Suspicious Unsigned Thor Scanner Execution",
+  "rule_id": "ea5c131b-380d-49f9-aeb3-920694da4d4b",
+  "description": "Detects loading and execution of an unsigned thor scanner binary.",
+  "level": "high",
+  "status": "stable",
+  "tags": [
+    "attack.privilege-escalation",
+    "attack.persistence",
+    "attack.execution",
+    "attack.stealth",
+    "attack.t1574.001"
+  ],
+  "category": "image_load",
+  "rule_file": "rules/windows/image_load/image_load_thor_unsigned_execution.yml",
+  "sources": [
+    "sysmon_image_load"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\thor.exe",
+            "\\thor64.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "ImageLoaded",
+          "operator": "endswith",
+          "values": [
+            "\\thor.exe",
+            "\\thor64.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Signed",
+          "operator": "exact",
+          "values": [
+            "true"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "SignatureStatus",
+          "operator": "exact",
+          "values": [
+            "valid"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Signature",
+          "operator": "exact",
+          "values": [
+            "Nextron Systems GmbH"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "item_ref",
+          "name": "filter_main"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "title": "VeeamBackup Database Credentials Dump Via Sqlcmd.EXE",
+  "rule_id": "b57ba453-b384-4ab9-9f40-1038086b4e53",
+  "description": "Detects dump of credentials in VeeamBackup dbo",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.collection",
+    "attack.t1005"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_sqlcmd_veeam_dump.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_tools": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\sqlcmd.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_query": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "SELECT",
+            "TOP",
+            "[VeeamBackup].[dbo].[Credentials]"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "title": "Remote Access Tool - ScreenConnect Server Web Shell Execution",
+  "rule_id": "b19146a3-25d4-41b4-928b-1e2a92641b1b",
+  "description": "Detects potential web shell execution from the ScreenConnect server process.",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.initial-access",
+    "attack.t1190"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_remote_access_tools_screenconnect_webshell.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "endswith",
+          "values": [
+            "\\ScreenConnect.Service.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\cmd.exe",
+            "\\csc.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

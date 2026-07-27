@@ -1,0 +1,37 @@
+{
+  "title": "HackTool - DiagTrackEoP Default Named Pipe",
+  "rule_id": "1f7025a6-e747-4130-aac4-961eb47015f1",
+  "description": "Detects creation of default named pipe used by the DiagTrackEoP POC, a tool that abuses \"SeImpersonate\" privilege.",
+  "level": "critical",
+  "status": "test",
+  "tags": [
+    "attack.privilege-escalation"
+  ],
+  "category": "pipe_created",
+  "rule_file": "rules/windows/pipe_created/pipe_created_hktl_diagtrack_eop.yml",
+  "sources": [
+    "sysmon_pipe_created"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "PipeName",
+          "operator": "contains",
+          "values": [
+            "thisispipe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

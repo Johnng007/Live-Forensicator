@@ -1,0 +1,41 @@
+{
+  "title": "AMSI Bypass Pattern Assembly GetType",
+  "rule_id": "e0d6c087-2d1c-47fd-8799-3904103c5a98",
+  "description": "Detects code fragments found in small and obfuscated AMSI bypass PowerShell scripts",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.defense-impairment",
+    "attack.t1685",
+    "attack.execution"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_amsi_bypass_pattern_nov22.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "[Ref].Assembly.GetType",
+            "SetValue($null,$true)",
+            "NonPublic,Static"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

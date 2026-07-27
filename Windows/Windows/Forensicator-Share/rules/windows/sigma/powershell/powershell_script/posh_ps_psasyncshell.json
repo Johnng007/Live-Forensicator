@@ -1,0 +1,38 @@
+{
+  "title": "PSAsyncShell - Asynchronous TCP Reverse Shell",
+  "rule_id": "afd3df04-948d-46f6-ae44-25966c44b97f",
+  "description": "Detects the use of PSAsyncShell an Asynchronous TCP Reverse Shell written in powershell",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1059.001"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_psasyncshell.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "PSAsyncShell"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

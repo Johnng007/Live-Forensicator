@@ -1,0 +1,79 @@
+{
+  "title": "Potential Fake Instance Of Hxtsr.EXE Executed",
+  "rule_id": "4e762605-34a8-406d-b72e-c1a089313320",
+  "description": "HxTsr.exe is a Microsoft compressed executable file called Microsoft Outlook Communications.\nHxTsr.exe is part of Outlook apps, because it resides in a hidden \"WindowsApps\" subfolder of \"C:\\Program Files\".\nAny instances of hxtsr.exe not in this folder may be malware camouflaging itself as HxTsr.exe\n",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.stealth",
+    "attack.t1036"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_hxtsr_masquerading.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\hxtsr.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main_hxtsr": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "contains",
+          "values": [
+            ":\\program files\\windowsapps\\microsoft.windowscommunicationsapps_"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\hxtsr.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_main_*"
+        }
+      }
+    ]
+  }
+}

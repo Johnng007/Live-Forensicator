@@ -1,0 +1,42 @@
+{
+  "title": "Base64 MZ Header In CommandLine",
+  "rule_id": "22e58743-4ac8-4a9f-bf19-00a0428d8c5f",
+  "description": "Detects encoded base64 MZ header in the commandline",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_susp_inline_base64_mz_header.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "TVqQAAMAAAAEAAAA",
+            "TVpQAAIAAAAEAA8A",
+            "TVqAAAEAAAAEABAA",
+            "TVoAAAAAAAAAAAAA",
+            "TVpTAQEAAAAEAAAA"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

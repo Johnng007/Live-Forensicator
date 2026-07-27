@@ -1,0 +1,44 @@
+{
+  "title": "Suspicious PowerShell Download and Execute Pattern",
+  "rule_id": "e6c54d94-498c-4562-a37c-b469d8e9a275",
+  "description": "Detects suspicious PowerShell download patterns that are often used in malicious scripts, stagers or downloaders (make sure that your backend applies the strings case-insensitive)",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1059.001"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_powershell_susp_download_patterns.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "IEX ((New-Object Net.WebClient).DownloadString",
+            "IEX (New-Object Net.WebClient).DownloadString",
+            "IEX((New-Object Net.WebClient).DownloadString",
+            "IEX(New-Object Net.WebClient).DownloadString",
+            " -command (New-Object System.Net.WebClient).DownloadFile(",
+            " -c (New-Object System.Net.WebClient).DownloadFile("
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

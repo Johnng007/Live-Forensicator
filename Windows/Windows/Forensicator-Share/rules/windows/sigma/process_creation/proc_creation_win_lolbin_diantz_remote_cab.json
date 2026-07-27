@@ -1,0 +1,41 @@
+{
+  "title": "Suspicious Diantz Download and Compress Into a CAB File",
+  "rule_id": "185d7418-f250-42d0-b72e-0c8b70661e93",
+  "description": "Download and compress a remote file and store it in a cab file on local machine.",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.command-and-control",
+    "attack.t1105"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_lolbin_diantz_remote_cab.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "diantz.exe",
+            " \\\\\\\\",
+            ".cab"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "title": "Potential Execution of Sysinternals Tools",
+  "rule_id": "7cccd811-7ae9-4ebe-9afd-cb5c406b824b",
+  "description": "Detects command lines that contain the 'accepteula' flag which could be a sign of execution of one of the Sysinternals tools",
+  "level": "low",
+  "status": "test",
+  "tags": [
+    "attack.resource-development",
+    "attack.t1588.002"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_sysinternals_eula_accepted.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " -accepteula"
+          ],
+          "match": "any",
+          "windash": true,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

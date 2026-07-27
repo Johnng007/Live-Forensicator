@@ -1,0 +1,40 @@
+{
+  "title": "UEFI Persistence Via Wpbbin - ProcessCreation",
+  "rule_id": "4abc0ec4-db5a-412f-9632-26659cddf145",
+  "description": "Detects execution of the binary \"wpbbin\" which is used as part of the UEFI based persistence method described in the reference section",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.persistence",
+    "attack.stealth",
+    "attack.t1542.001"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_wpbbin_potential_persistence.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "exact",
+          "values": [
+            "C:\\Windows\\System32\\wpbbin.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

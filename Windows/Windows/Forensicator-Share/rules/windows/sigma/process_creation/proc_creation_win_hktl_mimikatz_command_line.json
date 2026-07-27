@@ -1,0 +1,96 @@
+{
+  "title": "HackTool - Mimikatz Execution",
+  "rule_id": "a642964e-bead-4bed-8910-1bb4d63e3b4d",
+  "description": "Detection well-known mimikatz command line arguments",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.credential-access",
+    "attack.t1003.001",
+    "attack.t1003.002",
+    "attack.t1003.004",
+    "attack.t1003.005",
+    "attack.t1003.006"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_hktl_mimikatz_command_line.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_tools_name": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "DumpCreds",
+            "mimikatz"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_function_names": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "::aadcookie",
+            "::detours",
+            "::memssp",
+            "::mflt",
+            "::ncroutemon",
+            "::ngcsign",
+            "::printnightmare",
+            "::skeleton",
+            "::preshutdown",
+            "::mstsc",
+            "::multirdp"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_module_names": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "rpc::",
+            "token::",
+            "crypto::",
+            "dpapi::",
+            "sekurlsa::",
+            "kerberos::",
+            "lsadump::",
+            "privilege::",
+            "process::",
+            "vault::"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "any",
+    "pattern": "selection_*"
+  }
+}

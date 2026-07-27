@@ -1,0 +1,78 @@
+{
+  "title": "File Recovery From Backup Via Wbadmin.EXE",
+  "rule_id": "6fe4aa1e-0531-4510-8be2-782154b73b48",
+  "description": "Detects the recovery of files from backups via \"wbadmin.exe\".\nAttackers can restore sensitive files such as NTDS.DIT or Registry Hives from backups in order to potentially extract credentials.\n",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.impact",
+    "attack.t1490"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_wbadmin_restore_file.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\wbadmin.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "WBADMIN.EXE"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_cli": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " recovery",
+            "recoveryTarget",
+            "itemtype:File"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

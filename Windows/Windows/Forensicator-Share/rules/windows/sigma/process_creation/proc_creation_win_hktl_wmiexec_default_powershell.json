@@ -1,0 +1,39 @@
+{
+  "title": "HackTool - Wmiexec Default Powershell Command",
+  "rule_id": "022eaba8-f0bf-4dd9-9217-4604b0bb3bb0",
+  "description": "Detects the execution of PowerShell with a specific flag sequence that is used by the Wmiexec script",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.lateral-movement",
+    "attack.stealth"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_hktl_wmiexec_default_powershell.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "-NoP -NoL -sta -NonI -W Hidden -Exec Bypass -Enc"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

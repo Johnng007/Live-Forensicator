@@ -1,0 +1,50 @@
+{
+  "title": "Suspicious Execution of Shutdown to Log Out",
+  "rule_id": "ec290c06-9b6b-4338-8b6b-095c0f284f10",
+  "description": "Detects the rare use of the command line tool shutdown to logoff a user",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.impact",
+    "attack.t1529"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_shutdown_logoff.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\shutdown.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "/l"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

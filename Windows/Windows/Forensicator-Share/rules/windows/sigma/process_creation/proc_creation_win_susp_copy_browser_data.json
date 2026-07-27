@@ -1,0 +1,127 @@
+{
+  "title": "Potential Browser Data Stealing",
+  "rule_id": "47147b5b-9e17-4d76-b8d2-7bac24c5ce1b",
+  "description": "Adversaries may acquire credentials from web browsers by reading files specific to the target browser.\nWeb browsers commonly save credentials such as website usernames and passwords so that they do not need to be entered manually in the future.\nWeb browsers typically store the credentials in an encrypted format within a credential store.\n",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.credential-access",
+    "attack.t1555.003"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_susp_copy_browser_data.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_cmd": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "contains",
+              "values": [
+                "copy-item",
+                "copy ",
+                "cpi ",
+                " cp ",
+                "move ",
+                "move-item",
+                " mi ",
+                " mv "
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\esentutl.exe",
+                "\\xcopy.exe",
+                "\\robocopy.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "esentutl.exe",
+                "XCOPY.EXE",
+                "robocopy.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_path": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "\\Amigo\\User Data",
+            "\\BraveSoftware\\Brave-Browser\\User Data",
+            "\\CentBrowser\\User Data",
+            "\\Chromium\\User Data",
+            "\\CocCoc\\Browser\\User Data",
+            "\\Comodo\\Dragon\\User Data",
+            "\\Elements Browser\\User Data",
+            "\\Epic Privacy Browser\\User Data",
+            "\\Google\\Chrome Beta\\User Data",
+            "\\Google\\Chrome SxS\\User Data",
+            "\\Google\\Chrome\\User Data\\",
+            "\\Kometa\\User Data",
+            "\\Maxthon5\\Users",
+            "\\Microsoft\\Edge\\User Data",
+            "\\Mozilla\\Firefox\\Profiles",
+            "\\Nichrome\\User Data",
+            "\\Opera Software\\Opera GX Stable\\",
+            "\\Opera Software\\Opera Neon\\User Data",
+            "\\Opera Software\\Opera Stable\\",
+            "\\Orbitum\\User Data",
+            "\\QIP Surf\\User Data",
+            "\\Sputnik\\User Data",
+            "\\Torch\\User Data",
+            "\\uCozMedia\\Uran\\User Data",
+            "\\Vivaldi\\User Data"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "title": "Powershell Local Email Collection",
+  "rule_id": "2837e152-93c8-43d2-85ba-c3cd3c2ae614",
+  "description": "Adversaries may target user email on local systems to collect sensitive information.\nFiles containing email data can be acquired from a users local system, such as Outlook storage or cache files.\n",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.collection",
+    "attack.t1114.001"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_susp_mail_acces.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "Get-Inbox.ps1",
+            "Microsoft.Office.Interop.Outlook",
+            "Microsoft.Office.Interop.Outlook.olDefaultFolders",
+            "-comobject outlook.application"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

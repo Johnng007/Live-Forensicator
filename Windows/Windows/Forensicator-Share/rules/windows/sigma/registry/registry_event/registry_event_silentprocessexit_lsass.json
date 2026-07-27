@@ -1,0 +1,38 @@
+{
+  "title": "Potential Credential Dumping Via LSASS SilentProcessExit Technique",
+  "rule_id": "55e29995-75e7-451a-bef0-6225e2f13597",
+  "description": "Detects changes to the Registry in which a monitor program gets registered to dump the memory of the lsass.exe process",
+  "level": "critical",
+  "status": "test",
+  "tags": [
+    "attack.credential-access",
+    "attack.t1003.001"
+  ],
+  "category": "registry_event",
+  "rule_file": "rules/windows/registry/registry_event/registry_event_silentprocessexit_lsass.yml",
+  "sources": [
+    "sysmon_registry_event"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "TargetObject",
+          "operator": "contains",
+          "values": [
+            "Microsoft\\Windows NT\\CurrentVersion\\SilentProcessExit\\lsass.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

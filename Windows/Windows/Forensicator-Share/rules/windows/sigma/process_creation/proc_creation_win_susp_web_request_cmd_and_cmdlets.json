@@ -1,0 +1,48 @@
+{
+  "title": "Usage Of Web Request Commands And Cmdlets",
+  "rule_id": "9fc51a3c-81b3-4fa7-b35f-7c02cf10fd2d",
+  "description": "Detects the use of various web request commands with commandline tools and Windows PowerShell cmdlets (including aliases) via CommandLine",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1059.001"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_susp_web_request_cmd_and_cmdlets.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "[System.Net.WebRequest]::create",
+            "curl ",
+            "Invoke-RestMethod",
+            "Invoke-WebRequest",
+            " irm ",
+            "iwr ",
+            "Resume-BitsTransfer",
+            "Start-BitsTransfer",
+            "wget ",
+            "WinHttp.WinHttpRequest"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

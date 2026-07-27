@@ -1,0 +1,60 @@
+{
+  "title": "Remote Access Tool - ScreenConnect Potential Suspicious Remote Command Execution",
+  "rule_id": "7b582f1a-b318-4c6a-bf4e-66fe49bf55a5",
+  "description": "Detects potentially suspicious child processes launched via the ScreenConnect client service.\n",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.command-and-control",
+    "attack.t1219.002"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_remote_access_tools_screenconnect_remote_execution_susp.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentCommandLine",
+          "operator": "contains",
+          "values": [
+            ":\\Windows\\TEMP\\ScreenConnect\\",
+            "run.cmd"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\bitsadmin.exe",
+            "\\cmd.exe",
+            "\\curl.exe",
+            "\\dllhost.exe",
+            "\\net.exe",
+            "\\nltest.exe",
+            "\\powershell.exe",
+            "\\pwsh.exe",
+            "\\rundll32.exe",
+            "\\wevtutil.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

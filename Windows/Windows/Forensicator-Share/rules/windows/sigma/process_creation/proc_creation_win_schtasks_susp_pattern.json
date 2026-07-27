@@ -1,0 +1,183 @@
+{
+  "title": "Suspicious Command Patterns In Scheduled Task Creation",
+  "rule_id": "f2c64357-b1d2-41b7-849f-34d2682c0fad",
+  "description": "Detects scheduled task creation using \"schtasks\" that contain potentially suspicious or uncommon commands",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.privilege-escalation",
+    "attack.persistence",
+    "attack.execution",
+    "attack.t1053.005"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_schtasks_susp_pattern.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_schtasks": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\schtasks.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "/Create "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_pattern_1": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "/sc minute ",
+            "/ru system "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_pattern_2": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "cmd /c",
+            "cmd /k",
+            "cmd /r",
+            "cmd.exe /c ",
+            "cmd.exe /k ",
+            "cmd.exe /r "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_uncommon": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " -decode ",
+            " -enc ",
+            " -w hidden ",
+            " bypass ",
+            " IEX",
+            ".DownloadData",
+            ".DownloadFile",
+            ".DownloadString",
+            "/c start /min ",
+            "FromBase64String",
+            "mshta http",
+            "mshta.exe http"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_anomaly_1": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            ":\\ProgramData\\",
+            ":\\Temp\\",
+            ":\\Tmp\\",
+            ":\\Users\\Public\\",
+            ":\\Windows\\Temp\\",
+            "\\AppData\\",
+            "%AppData%",
+            "%Temp%",
+            "%tmp%"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_anomaly_2": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "cscript",
+            "curl",
+            "wscript"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection_schtasks"
+      },
+      {
+        "type": "any",
+        "children": [
+          {
+            "type": "wildcard_ref",
+            "mode": "all",
+            "pattern": "selection_pattern_*"
+          },
+          {
+            "type": "item_ref",
+            "name": "selection_uncommon"
+          },
+          {
+            "type": "wildcard_ref",
+            "mode": "all",
+            "pattern": "selection_anomaly_*"
+          }
+        ]
+      }
+    ]
+  }
+}

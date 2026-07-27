@@ -1,0 +1,159 @@
+{
+  "title": "Renamed PingCastle Binary Execution",
+  "rule_id": "2433a154-bb3d-42e4-86c3-a26bdac91c45",
+  "description": "Detects the execution of a renamed \"PingCastle\" binary based on the PE metadata fields.",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.stealth",
+    "attack.t1059",
+    "attack.t1202"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_renamed_pingcastle.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "PingCastleReporting.exe",
+                "PingCastleCloud.exe",
+                "PingCastle.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "contains",
+              "values": [
+                "--scanner aclcheck",
+                "--scanner antivirus",
+                "--scanner computerversion",
+                "--scanner foreignusers",
+                "--scanner laps_bitlocker",
+                "--scanner localadmin",
+                "--scanner nullsession",
+                "--scanner nullsession-trust",
+                "--scanner oxidbindings",
+                "--scanner remote",
+                "--scanner share",
+                "--scanner smb",
+                "--scanner smb3querynetwork",
+                "--scanner spooler",
+                "--scanner startup",
+                "--scanner zerologon"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "contains",
+              "values": [
+                "--no-enum-limit"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "contains",
+              "values": [
+                "--healthcheck",
+                "--level Full"
+              ],
+              "match": "all",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "contains",
+              "values": [
+                "--healthcheck",
+                "--server "
+              ],
+              "match": "all",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "filter_main_img": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\PingCastleReporting.exe",
+            "\\PingCastleCloud.exe",
+            "\\PingCastle.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_main_*"
+        }
+      }
+    ]
+  }
+}

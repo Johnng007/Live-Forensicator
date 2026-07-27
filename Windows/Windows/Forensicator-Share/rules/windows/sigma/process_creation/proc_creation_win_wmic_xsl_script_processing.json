@@ -1,0 +1,154 @@
+{
+  "title": "XSL Script Execution Via WMIC.EXE",
+  "rule_id": "05c36dd6-79d6-4a9a-97da-3db20298ab2d",
+  "description": "Detects the execution of WMIC with the \"format\" flag to potentially load local XSL files.\nAdversaries abuse this functionality to execute arbitrary files while potentially bypassing application whitelisting defenses.\nExtensible Stylesheet Language (XSL) files are commonly used to describe the processing and rendering of data within XML files.\n",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.stealth",
+    "attack.t1047",
+    "attack.t1220",
+    "attack.execution",
+    "attack.t1059.005",
+    "attack.t1059.007"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_wmic_xsl_script_processing.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\wmic.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "wmic.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Hashes",
+              "operator": "contains",
+              "values": [
+                "IMPHASH=1B1A3F43BF37B5BFE60751F2EE2F326E",
+                "IMPHASH=37777A96245A3C74EB217308F3546F4C",
+                "IMPHASH=9D87C9D67CE724033C0B40CC4CA1B206",
+                "IMPHASH=B12619881D79C3ACADF45E752A58554A",
+                "IMPHASH=16A48C3CABF98A9DC1BF02C07FE1EA00"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_cmd": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "-format:"
+          ],
+          "match": "any",
+          "windash": true,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main_known_format": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "Format:List",
+            "Format:htable",
+            "Format:hform",
+            "Format:table",
+            "Format:mof",
+            "Format:value",
+            "Format:rawxml",
+            "Format:xml",
+            "Format:csv"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main_remote_operation": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "://",
+            "\\\\\\\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "wildcard_ref",
+        "mode": "all",
+        "pattern": "selection_*"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_main_*"
+        }
+      }
+    ]
+  }
+}

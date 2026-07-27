@@ -1,0 +1,67 @@
+{
+  "title": "AADInternals PowerShell Cmdlets Execution - PsScript",
+  "rule_id": "91e69562-2426-42ce-a647-711b8152ced6",
+  "description": "Detects ADDInternals Cmdlet execution. A tool for administering Azure AD and Office 365. Which can be abused by threat actors to attack Azure AD or Office 365.",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.reconnaissance",
+    "attack.discovery",
+    "attack.credential-access",
+    "attack.impact"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_aadinternals_cmdlets_execution.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "Add-AADInt",
+            "ConvertTo-AADInt",
+            "Disable-AADInt",
+            "Enable-AADInt",
+            "Export-AADInt",
+            "Find-AADInt",
+            "Get-AADInt",
+            "Grant-AADInt",
+            "Initialize-AADInt",
+            "Install-AADInt",
+            "Invoke-AADInt",
+            "Join-AADInt",
+            "New-AADInt",
+            "Open-AADInt",
+            "Read-AADInt",
+            "Register-AADInt",
+            "Remove-AADInt",
+            "Reset-AADInt",
+            "Resolve-AADInt",
+            "Restore-AADInt",
+            "Save-AADInt",
+            "Search-AADInt",
+            "Send-AADInt",
+            "Set-AADInt",
+            "Start-AADInt",
+            "Unprotect-AADInt",
+            "Update-AADInt"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

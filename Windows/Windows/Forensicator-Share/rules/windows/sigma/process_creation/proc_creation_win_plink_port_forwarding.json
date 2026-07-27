@@ -1,0 +1,51 @@
+{
+  "title": "Suspicious Plink Port Forwarding",
+  "rule_id": "48a61b29-389f-4032-b317-b30de6b95314",
+  "description": "Detects suspicious Plink tunnel port forwarding to a local port",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.command-and-control",
+    "attack.t1572",
+    "attack.lateral-movement",
+    "attack.t1021.001"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_plink_port_forwarding.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Description",
+          "operator": "exact",
+          "values": [
+            "Command-line SSH, Telnet, and Rlogin client"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " -R "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

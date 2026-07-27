@@ -1,0 +1,105 @@
+{
+  "title": "HackTool - PCHunter Execution",
+  "rule_id": "fca949cc-79ca-446e-8064-01aa7e52ece5",
+  "description": "Detects suspicious use of PCHunter, a tool like Process Hacker to view and manipulate processes, kernel options and other low level stuff",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.discovery",
+    "attack.t1082",
+    "attack.t1057",
+    "attack.t1012",
+    "attack.t1083",
+    "attack.t1007"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_hktl_pchunter.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_image": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\PCHunter64.exe",
+            "\\PCHunter32.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_pe": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "PCHunter.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Description",
+              "operator": "exact",
+              "values": [
+                "Epoolsoft Windows Information View Tools"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_hashes": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Hashes",
+          "operator": "contains",
+          "values": [
+            "SHA1=5F1CBC3D99558307BC1250D084FA968521482025",
+            "MD5=987B65CD9B9F4E9A1AFD8F8B48CF64A7",
+            "SHA256=2B214BDDAAB130C274DE6204AF6DBA5AEEC7433DA99AA950022FA306421A6D32",
+            "IMPHASH=444D210CEA1FF8112F256A4997EED7FF",
+            "SHA1=3FB89787CB97D902780DA080545584D97FB1C2EB",
+            "MD5=228DD0C2E6287547E26FFBD973A40F14",
+            "SHA256=55F041BF4E78E9BFA6D4EE68BE40E496CE3A1353E1CA4306598589E19802522C",
+            "IMPHASH=0479F44DF47CFA2EF1CCC4416A538663"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "any",
+    "pattern": "selection_*"
+  }
+}

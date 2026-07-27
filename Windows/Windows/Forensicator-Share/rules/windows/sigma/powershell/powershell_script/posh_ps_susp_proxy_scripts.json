@@ -1,0 +1,40 @@
+{
+  "title": "Suspicious TCP Tunnel Via PowerShell Script",
+  "rule_id": "bd33d2aa-497e-4651-9893-5c5364646595",
+  "description": "Detects powershell scripts that creates sockets/listeners which could be indicative of tunneling activity",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.command-and-control",
+    "attack.t1090"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_susp_proxy_scripts.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "[System.Net.HttpWebRequest]",
+            "System.Net.Sockets.TcpListener",
+            "AcceptTcpClient"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

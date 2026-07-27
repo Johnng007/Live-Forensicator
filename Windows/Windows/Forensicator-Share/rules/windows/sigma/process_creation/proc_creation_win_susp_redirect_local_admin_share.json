@@ -1,0 +1,57 @@
+{
+  "title": "Suspicious Redirection to Local Admin Share",
+  "rule_id": "ab9e3b40-0c85-4ba1-aede-455d226fd124",
+  "description": "Detects a suspicious output redirection to the local admins share, this technique is often found in malicious scripts or hacktool stagers",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.exfiltration",
+    "attack.t1048"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_susp_redirect_local_admin_share.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_redirect": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            ">"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_share": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "\\\\\\\\127.0.0.1\\\\admin$\\\\",
+            "\\\\\\\\localhost\\\\admin$\\\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

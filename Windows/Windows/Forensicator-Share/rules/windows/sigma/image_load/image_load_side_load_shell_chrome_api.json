@@ -1,0 +1,41 @@
+{
+  "title": "DLL Sideloading Of ShellChromeAPI.DLL",
+  "rule_id": "ee4c5d06-3abc-48cc-8885-77f1c20f4451",
+  "description": "Detects processes loading the non-existent DLL \"ShellChromeAPI\". One known example is the \"DeviceEnroller\" binary in combination with the \"PhoneDeepLink\" flag tries to load this DLL.\nAdversaries can drop their own renamed DLL and execute it via DeviceEnroller.exe using this parameter\n",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.persistence",
+    "attack.privilege-escalation",
+    "attack.execution",
+    "attack.stealth",
+    "attack.t1574.001"
+  ],
+  "category": "image_load",
+  "rule_file": "rules/windows/image_load/image_load_side_load_shell_chrome_api.yml",
+  "sources": [
+    "sysmon_image_load"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ImageLoaded",
+          "operator": "endswith",
+          "values": [
+            "\\ShellChromeAPI.dll"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

@@ -1,0 +1,348 @@
+{
+  "title": "PowerShell Core DLL Loaded By Non PowerShell Process",
+  "rule_id": "092bc4b9-3d1d-43b4-a6b4-8c8acd83522f",
+  "description": "Detects loading of essential DLLs used by PowerShell by non-PowerShell process.\nDetects behavior similar to meterpreter's \"load powershell\" extension.\n",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.t1059.001",
+    "attack.execution"
+  ],
+  "category": "image_load",
+  "rule_file": "rules/windows/image_load/image_load_dll_system_management_automation_susp_load.yml",
+  "sources": [
+    "sysmon_image_load"
+  ],
+  "items": {
+    "selection": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Description",
+              "operator": "exact",
+              "values": [
+                "System.Management.Automation"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "System.Management.Automation.dll"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "ImageLoaded",
+              "operator": "endswith",
+              "values": [
+                "\\System.Management.Automation.dll",
+                "\\System.Management.Automation.ni.dll"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "filter_main_powershell": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "exact",
+          "values": [
+            "C:\\Program Files\\PowerShell\\7-preview\\pwsh.exe",
+            "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+            "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell_ise.exe",
+            "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+            "C:\\Windows\\SysWOW64\\WindowsPowerShell\\v1.0\\powershell_ise.exe",
+            "C:\\Windows\\SysWOW64\\WindowsPowerShell\\v1.0\\powershell.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main_pwsh_preview": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "contains",
+          "values": [
+            "C:\\Program Files\\WindowsApps\\Microsoft.PowerShellPreview",
+            "\\AppData\\Local\\Microsoft\\WindowsApps\\Microsoft.PowerShellPreview"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\pwsh.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main_generic": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "exact",
+          "values": [
+            "C:\\Windows\\System32\\dsac.exe",
+            "C:\\WINDOWS\\System32\\RemoteFXvGPUDisablement.exe",
+            "C:\\Windows\\System32\\runscripthelper.exe",
+            "C:\\WINDOWS\\System32\\sdiagnhost.exe",
+            "C:\\Windows\\System32\\ServerManager.exe",
+            "C:\\Windows\\System32\\SyncAppvPublishingServer.exe",
+            "C:\\Windows\\System32\\winrshost.exe",
+            "C:\\Windows\\System32\\wsmprovhost.exe",
+            "C:\\Windows\\SysWOW64\\winrshost.exe",
+            "C:\\Windows\\SysWOW64\\wsmprovhost.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main_dotnet": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "startswith",
+          "values": [
+            "C:\\Windows\\Microsoft.NET\\Framework\\",
+            "C:\\Windows\\Microsoft.NET\\FrameworkArm\\",
+            "C:\\Windows\\Microsoft.NET\\FrameworkArm64\\",
+            "C:\\Windows\\Microsoft.NET\\Framework64\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\mscorsvw.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_optional_sql_server_mgmt": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "startswith",
+          "values": [
+            "C:\\Program Files (x86)\\Microsoft SQL Server Management Studio",
+            "C:\\Program Files\\Microsoft SQL Server Management Studio"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\IDE\\Ssms.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_optional_sql_server_tools": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "startswith",
+          "values": [
+            "C:\\Program Files (x86)\\Microsoft SQL Server\\",
+            "C:\\Program Files\\Microsoft SQL Server\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\Tools\\Binn\\SQLPS.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_optional_citrix": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\Citrix\\ConfigSync\\ConfigSyncRun.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_optional_vs": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "startswith",
+          "values": [
+            "C:\\Program Files (x86)\\Microsoft Visual Studio\\",
+            "C:\\Program Files\\Microsoft Visual Studio\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_optional_chocolatey": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "startswith",
+          "values": [
+            "C:\\ProgramData\\chocolatey\\choco.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_optional_nextron": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "startswith",
+          "values": [
+            "C:\\Windows\\Temp\\asgard2-agent\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\thor64.exe",
+            "\\thor.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_optional_aurora": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "is_null",
+          "values": [],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_main_*"
+        }
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_optional_*"
+        }
+      }
+    ]
+  }
+}

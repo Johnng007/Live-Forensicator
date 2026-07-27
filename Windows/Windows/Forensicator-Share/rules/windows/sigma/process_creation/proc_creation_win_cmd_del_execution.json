@@ -1,0 +1,95 @@
+{
+  "title": "File Deletion Via Del",
+  "rule_id": "379fa130-190e-4c3f-b7bc-6c8e834485f3",
+  "description": "Detects execution of the builtin \"del\"/\"erase\" commands in order to delete files.\nAdversaries may delete files left behind by the actions of their intrusion activity.\nMalware, tools, or other non-native files dropped or created on a system by an adversary may leave traces to indicate to what was done within a network and how.\nRemoval of these files can occur during an intrusion, or as part of a post-intrusion process to minimize the adversary's footprint.\n",
+  "level": "low",
+  "status": "test",
+  "tags": [
+    "attack.stealth",
+    "attack.t1070.004"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_cmd_del_execution.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\cmd.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "Cmd.Exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_del": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "del ",
+            "erase "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_flags": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " -f",
+            " -s",
+            " -q"
+          ],
+          "match": "any",
+          "windash": true,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

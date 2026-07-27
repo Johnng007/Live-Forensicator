@@ -1,0 +1,66 @@
+{
+  "title": "Suspicious PowerShell Download - Powershell Script",
+  "rule_id": "403c2cc0-7f6b-4925-9423-bfa573bed7eb",
+  "description": "Detects suspicious PowerShell download command",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1059.001"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_susp_download.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "webclient": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "System.Net.WebClient"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "download": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            ".DownloadFile(",
+            ".DownloadFileAsync(",
+            ".DownloadString(",
+            ".DownloadStringAsync("
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "webclient"
+      },
+      {
+        "type": "item_ref",
+        "name": "download"
+      }
+    ]
+  }
+}

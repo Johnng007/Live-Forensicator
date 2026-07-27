@@ -1,0 +1,105 @@
+{
+  "title": "HackTool - CrackMapExec Process Patterns",
+  "rule_id": "f26307d8-14cd-47e3-a26b-4b4769f24af6",
+  "description": "Detects suspicious process patterns found in logs when CrackMapExec is used",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.credential-access",
+    "attack.t1003.001"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_hktl_crackmapexec_patterns.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_lsass_dump1": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "tasklist /fi ",
+            "Imagename eq lsass.exe"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "cmd.exe /c ",
+            "cmd.exe /r ",
+            "cmd.exe /k ",
+            "cmd /c ",
+            "cmd /r ",
+            "cmd /k "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "User",
+          "operator": "contains",
+          "values": [
+            "AUTHORI",
+            "AUTORI"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_lsass_dump2": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "do rundll32.exe C:\\windows\\System32\\comsvcs.dll, MiniDump",
+            "\\Windows\\Temp\\",
+            " full",
+            "%%B"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_procdump": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "tasklist /v /fo csv",
+            "findstr /i \"lsass\""
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "any",
+    "pattern": "selection*"
+  }
+}

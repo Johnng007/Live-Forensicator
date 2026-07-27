@@ -1,0 +1,38 @@
+{
+  "title": "Suspicious Get Information for SMB Share",
+  "rule_id": "95f0643a-ed40-467c-806b-aac9542ec5ab",
+  "description": "Adversaries may look for folders and drives shared on remote systems as a means of identifying sources of information to gather as\na precursor for Collection and to identify potential systems of interest for Lateral Movement.\nNetworks often contain shared network drives and folders that enable users to access file directories on various systems across a network.\n",
+  "level": "low",
+  "status": "test",
+  "tags": [
+    "attack.discovery",
+    "attack.t1069.001"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_susp_smb_share_reco.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "get-smbshare"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

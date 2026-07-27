@@ -1,0 +1,41 @@
+{
+  "title": "SyncAppvPublishingServer VBS Execute Arbitrary PowerShell Code",
+  "rule_id": "36475a7d-0f6d-4dce-9b01-6aeb473bbaf1",
+  "description": "Executes arbitrary PowerShell code using SyncAppvPublishingServer.vbs",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.stealth",
+    "attack.t1218",
+    "attack.t1216"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_lolbin_syncappvpublishingserver_vbs_execute_psh.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "\\SyncAppvPublishingServer.vbs",
+            ";"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "title": "Suspicious X509Enrollment - Ps Script",
+  "rule_id": "504d63cb-0dba-4d02-8531-e72981aace2c",
+  "description": "Detect use of X509Enrollment",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.defense-impairment",
+    "attack.t1553.004"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_x509enrollment.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "X509Enrollment.CBinaryConverter",
+            "884e2002-217d-11da-b2a4-000e7bbb2b09"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

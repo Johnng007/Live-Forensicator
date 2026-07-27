@@ -1,0 +1,225 @@
+{
+  "title": "Suspicious Process By Web Server Process",
+  "rule_id": "8202070f-edeb-4d31-a010-a26c72ac5600",
+  "description": "Detects potentially suspicious processes being spawned by a web server process which could be the result of a successfully placed web shell or exploitation\n",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.persistence",
+    "attack.initial-access",
+    "attack.t1505.003",
+    "attack.t1190"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_webshell_susp_process_spawned_from_webserver.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_webserver_image": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "endswith",
+          "values": [
+            "\\caddy.exe",
+            "\\httpd.exe",
+            "\\nginx.exe",
+            "\\php-cgi.exe",
+            "\\php.exe",
+            "\\tomcat.exe",
+            "\\UMWorkerProcess.exe",
+            "\\w3wp.exe",
+            "\\ws_TomcatService.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_webserver_characteristics_tomcat1": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "endswith",
+          "values": [
+            "\\java.exe",
+            "\\javaw.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "contains",
+          "values": [
+            "-tomcat-",
+            "\\tomcat"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_webserver_characteristics_tomcat2": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "endswith",
+          "values": [
+            "\\java.exe",
+            "\\javaw.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "ParentCommandLine",
+          "operator": "contains",
+          "values": [
+            "CATALINA_HOME",
+            "catalina.home",
+            "catalina.jar"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_anomaly_children": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\arp.exe",
+            "\\at.exe",
+            "\\bash.exe",
+            "\\bitsadmin.exe",
+            "\\certutil.exe",
+            "\\cmd.exe",
+            "\\cscript.exe",
+            "\\dsget.exe",
+            "\\hostname.exe",
+            "\\nbtstat.exe",
+            "\\net.exe",
+            "\\net1.exe",
+            "\\netdom.exe",
+            "\\netsh.exe",
+            "\\nltest.exe",
+            "\\ntdsutil.exe",
+            "\\powershell_ise.exe",
+            "\\powershell.exe",
+            "\\pwsh.exe",
+            "\\qprocess.exe",
+            "\\query.exe",
+            "\\qwinsta.exe",
+            "\\reg.exe",
+            "\\rundll32.exe",
+            "\\sc.exe",
+            "\\sh.exe",
+            "\\wmic.exe",
+            "\\wscript.exe",
+            "\\wusa.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main_fp_1": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "endswith",
+          "values": [
+            "\\java.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "endswith",
+          "values": [
+            "Windows\\system32\\cmd.exe /c C:\\ManageEngine\\ADManager \"Plus\\ES\\bin\\elasticsearch.bat -Enode.name=RMP-NODE1 -pelasticsearch-pid.txt"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main_fp_2": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "endswith",
+          "values": [
+            "\\java.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "sc query",
+            "ADManager Plus"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "wildcard_ref",
+        "mode": "any",
+        "pattern": "selection_webserver_*"
+      },
+      {
+        "type": "item_ref",
+        "name": "selection_anomaly_children"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_main_*"
+        }
+      }
+    ]
+  }
+}

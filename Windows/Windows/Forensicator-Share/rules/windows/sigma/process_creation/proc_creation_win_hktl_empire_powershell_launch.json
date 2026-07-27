@@ -1,0 +1,44 @@
+{
+  "title": "HackTool - Empire PowerShell Launch Parameters",
+  "rule_id": "79f4ede3-402e-41c8-bc3e-ebbf5f162581",
+  "description": "Detects suspicious powershell command line parameters used in Empire",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1059.001"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_hktl_empire_powershell_launch.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " -NoP -sta -NonI -W Hidden -Enc ",
+            " -noP -sta -w 1 -enc ",
+            " -NoP -NonI -W Hidden -enc ",
+            " -noP -sta -w 1 -enc",
+            " -enc  SQB",
+            " -nop -exec bypass -EncodedCommand "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

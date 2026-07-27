@@ -1,0 +1,65 @@
+{
+  "title": "Automated Collection Command PowerShell",
+  "rule_id": "c1dda054-d638-4c16-afc8-53e007f3fbc5",
+  "description": "Once established within a system or network, an adversary may use automated techniques for collecting internal data.",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.collection",
+    "attack.t1119"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_automated_collection.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection_ext": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            ".doc",
+            ".docx",
+            ".xls",
+            ".xlsx",
+            ".ppt",
+            ".pptx",
+            ".rtf",
+            ".pdf",
+            ".txt"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_cmd": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "Get-ChildItem",
+            " -Recurse ",
+            " -Include "
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection*"
+  }
+}

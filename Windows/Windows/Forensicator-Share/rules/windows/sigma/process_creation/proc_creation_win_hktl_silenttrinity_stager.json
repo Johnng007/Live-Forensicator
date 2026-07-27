@@ -1,0 +1,38 @@
+{
+  "title": "HackTool - SILENTTRINITY Stager Execution",
+  "rule_id": "03552375-cc2c-4883-bbe4-7958d5a980be",
+  "description": "Detects SILENTTRINITY stager use via PE metadata",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.command-and-control",
+    "attack.t1071"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_hktl_silenttrinity_stager.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Description",
+          "operator": "contains",
+          "values": [
+            "st2stager"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

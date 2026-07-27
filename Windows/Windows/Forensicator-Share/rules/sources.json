@@ -1,0 +1,474 @@
+[
+  {
+    "id": "powershell_classic",
+    "category": "ps_classic_script",
+    "log_name": "Windows PowerShell",
+    "event_ids": [
+      400,
+      800
+    ],
+    "field_map": {
+      "HostApplication": {
+        "kind": "eventdata",
+        "name": "HostApplication"
+      },
+      "EngineVersion": {
+        "kind": "eventdata",
+        "name": "EngineVersion"
+      },
+      "EventID": {
+        "kind": "system",
+        "name": "EventID"
+      },
+      "Channel": {
+        "kind": "system",
+        "name": "Channel"
+      },
+      "Provider_Name": {
+        "kind": "system",
+        "name": "ProviderName"
+      }
+    }
+  },
+  {
+    "id": "powershell_module_logging",
+    "category": "ps_module",
+    "log_name": "Microsoft-Windows-PowerShell/Operational",
+    "event_ids": [
+      4103
+    ],
+    "field_map": {
+      "Payload": {
+        "kind": "eventdata",
+        "name": "Payload"
+      },
+      "Path": {
+        "kind": "eventdata",
+        "name": "Path"
+      },
+      "EventID": {
+        "kind": "system",
+        "name": "EventID"
+      },
+      "Channel": {
+        "kind": "system",
+        "name": "Channel"
+      },
+      "Provider_Name": {
+        "kind": "system",
+        "name": "ProviderName"
+      }
+    }
+  },
+  {
+    "id": "powershell_script_block",
+    "category": "ps_script",
+    "log_name": "Microsoft-Windows-PowerShell/Operational",
+    "event_ids": [
+      4104
+    ],
+    "field_map": {
+      "ScriptBlockText": {
+        "kind": "eventdata",
+        "name": "ScriptBlockText"
+      },
+      "Path": {
+        "kind": "eventdata",
+        "name": "Path"
+      },
+      "EventID": {
+        "kind": "system",
+        "name": "EventID"
+      },
+      "Channel": {
+        "kind": "system",
+        "name": "Channel"
+      },
+      "Provider_Name": {
+        "kind": "system",
+        "name": "ProviderName"
+      }
+    }
+  },
+  {
+    "id": "security_process_creation",
+    "category": "process_creation",
+    "log_name": "Security",
+    "event_ids": [
+      4688
+    ],
+    "field_map": {
+      "Image": {
+        "kind": "eventdata",
+        "name": "NewProcessName"
+      },
+      "CommandLine": {
+        "kind": "eventdata",
+        "name": "CommandLine"
+      },
+      "ParentImage": {
+        "kind": "eventdata",
+        "name": "ParentProcessName"
+      },
+      "ParentCommandLine": {
+        "kind": "eventdata",
+        "name": "ParentCommandLine"
+      },
+      "User": {
+        "kind": "eventdata",
+        "name": "SubjectUserName"
+      },
+      "ProcessId": {
+        "kind": "eventdata",
+        "name": "NewProcessId"
+      },
+      "EventID": {
+        "kind": "system",
+        "name": "EventID"
+      },
+      "Channel": {
+        "kind": "system",
+        "name": "Channel"
+      },
+      "Provider_Name": {
+        "kind": "system",
+        "name": "ProviderName"
+      }
+    }
+  },
+  {
+    "id": "sysmon_file_event",
+    "category": "file_event",
+    "log_name": "Microsoft-Windows-Sysmon/Operational",
+    "event_ids": [
+      11
+    ],
+    "field_map": {
+      "Image": {
+        "kind": "eventdata",
+        "name": "Image"
+      },
+      "TargetFilename": {
+        "kind": "eventdata",
+        "name": "TargetFilename"
+      },
+      "User": {
+        "kind": "eventdata",
+        "name": "User"
+      },
+      "EventID": {
+        "kind": "system",
+        "name": "EventID"
+      },
+      "Channel": {
+        "kind": "system",
+        "name": "Channel"
+      },
+      "Provider_Name": {
+        "kind": "system",
+        "name": "ProviderName"
+      }
+    }
+  },
+  {
+    "id": "sysmon_image_load",
+    "category": "image_load",
+    "log_name": "Microsoft-Windows-Sysmon/Operational",
+    "event_ids": [
+      7
+    ],
+    "field_map": {
+      "Image": {
+        "kind": "eventdata",
+        "name": "Image"
+      },
+      "ImageLoaded": {
+        "kind": "eventdata",
+        "name": "ImageLoaded"
+      },
+      "OriginalFileName": {
+        "kind": "eventdata",
+        "name": "OriginalFileName"
+      },
+      "Description": {
+        "kind": "eventdata",
+        "name": "Description"
+      },
+      "Company": {
+        "kind": "eventdata",
+        "name": "Company"
+      },
+      "Product": {
+        "kind": "eventdata",
+        "name": "Product"
+      },
+      "Hashes": {
+        "kind": "eventdata",
+        "name": "Hashes"
+      },
+      "Signed": {
+        "kind": "eventdata",
+        "name": "Signed"
+      },
+      "Signature": {
+        "kind": "eventdata",
+        "name": "Signature"
+      },
+      "SignatureStatus": {
+        "kind": "eventdata",
+        "name": "SignatureStatus"
+      },
+      "User": {
+        "kind": "eventdata",
+        "name": "User"
+      },
+      "EventID": {
+        "kind": "system",
+        "name": "EventID"
+      },
+      "Channel": {
+        "kind": "system",
+        "name": "Channel"
+      },
+      "Provider_Name": {
+        "kind": "system",
+        "name": "ProviderName"
+      }
+    }
+  },
+  {
+    "id": "sysmon_network_connection",
+    "category": "network_connection",
+    "log_name": "Microsoft-Windows-Sysmon/Operational",
+    "event_ids": [
+      3
+    ],
+    "field_map": {
+      "Image": {
+        "kind": "eventdata",
+        "name": "Image"
+      },
+      "User": {
+        "kind": "eventdata",
+        "name": "User"
+      },
+      "Protocol": {
+        "kind": "eventdata",
+        "name": "Protocol"
+      },
+      "SourceIp": {
+        "kind": "eventdata",
+        "name": "SourceIp"
+      },
+      "SourceHostname": {
+        "kind": "eventdata",
+        "name": "SourceHostname"
+      },
+      "SourcePort": {
+        "kind": "eventdata",
+        "name": "SourcePort"
+      },
+      "SourceIsIpv6": {
+        "kind": "eventdata",
+        "name": "SourceIsIpv6"
+      },
+      "DestinationIp": {
+        "kind": "eventdata",
+        "name": "DestinationIp"
+      },
+      "DestinationHostname": {
+        "kind": "eventdata",
+        "name": "DestinationHostname"
+      },
+      "DestinationPort": {
+        "kind": "eventdata",
+        "name": "DestinationPort"
+      },
+      "DestinationIsIpv6": {
+        "kind": "eventdata",
+        "name": "DestinationIsIpv6"
+      },
+      "Initiated": {
+        "kind": "eventdata",
+        "name": "Initiated"
+      },
+      "EventID": {
+        "kind": "system",
+        "name": "EventID"
+      },
+      "Channel": {
+        "kind": "system",
+        "name": "Channel"
+      },
+      "Provider_Name": {
+        "kind": "system",
+        "name": "ProviderName"
+      }
+    }
+  },
+  {
+    "id": "sysmon_pipe_created",
+    "category": "pipe_created",
+    "log_name": "Microsoft-Windows-Sysmon/Operational",
+    "event_ids": [
+      17,
+      18
+    ],
+    "field_map": {
+      "Image": {
+        "kind": "eventdata",
+        "name": "Image"
+      },
+      "PipeName": {
+        "kind": "eventdata",
+        "name": "PipeName"
+      },
+      "User": {
+        "kind": "eventdata",
+        "name": "User"
+      },
+      "EventID": {
+        "kind": "system",
+        "name": "EventID"
+      },
+      "Channel": {
+        "kind": "system",
+        "name": "Channel"
+      },
+      "Provider_Name": {
+        "kind": "system",
+        "name": "ProviderName"
+      }
+    }
+  },
+  {
+    "id": "sysmon_process_creation",
+    "category": "process_creation",
+    "log_name": "Microsoft-Windows-Sysmon/Operational",
+    "event_ids": [
+      1
+    ],
+    "field_map": {
+      "Image": {
+        "kind": "eventdata",
+        "name": "Image"
+      },
+      "CommandLine": {
+        "kind": "eventdata",
+        "name": "CommandLine"
+      },
+      "OriginalFileName": {
+        "kind": "eventdata",
+        "name": "OriginalFileName"
+      },
+      "ParentImage": {
+        "kind": "eventdata",
+        "name": "ParentImage"
+      },
+      "ParentCommandLine": {
+        "kind": "eventdata",
+        "name": "ParentCommandLine"
+      },
+      "User": {
+        "kind": "eventdata",
+        "name": "User"
+      },
+      "ProcessId": {
+        "kind": "eventdata",
+        "name": "ProcessId"
+      },
+      "CurrentDirectory": {
+        "kind": "eventdata",
+        "name": "CurrentDirectory"
+      },
+      "Description": {
+        "kind": "eventdata",
+        "name": "Description"
+      },
+      "Company": {
+        "kind": "eventdata",
+        "name": "Company"
+      },
+      "Product": {
+        "kind": "eventdata",
+        "name": "Product"
+      },
+      "Hashes": {
+        "kind": "eventdata",
+        "name": "Hashes"
+      },
+      "IntegrityLevel": {
+        "kind": "eventdata",
+        "name": "IntegrityLevel"
+      },
+      "Signed": {
+        "kind": "eventdata",
+        "name": "Signed"
+      },
+      "Signature": {
+        "kind": "eventdata",
+        "name": "Signature"
+      },
+      "SignatureStatus": {
+        "kind": "eventdata",
+        "name": "SignatureStatus"
+      },
+      "EventID": {
+        "kind": "system",
+        "name": "EventID"
+      },
+      "Channel": {
+        "kind": "system",
+        "name": "Channel"
+      },
+      "Provider_Name": {
+        "kind": "system",
+        "name": "ProviderName"
+      }
+    }
+  },
+  {
+    "id": "sysmon_registry_event",
+    "category": "registry_event",
+    "log_name": "Microsoft-Windows-Sysmon/Operational",
+    "event_ids": [
+      12,
+      13,
+      14
+    ],
+    "field_map": {
+      "Image": {
+        "kind": "eventdata",
+        "name": "Image"
+      },
+      "EventType": {
+        "kind": "eventdata",
+        "name": "EventType"
+      },
+      "TargetObject": {
+        "kind": "eventdata",
+        "name": "TargetObject"
+      },
+      "Details": {
+        "kind": "eventdata",
+        "name": "Details"
+      },
+      "User": {
+        "kind": "eventdata",
+        "name": "User"
+      },
+      "EventID": {
+        "kind": "system",
+        "name": "EventID"
+      },
+      "Channel": {
+        "kind": "system",
+        "name": "Channel"
+      },
+      "Provider_Name": {
+        "kind": "system",
+        "name": "ProviderName"
+      }
+    }
+  }
+]

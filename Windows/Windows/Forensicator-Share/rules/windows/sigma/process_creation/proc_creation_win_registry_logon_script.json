@@ -1,0 +1,40 @@
+{
+  "title": "Potential Persistence Via Logon Scripts - CommandLine",
+  "rule_id": "21d856f9-9281-4ded-9377-51a1a6e2a432",
+  "description": "Detects the addition of a new LogonScript to the registry value \"UserInitMprLogonScript\" for potential persistence",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.privilege-escalation",
+    "attack.persistence",
+    "attack.t1037.001"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_registry_logon_script.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "UserInitMprLogonScript"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

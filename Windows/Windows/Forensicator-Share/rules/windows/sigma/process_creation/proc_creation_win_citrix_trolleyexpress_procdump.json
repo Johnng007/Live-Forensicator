@@ -1,0 +1,114 @@
+{
+  "title": "Process Access via TrolleyExpress Exclusion",
+  "rule_id": "4c0aaedc-154c-4427-ada0-d80ef9c9deb6",
+  "description": "Detects a possible process memory dump that uses the white-listed Citrix TrolleyExpress.exe filename as a way to dump the lsass process memory",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.stealth",
+    "attack.t1218.011",
+    "attack.credential-access",
+    "attack.t1003.001"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_citrix_trolleyexpress_procdump.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "\\TrolleyExpress 7",
+            "\\TrolleyExpress 8",
+            "\\TrolleyExpress 9",
+            "\\TrolleyExpress.exe 7",
+            "\\TrolleyExpress.exe 8",
+            "\\TrolleyExpress.exe 9",
+            "\\TrolleyExpress.exe -ma "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "renamed": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\TrolleyExpress.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_renamed": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "OriginalFileName",
+          "operator": "contains",
+          "values": [
+            "CtxInstall"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_empty": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "OriginalFileName",
+          "operator": "is_null",
+          "values": [],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "any",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection"
+      },
+      {
+        "type": "all",
+        "children": [
+          {
+            "type": "item_ref",
+            "name": "renamed"
+          },
+          {
+            "type": "not",
+            "child": {
+              "type": "wildcard_ref",
+              "mode": "any",
+              "pattern": "filter*"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

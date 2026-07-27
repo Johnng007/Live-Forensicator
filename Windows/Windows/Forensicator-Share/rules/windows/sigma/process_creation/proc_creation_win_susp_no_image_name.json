@@ -1,0 +1,38 @@
+{
+  "title": "Process Launched Without Image Name",
+  "rule_id": "f208d6d8-d83a-4c2c-960d-877c37da84e5",
+  "description": "Detect the use of processes with no name (\".exe\"), which can be used to evade Image-based detections.",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.stealth"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_susp_no_image_name.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

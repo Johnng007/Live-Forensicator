@@ -1,0 +1,40 @@
+{
+  "title": "Powershell Install a DLL in System Directory",
+  "rule_id": "63bf8794-9917-45bc-88dd-e1b5abc0ecfd",
+  "description": "Uses PowerShell to install/copy a file into a system directory such as \"System32\" or \"SysWOW64\"",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.persistence",
+    "attack.credential-access",
+    "attack.defense-impairment",
+    "attack.t1556.002"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_copy_item_system_directory.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "re",
+          "values": [
+            "(Copy-Item|cpi) .{2,128} -Destination .{1,32}\\\\Windows\\\\(System32|SysWOW64)"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": false
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

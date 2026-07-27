@@ -1,0 +1,44 @@
+{
+  "title": "Powershell Directory Enumeration",
+  "rule_id": "162e69a7-7981-4344-84a9-0f1c9a217a52",
+  "description": "Detects technique used by MAZE ransomware to enumerate directories using Powershell",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.discovery",
+    "attack.t1083"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_susp_directory_enum.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "foreach",
+            "Get-ChildItem",
+            "-Path ",
+            "-ErrorAction ",
+            "SilentlyContinue",
+            "Out-File ",
+            "-append"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

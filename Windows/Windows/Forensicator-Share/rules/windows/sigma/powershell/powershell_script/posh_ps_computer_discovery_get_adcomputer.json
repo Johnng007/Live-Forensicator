@@ -1,0 +1,53 @@
+{
+  "title": "Computer Discovery And Export Via Get-ADComputer Cmdlet - PowerShell",
+  "rule_id": "db885529-903f-4c5d-9864-28fe199e6370",
+  "description": "Detects usage of the Get-ADComputer cmdlet to collect computer information and output it to a file",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.discovery",
+    "attack.t1033"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_computer_discovery_get_adcomputer.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "Get-ADComputer ",
+            " -Filter \\*"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            " | Select ",
+            "Out-File",
+            "Set-Content",
+            "Add-Content"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

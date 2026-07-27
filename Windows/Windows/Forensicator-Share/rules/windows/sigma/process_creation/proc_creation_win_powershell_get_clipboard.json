@@ -1,0 +1,39 @@
+{
+  "title": "PowerShell Get-Clipboard Cmdlet Via CLI",
+  "rule_id": "b9aeac14-2ffd-4ad3-b967-1354a4e628c3",
+  "description": "Detects usage of the 'Get-Clipboard' cmdlet via CLI",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.collection",
+    "attack.t1115"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_powershell_get_clipboard.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "Get-Clipboard"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

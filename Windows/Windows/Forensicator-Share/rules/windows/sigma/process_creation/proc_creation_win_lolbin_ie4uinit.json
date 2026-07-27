@@ -1,0 +1,103 @@
+{
+  "title": "Ie4uinit Lolbin Use From Invalid Path",
+  "rule_id": "d3bf399f-b0cf-4250-8bb4-dfc192ab81dc",
+  "description": "Detect use of ie4uinit.exe to execute commands from a specially prepared ie4uinit.inf file from a directory other than the usual directories",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.stealth",
+    "attack.t1218"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_lolbin_ie4uinit.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "lolbin": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\ie4uinit.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "IE4UINIT.EXE"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "filter_correct": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CurrentDirectory",
+          "operator": "exact",
+          "values": [
+            "c:\\windows\\system32\\",
+            "c:\\windows\\sysWOW64\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_missing": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CurrentDirectory",
+          "operator": "is_null",
+          "values": [],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "lolbin"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_*"
+        }
+      }
+    ]
+  }
+}

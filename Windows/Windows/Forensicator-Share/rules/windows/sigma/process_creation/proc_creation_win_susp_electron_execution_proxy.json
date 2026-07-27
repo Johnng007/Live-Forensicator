@@ -1,0 +1,98 @@
+{
+  "title": "Potentially Suspicious Electron Application CommandLine",
+  "rule_id": "378a05d8-963c-46c9-bcce-13c7657eac99",
+  "description": "Detects potentially suspicious CommandLine of electron apps (teams, discord, slack, etc.). This could be a sign of abuse to proxy execution through a signed binary.",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.execution"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_susp_electron_execution_proxy.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\chrome.exe",
+                "\\code.exe",
+                "\\discord.exe",
+                "\\GitHubDesktop.exe",
+                "\\keybase.exe",
+                "\\msedge_proxy.exe",
+                "\\msedge.exe",
+                "\\msedgewebview2.exe",
+                "\\msteams.exe",
+                "\\slack.exe",
+                "\\Teams.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "chrome.exe",
+                "code.exe",
+                "discord.exe",
+                "GitHubDesktop.exe",
+                "keybase.exe",
+                "msedge_proxy.exe",
+                "msedge.exe",
+                "msedgewebview2.exe",
+                "msteams.exe",
+                "slack.exe",
+                "Teams.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_cli": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "--browser-subprocess-path",
+            "--gpu-launcher",
+            "--renderer-cmd-prefix",
+            "--utility-cmd-prefix"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

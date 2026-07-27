@@ -1,0 +1,179 @@
+{
+  "title": "File Download From IP URL Via Curl.EXE",
+  "rule_id": "9cc85849-3b02-4cb5-b371-3a1ff54f2218",
+  "description": "Detects file downloads directly from IP address URL using curl.exe",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.execution"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_curl_download_direct_ip_exec.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\curl.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "curl.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_ip": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "re",
+          "values": [
+            "://[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": false
+        }
+      ]
+    },
+    "selection_http": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "http"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_flag": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " -O",
+            "--remote-name",
+            "--output"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main_ext": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "endswith",
+          "values": [
+            ".bat",
+            ".bat\"",
+            ".dat",
+            ".dat\"",
+            ".dll",
+            ".dll\"",
+            ".exe",
+            ".exe\"",
+            ".gif",
+            ".gif\"",
+            ".hta",
+            ".hta\"",
+            ".jpeg",
+            ".jpeg\"",
+            ".log",
+            ".log\"",
+            ".msi",
+            ".msi\"",
+            ".png",
+            ".png\"",
+            ".ps1",
+            ".ps1\"",
+            ".psm1",
+            ".psm1\"",
+            ".vbe",
+            ".vbe\"",
+            ".vbs",
+            ".vbs\"",
+            ".bat'",
+            ".dat'",
+            ".dll'",
+            ".exe'",
+            ".gif'",
+            ".hta'",
+            ".jpeg'",
+            ".log'",
+            ".msi'",
+            ".png'",
+            ".ps1'",
+            ".psm1'",
+            ".vbe'",
+            ".vbs'"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "wildcard_ref",
+        "mode": "all",
+        "pattern": "selection_*"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_main_*"
+        }
+      }
+    ]
+  }
+}

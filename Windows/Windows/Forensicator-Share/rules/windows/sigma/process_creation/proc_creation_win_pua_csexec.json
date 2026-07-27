@@ -1,0 +1,57 @@
+{
+  "title": "PUA - CsExec Execution",
+  "rule_id": "d08a2711-ee8b-4323-bdec-b7d85e892b31",
+  "description": "Detects the use of the lesser known remote execution tool named CsExec a PsExec alternative",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.resource-development",
+    "attack.t1587.001",
+    "attack.execution",
+    "attack.t1569.002"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_pua_csexec.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\csexec.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_pe": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Description",
+          "operator": "exact",
+          "values": [
+            "csexec"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "any",
+    "pattern": "selection*"
+  }
+}

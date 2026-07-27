@@ -1,0 +1,60 @@
+{
+  "title": "Powershell Defender Exclusion",
+  "rule_id": "17769c90-230e-488b-a463-e05c08e9d48f",
+  "description": "Detects requests to exclude files, folders or processes from Antivirus scanning using PowerShell cmdlets",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.defense-impairment",
+    "attack.t1685"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_powershell_defender_exclusion.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection1": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "Add-MpPreference ",
+            "Set-MpPreference "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection2": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " -ExclusionPath ",
+            " -ExclusionExtension ",
+            " -ExclusionProcess ",
+            " -ExclusionIpAddress "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection*"
+  }
+}

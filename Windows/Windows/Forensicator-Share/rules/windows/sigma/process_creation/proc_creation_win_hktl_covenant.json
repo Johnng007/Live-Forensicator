@@ -1,0 +1,76 @@
+{
+  "title": "HackTool - Covenant PowerShell Launcher",
+  "rule_id": "c260b6db-48ba-4b4a-a76f-2f67644e99d2",
+  "description": "Detects suspicious command lines used in Covenant luanchers",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.stealth",
+    "attack.t1059.001",
+    "attack.t1564.003"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_hktl_covenant.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_1": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "-Sta",
+            "-Nop",
+            "-Window",
+            "Hidden"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "-Command",
+            "-EncodedCommand"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_2": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "sv o (New-Object IO.MemorySteam);sv d ",
+            "mshta file.hta",
+            "GruntHTTP",
+            "-EncodedCommand cwB2ACAAbwAgA"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "any",
+    "pattern": "selection_*"
+  }
+}

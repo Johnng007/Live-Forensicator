@@ -1,0 +1,57 @@
+{
+  "title": "Root Certificate Installed From Susp Locations",
+  "rule_id": "5f6a601c-2ecb-498b-9c33-660362323afa",
+  "description": "Adversaries may install a root certificate on a compromised system to avoid warnings when connecting to adversary controlled web servers.",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.defense-impairment",
+    "attack.t1553.004"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_powershell_import_cert_susp_locations.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "Import-Certificate",
+            " -FilePath ",
+            "Cert:\\LocalMachine\\Root"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "\\AppData\\Local\\Temp\\",
+            ":\\Windows\\TEMP\\",
+            "\\Desktop\\",
+            "\\Downloads\\",
+            "\\Perflogs\\",
+            ":\\Users\\Public\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

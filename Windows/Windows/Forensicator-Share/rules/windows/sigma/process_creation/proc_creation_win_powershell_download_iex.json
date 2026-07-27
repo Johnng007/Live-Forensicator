@@ -1,0 +1,70 @@
+{
+  "title": "PowerShell Download and Execution Cradles",
+  "rule_id": "85b0b087-eddf-4a2b-b033-d771fa2b9775",
+  "description": "Detects PowerShell download and execution cradles.",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1059"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_powershell_download_iex.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_download": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            ".DownloadString(",
+            ".DownloadFile(",
+            "Invoke-WebRequest ",
+            "iwr ",
+            "Invoke-RestMethod ",
+            "irm "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_iex": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            ";iex $",
+            "| IEX",
+            "|IEX ",
+            "I`E`X",
+            "I`EX",
+            "IE`X",
+            "iex ",
+            "IEX (",
+            "IEX(",
+            "Invoke-Expression"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

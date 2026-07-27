@@ -1,0 +1,181 @@
+{
+  "title": "Windows Shell/Scripting Processes Spawning Suspicious Programs",
+  "rule_id": "3a6586ad-127a-4d3b-a677-1e6eacdf8fde",
+  "description": "Detects suspicious child processes of a Windows shell and scripting processes such as wscript, rundll32, powershell, mshta...etc.",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.stealth",
+    "attack.t1059.005",
+    "attack.t1059.001",
+    "attack.t1218"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_susp_shell_spawn_susp_program.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "endswith",
+          "values": [
+            "\\mshta.exe",
+            "\\powershell.exe",
+            "\\pwsh.exe",
+            "\\rundll32.exe",
+            "\\cscript.exe",
+            "\\wscript.exe",
+            "\\wmiprvse.exe",
+            "\\regsvr32.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\schtasks.exe",
+            "\\nslookup.exe",
+            "\\certutil.exe",
+            "\\bitsadmin.exe",
+            "\\mshta.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_ccmcache": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CurrentDirectory",
+          "operator": "contains",
+          "values": [
+            "\\ccmcache\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_amazon": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentCommandLine",
+          "operator": "contains",
+          "values": [
+            "\\Program Files\\Amazon\\WorkSpacesConfig\\Scripts\\setup-scheduledtask.ps1",
+            "\\Program Files\\Amazon\\WorkSpacesConfig\\Scripts\\set-selfhealing.ps1",
+            "\\Program Files\\Amazon\\WorkSpacesConfig\\Scripts\\check-workspacehealth.ps1",
+            "\\nessus_"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_nessus": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "\\nessus_"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_sccm_install": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "endswith",
+          "values": [
+            "\\mshta.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\mshta.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "ParentCommandLine",
+          "operator": "contains",
+          "values": [
+            "C:\\MEM_Configmgr_",
+            "\\splash.hta",
+            "{1E460BD7-F1C3-4B2E-88BF-4E770A288AF5}"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "C:\\MEM_Configmgr_",
+            "\\SMSSETUP\\BIN\\",
+            "\\autorun.hta",
+            "{1E460BD7-F1C3-4B2E-88BF-4E770A288AF5}"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_*"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "title": "Potential Persistence Via PowerShell User Profile Using Add-Content",
+  "rule_id": "05b3e303-faf0-4f4a-9b30-46cc13e69152",
+  "description": "Detects calls to \"Add-Content\" cmdlet in order to modify the content of the user profile and potentially adding suspicious commands for persistence",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.persistence",
+    "attack.privilege-escalation",
+    "attack.t1546.013"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_user_profile_tampering.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection_add": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "Add-Content $profile"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_options": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "-Value \"IEX ",
+            "-Value \"Invoke-Expression",
+            "-Value \"Invoke-WebRequest",
+            "-Value \"Start-Process",
+            "-Value 'IEX ",
+            "-Value 'Invoke-Expression",
+            "-Value 'Invoke-WebRequest",
+            "-Value 'Start-Process"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

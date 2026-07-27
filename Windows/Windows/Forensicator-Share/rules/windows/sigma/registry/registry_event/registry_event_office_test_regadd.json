@@ -1,0 +1,38 @@
+{
+  "title": "Office Application Startup - Office Test",
+  "rule_id": "3d27f6dd-1c74-4687-b4fa-ca849d128d1c",
+  "description": "Detects the addition of office test registry that allows a user to specify an arbitrary DLL that will be executed every time an Office application is started",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.persistence",
+    "attack.t1137.002"
+  ],
+  "category": "registry_event",
+  "rule_file": "rules/windows/registry/registry_event/registry_event_office_test_regadd.yml",
+  "sources": [
+    "sysmon_registry_event"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "TargetObject",
+          "operator": "contains",
+          "values": [
+            "\\Software\\Microsoft\\Office test\\Special\\Perf"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

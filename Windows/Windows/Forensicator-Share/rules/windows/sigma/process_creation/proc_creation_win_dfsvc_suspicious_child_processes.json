@@ -1,0 +1,66 @@
+{
+  "title": "Potentially Suspicious Child Process Of ClickOnce Application",
+  "rule_id": "67bc0e75-c0a9-4cfc-8754-84a505b63c04",
+  "description": "Detects potentially suspicious child processes of a ClickOnce deployment application",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.stealth"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_dfsvc_suspicious_child_processes.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "contains",
+          "values": [
+            "\\AppData\\Local\\Apps\\2.0\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\calc.exe",
+            "\\cmd.exe",
+            "\\cscript.exe",
+            "\\explorer.exe",
+            "\\mshta.exe",
+            "\\net.exe",
+            "\\net1.exe",
+            "\\nltest.exe",
+            "\\notepad.exe",
+            "\\powershell.exe",
+            "\\pwsh.exe",
+            "\\reg.exe",
+            "\\regsvr32.exe",
+            "\\rundll32.exe",
+            "\\schtasks.exe",
+            "\\werfault.exe",
+            "\\wscript.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

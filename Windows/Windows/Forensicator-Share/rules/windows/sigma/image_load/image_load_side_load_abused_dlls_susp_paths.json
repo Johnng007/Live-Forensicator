@@ -1,0 +1,144 @@
+{
+  "title": "Abusable DLL Potential Sideloading From Suspicious Location",
+  "rule_id": "799a5f48-0ac1-4e0f-9152-71d137d48c2a",
+  "description": "Detects potential DLL sideloading of DLLs that are known to be abused from suspicious locations",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1059"
+  ],
+  "category": "image_load",
+  "rule_file": "rules/windows/image_load/image_load_side_load_abused_dlls_susp_paths.yml",
+  "sources": [
+    "sysmon_image_load"
+  ],
+  "items": {
+    "selection_dll": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ImageLoaded",
+          "operator": "endswith",
+          "values": [
+            "\\coreclr.dll",
+            "\\facesdk.dll",
+            "\\HPCustPartUI.dll",
+            "\\libcef.dll",
+            "\\ZIPDLL.dll"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_folders_1": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ImageLoaded",
+          "operator": "contains",
+          "values": [
+            ":\\Perflogs\\",
+            ":\\Users\\Public\\",
+            "\\Temporary Internet",
+            "\\Windows\\Temp\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_folders_2": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "ImageLoaded",
+              "operator": "contains",
+              "values": [
+                ":\\Users\\",
+                "\\Favorites\\"
+              ],
+              "match": "all",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "ImageLoaded",
+              "operator": "contains",
+              "values": [
+                ":\\Users\\",
+                "\\Favourites\\"
+              ],
+              "match": "all",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "ImageLoaded",
+              "operator": "contains",
+              "values": [
+                ":\\Users\\",
+                "\\Contacts\\"
+              ],
+              "match": "all",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "ImageLoaded",
+              "operator": "contains",
+              "values": [
+                ":\\Users\\",
+                "\\Pictures\\"
+              ],
+              "match": "all",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection_dll"
+      },
+      {
+        "type": "wildcard_ref",
+        "mode": "any",
+        "pattern": "selection_folders_*"
+      }
+    ]
+  }
+}

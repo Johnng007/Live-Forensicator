@@ -1,0 +1,84 @@
+{
+  "title": "Potential Crypto Mining Activity",
+  "rule_id": "66c3b204-9f88-4d0a-a7f7-8a57d521ca55",
+  "description": "Detects command line parameters or strings often used by crypto miners",
+  "level": "high",
+  "status": "stable",
+  "tags": [
+    "attack.impact",
+    "attack.t1496"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_susp_crypto_mining_monero.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " --cpu-priority=",
+            "--donate-level=0",
+            " -o pool.",
+            " --nicehash",
+            " --algo=rx/0 ",
+            "stratum+tcp://",
+            "stratum+udp://",
+            "LS1kb25hdGUtbGV2ZWw9",
+            "0tZG9uYXRlLWxldmVsP",
+            "tLWRvbmF0ZS1sZXZlbD",
+            "c3RyYXR1bSt0Y3A6Ly",
+            "N0cmF0dW0rdGNwOi8v",
+            "zdHJhdHVtK3RjcDovL",
+            "c3RyYXR1bSt1ZHA6Ly",
+            "N0cmF0dW0rdWRwOi8v",
+            "zdHJhdHVtK3VkcDovL"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " pool.c ",
+            " pool.o ",
+            "gcc -"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "item_ref",
+          "name": "filter"
+        }
+      }
+    ]
+  }
+}

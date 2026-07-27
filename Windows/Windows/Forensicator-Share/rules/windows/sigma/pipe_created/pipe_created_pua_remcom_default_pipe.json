@@ -1,0 +1,40 @@
+{
+  "title": "PUA - RemCom Default Named Pipe",
+  "rule_id": "d36f87ea-c403-44d2-aa79-1a0ac7c24456",
+  "description": "Detects default RemCom pipe creation",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.lateral-movement",
+    "attack.t1021.002",
+    "attack.execution",
+    "attack.t1569.002"
+  ],
+  "category": "pipe_created",
+  "rule_file": "rules/windows/pipe_created/pipe_created_pua_remcom_default_pipe.yml",
+  "sources": [
+    "sysmon_pipe_created"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "PipeName",
+          "operator": "contains",
+          "values": [
+            "\\RemCom"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

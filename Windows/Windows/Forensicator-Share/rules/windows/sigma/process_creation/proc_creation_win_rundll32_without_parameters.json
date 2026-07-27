@@ -1,0 +1,43 @@
+{
+  "title": "Rundll32 Execution Without Parameters",
+  "rule_id": "5bb68627-3198-40ca-b458-49f973db8752",
+  "description": "Detects rundll32 execution without parameters as observed when running Metasploit windows/smb/psexec exploit module",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.lateral-movement",
+    "attack.t1021.002",
+    "attack.t1570",
+    "attack.execution",
+    "attack.t1569.002"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_rundll32_without_parameters.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "exact",
+          "values": [
+            "rundll32.exe",
+            "rundll32"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

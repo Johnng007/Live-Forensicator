@@ -1,0 +1,41 @@
+{
+  "title": "PowerShell Script With File Hostname Resolving Capabilities",
+  "rule_id": "fbc5e92f-3044-4e73-a5c6-1c4359b539de",
+  "description": "Detects PowerShell scripts that have capabilities to read files, loop through them and resolve DNS host entries.",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.exfiltration",
+    "attack.t1020"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_resolve_list_of_ip_from_file.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "Get-content ",
+            "foreach",
+            "[System.Net.Dns]::GetHostEntry",
+            "Out-File"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

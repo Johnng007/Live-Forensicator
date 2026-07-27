@@ -1,0 +1,78 @@
+{
+  "title": "Potential Privilege Escalation To LOCAL SYSTEM",
+  "rule_id": "207b0396-3689-42d9-8399-4222658efc99",
+  "description": "Detects unknown program using commandline flags usually used by tools such as PsExec and PAExec to start programs with SYSTEM Privileges",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.resource-development",
+    "attack.t1587.001"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_sysinternals_susp_psexec_paexec_flags.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " -s cmd",
+            " -s -i cmd",
+            " -i -s cmd",
+            " -s pwsh",
+            " -s -i pwsh",
+            " -i -s pwsh",
+            " -s powershell",
+            " -s -i powershell",
+            " -i -s powershell"
+          ],
+          "match": "any",
+          "windash": true,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_main_exclude_coverage": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "paexec",
+            "PsExec",
+            "accepteula"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_main_*"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "title": "PowerShell Web Access Installation - PsScript",
+  "rule_id": "5f9c7f1a-7c21-4c39-b2f3-8d8006e0e51f",
+  "description": "Detects the installation and configuration of PowerShell Web Access, which could be used for remote access and potential abuse",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.persistence",
+    "attack.execution",
+    "attack.t1059.001"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_powershell_web_access_installation.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection_install": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "Install-WindowsFeature WindowsPowerShellWebAccess"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_config": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "Install-PswaWebApplication"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_auth": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "Add-PswaAuthorizationRule",
+            "-UserName *",
+            "-ComputerName *"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "any",
+    "pattern": "selection_*"
+  }
+}

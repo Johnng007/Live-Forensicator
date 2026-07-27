@@ -1,0 +1,73 @@
+{
+  "title": "Suspicious Processes Spawned by Java.EXE",
+  "rule_id": "0d34ed8b-1c12-4ff2-828c-16fc860b766d",
+  "description": "Detects suspicious processes spawned from a Java host process which could indicate a sign of exploitation (e.g. log4j)",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.initial-access",
+    "attack.persistence",
+    "attack.privilege-escalation"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_java_susp_child_process.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "endswith",
+          "values": [
+            "\\java.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\AppVLP.exe",
+            "\\bitsadmin.exe",
+            "\\certutil.exe",
+            "\\cscript.exe",
+            "\\curl.exe",
+            "\\forfiles.exe",
+            "\\hh.exe",
+            "\\mftrace.exe",
+            "\\mshta.exe",
+            "\\net.exe",
+            "\\net1.exe",
+            "\\query.exe",
+            "\\reg.exe",
+            "\\regsvr32.exe",
+            "\\rundll32.exe",
+            "\\schtasks.exe",
+            "\\scrcons.exe",
+            "\\scriptrunner.exe",
+            "\\sh.exe",
+            "\\systeminfo.exe",
+            "\\whoami.exe",
+            "\\wmic.exe",
+            "\\wscript.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

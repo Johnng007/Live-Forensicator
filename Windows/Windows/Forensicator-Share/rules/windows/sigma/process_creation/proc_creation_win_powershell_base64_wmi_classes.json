@@ -1,0 +1,178 @@
+{
+  "title": "PowerShell Base64 Encoded WMI Classes",
+  "rule_id": "1816994b-42e1-4fb1-afd2-134d88184f71",
+  "description": "Detects calls to base64 encoded WMI class such as \"Win32_ShadowCopy\", \"Win32_ScheduledJob\", etc.",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.stealth",
+    "attack.t1059.001",
+    "attack.t1027"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_powershell_base64_wmi_classes.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\powershell.exe",
+                "\\pwsh.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "PowerShell.EXE",
+                "pwsh.dll"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_cli_shadowcopy": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "VwBpAG4AMwAyAF8AUwBoAGEAZABvAHcAYwBvAHAAeQ",
+            "cAaQBuADMAMgBfAFMAaABhAGQAbwB3AGMAbwBwAHkA",
+            "XAGkAbgAzADIAXwBTAGgAYQBkAG8AdwBjAG8AcAB5A",
+            "V2luMzJfU2hhZG93Y29we",
+            "dpbjMyX1NoYWRvd2NvcH",
+            "XaW4zMl9TaGFkb3djb3B5"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_cli_scheduledJob": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "VwBpAG4AMwAyAF8AUwBjAGgAZQBkAHUAbABlAGQASgBvAGIA",
+            "cAaQBuADMAMgBfAFMAYwBoAGUAZAB1AGwAZQBkAEoAbwBiA",
+            "XAGkAbgAzADIAXwBTAGMAaABlAGQAdQBsAGUAZABKAG8AYg",
+            "V2luMzJfU2NoZWR1bGVkSm9i",
+            "dpbjMyX1NjaGVkdWxlZEpvY",
+            "XaW4zMl9TY2hlZHVsZWRKb2"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_cli_process": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "VwBpAG4AMwAyAF8AUAByAG8AYwBlAHMAcw",
+            "cAaQBuADMAMgBfAFAAcgBvAGMAZQBzAHMA",
+            "XAGkAbgAzADIAXwBQAHIAbwBjAGUAcwBzA",
+            "V2luMzJfUHJvY2Vzc",
+            "dpbjMyX1Byb2Nlc3",
+            "XaW4zMl9Qcm9jZXNz"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_cli_useraccount": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "VwBpAG4AMwAyAF8AVQBzAGUAcgBBAGMAYwBvAHUAbgB0A",
+            "cAaQBuADMAMgBfAFUAcwBlAHIAQQBjAGMAbwB1AG4AdA",
+            "XAGkAbgAzADIAXwBVAHMAZQByAEEAYwBjAG8AdQBuAHQA",
+            "V2luMzJfVXNlckFjY291bn",
+            "dpbjMyX1VzZXJBY2NvdW50",
+            "XaW4zMl9Vc2VyQWNjb3Vud"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_cli_loggedonuser": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "VwBpAG4AMwAyAF8ATABvAGcAZwBlAGQATwBuAFUAcwBlAHIA",
+            "cAaQBuADMAMgBfAEwAbwBnAGcAZQBkAE8AbgBVAHMAZQByA",
+            "XAGkAbgAzADIAXwBMAG8AZwBnAGUAZABPAG4AVQBzAGUAcg",
+            "V2luMzJfTG9nZ2VkT25Vc2Vy",
+            "dpbjMyX0xvZ2dlZE9uVXNlc",
+            "XaW4zMl9Mb2dnZWRPblVzZX"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection_img"
+      },
+      {
+        "type": "wildcard_ref",
+        "mode": "any",
+        "pattern": "selection_cli_*"
+      }
+    ]
+  }
+}

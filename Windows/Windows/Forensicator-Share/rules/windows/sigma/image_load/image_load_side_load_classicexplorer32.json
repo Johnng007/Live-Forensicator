@@ -1,0 +1,69 @@
+{
+  "title": "Potential DLL Sideloading Via ClassicExplorer32.dll",
+  "rule_id": "caa02837-f659-466f-bca6-48bde2826ab4",
+  "description": "Detects potential DLL sideloading using ClassicExplorer32.dll from the Classic Shell software",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.persistence",
+    "attack.privilege-escalation",
+    "attack.execution",
+    "attack.stealth",
+    "attack.t1574.001"
+  ],
+  "category": "image_load",
+  "rule_file": "rules/windows/image_load/image_load_side_load_classicexplorer32.yml",
+  "sources": [
+    "sysmon_image_load"
+  ],
+  "items": {
+    "selection_classicexplorer": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ImageLoaded",
+          "operator": "endswith",
+          "values": [
+            "\\ClassicExplorer32.dll"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_classicexplorer": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ImageLoaded",
+          "operator": "startswith",
+          "values": [
+            "C:\\Program Files\\Classic Shell\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection_classicexplorer"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "item_ref",
+          "name": "filter_classicexplorer"
+        }
+      }
+    ]
+  }
+}

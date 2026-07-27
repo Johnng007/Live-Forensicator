@@ -1,0 +1,63 @@
+{
+  "title": "Powershell DNSExfiltration",
+  "rule_id": "d59d7842-9a21-4bc6-ba98-64bfe0091355",
+  "description": "DNSExfiltrator allows for transferring (exfiltrate) a file over a DNS request covert channel",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.exfiltration",
+    "attack.t1048"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_invoke_dnsexfiltration.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection_cmdlet": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "ScriptBlockText",
+              "operator": "contains",
+              "values": [
+                "Invoke-DNSExfiltrator"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "ScriptBlockText",
+              "operator": "contains",
+              "values": [
+                " -i ",
+                " -d ",
+                " -p ",
+                " -doh ",
+                " -t "
+              ],
+              "match": "all",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection_cmdlet"
+  }
+}

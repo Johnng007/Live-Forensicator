@@ -1,0 +1,62 @@
+{
+  "title": "Potentially Suspicious Call To Win32_NTEventlogFile Class - PSScript",
+  "rule_id": "e2812b49-bae0-4b21-b366-7c142eafcde2",
+  "description": "Detects usage of the WMI class \"Win32_NTEventlogFile\" in a potentially suspicious way (delete, backup, change permissions, etc.) from a PowerShell script",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.defense-impairment"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_win32_nteventlogfile_usage.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection_class": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "Win32_NTEventlogFile"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_function": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            ".BackupEventlog(",
+            ".ChangeSecurityPermissions(",
+            ".ChangeSecurityPermissionsEx(",
+            ".ClearEventLog(",
+            ".Delete(",
+            ".DeleteEx(",
+            ".Rename(",
+            ".TakeOwnerShip(",
+            ".TakeOwnerShipEx("
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

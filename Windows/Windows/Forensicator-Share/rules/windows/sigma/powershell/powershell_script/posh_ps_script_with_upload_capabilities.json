@@ -1,0 +1,63 @@
+{
+  "title": "PowerShell Script With File Upload Capabilities",
+  "rule_id": "d2e3f2f6-7e09-4bf2-bc5d-90186809e7fb",
+  "description": "Detects PowerShell scripts leveraging the \"Invoke-WebRequest\" cmdlet to send data via either \"PUT\" or \"POST\" method.",
+  "level": "low",
+  "status": "test",
+  "tags": [
+    "attack.exfiltration",
+    "attack.t1020"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_script_with_upload_capabilities.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection_cmdlet": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "Invoke-RestMethod",
+            "Invoke-WebRequest",
+            "irm ",
+            "iwr "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_flag": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "-Method \"POST\"",
+            "-Method \"PUT\"",
+            "-Method POST",
+            "-Method PUT",
+            "-Method 'POST'",
+            "-Method 'PUT'"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

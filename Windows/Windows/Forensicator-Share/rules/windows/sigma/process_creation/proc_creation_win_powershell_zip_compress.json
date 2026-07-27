@@ -1,0 +1,41 @@
+{
+  "title": "Folder Compress To Potentially Suspicious Output Via Compress-Archive Cmdlet",
+  "rule_id": "85a8e5ba-bd03-4bfb-bbfa-a4409a8f8b98",
+  "description": "Detects PowerShell scripts that make use of the \"Compress-Archive\" Cmdlet in order to compress folders and files where the output is stored in a potentially suspicious location that is used often by malware for exfiltration.\nAn adversary might compress data (e.g., sensitive documents) that is collected prior to exfiltration in order to make it portable and minimize the amount of data sent over the network.\n",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.collection",
+    "attack.t1074.001"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_powershell_zip_compress.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "Compress-Archive -Path*-DestinationPath $env:TEMP",
+            "Compress-Archive -Path*-DestinationPath*\\AppData\\Local\\Temp\\",
+            "Compress-Archive -Path*-DestinationPath*:\\Windows\\Temp\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

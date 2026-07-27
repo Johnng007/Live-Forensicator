@@ -1,0 +1,56 @@
+{
+  "title": "Malicious PowerShell Keywords",
+  "rule_id": "f62176f3-8128-4faa-bf6c-83261322e5eb",
+  "description": "Detects keywords from well-known PowerShell exploitation frameworks",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1059.001"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_malicious_keywords.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "AdjustTokenPrivileges",
+            "IMAGE_NT_OPTIONAL_HDR64_MAGIC",
+            "Metasploit",
+            "Microsoft.Win32.UnsafeNativeMethods",
+            "Mimikatz",
+            "MiniDumpWriteDump",
+            "PAGE_EXECUTE_READ",
+            "ReadProcessMemory.Invoke",
+            "SE_PRIVILEGE_ENABLED",
+            "SECURITY_DELEGATION",
+            "TOKEN_ADJUST_PRIVILEGES",
+            "TOKEN_ALL_ACCESS",
+            "TOKEN_ASSIGN_PRIMARY",
+            "TOKEN_DUPLICATE",
+            "TOKEN_ELEVATION",
+            "TOKEN_IMPERSONATE",
+            "TOKEN_INFORMATION_CLASS",
+            "TOKEN_PRIVILEGES",
+            "TOKEN_QUERY"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

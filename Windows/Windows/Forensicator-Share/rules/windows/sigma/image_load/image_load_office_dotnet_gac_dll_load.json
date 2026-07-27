@@ -1,0 +1,55 @@
+{
+  "title": "GAC DLL Loaded Via Office Applications",
+  "rule_id": "90217a70-13fc-48e4-b3db-0d836c5824ac",
+  "description": "Detects any GAC DLL being loaded by an Office Product",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1204.002"
+  ],
+  "category": "image_load",
+  "rule_file": "rules/windows/image_load/image_load_office_dotnet_gac_dll_load.yml",
+  "sources": [
+    "sysmon_image_load"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\excel.exe",
+            "\\mspub.exe",
+            "\\onenote.exe",
+            "\\onenoteim.exe",
+            "\\outlook.exe",
+            "\\powerpnt.exe",
+            "\\winword.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "ImageLoaded",
+          "operator": "startswith",
+          "values": [
+            "C:\\Windows\\Microsoft.NET\\assembly\\GAC_MSIL"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

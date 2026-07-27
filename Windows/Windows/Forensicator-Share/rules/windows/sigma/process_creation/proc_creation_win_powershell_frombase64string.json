@@ -1,0 +1,42 @@
+{
+  "title": "Base64 Encoded PowerShell Command Detected",
+  "rule_id": "e32d4572-9826-4738-b651-95fa63747e8a",
+  "description": "Detects usage of the \"FromBase64String\" function in the commandline which is used to decode a base64 encoded string",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.stealth",
+    "attack.t1027",
+    "attack.execution",
+    "attack.t1140",
+    "attack.t1059.001"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_powershell_frombase64string.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "::FromBase64String("
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

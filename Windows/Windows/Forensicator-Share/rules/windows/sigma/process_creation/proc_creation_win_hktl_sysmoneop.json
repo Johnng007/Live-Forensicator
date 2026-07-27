@@ -1,0 +1,57 @@
+{
+  "title": "HackTool - SysmonEOP Execution",
+  "rule_id": "8a7e90c5-fe6e-45dc-889e-057fe4378bd9",
+  "description": "Detects the execution of the PoC that can be used to exploit Sysmon CVE-2022-41120",
+  "level": "critical",
+  "status": "test",
+  "tags": [
+    "cve.2022-41120",
+    "attack.t1068",
+    "attack.privilege-escalation"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_hktl_sysmoneop.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\SysmonEOP.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_hash": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Hashes",
+          "operator": "contains",
+          "values": [
+            "IMPHASH=22F4089EB8ABA31E1BB162C6D9BF72E5",
+            "IMPHASH=5123FA4C4384D431CD0D893EEB49BBEC"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "any",
+    "pattern": "selection_*"
+  }
+}

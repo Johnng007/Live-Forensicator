@@ -1,0 +1,89 @@
+{
+  "title": "PowerView PowerShell Cmdlets - ScriptBlock",
+  "rule_id": "dcd74b95-3f36-4ed9-9598-0490951643aa",
+  "description": "Detects Cmdlet names from PowerView of the PowerSploit exploitation framework.",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1059.001"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_powerview_malicious_commandlets.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "Export-PowerViewCSV",
+            "Find-DomainLocalGroupMember",
+            "Find-DomainObjectPropertyOutlier",
+            "Find-DomainProcess",
+            "Find-DomainShare",
+            "Find-DomainUserEvent",
+            "Find-DomainUserLocation",
+            "Find-ForeignGroup",
+            "Find-ForeignUser",
+            "Find-GPOComputerAdmin",
+            "Find-GPOLocation",
+            "Find-InterestingDomain",
+            "Find-InterestingFile",
+            "Find-LocalAdminAccess",
+            "Find-ManagedSecurityGroups",
+            "Get-CachedRDPConnection",
+            "Get-DFSshare",
+            "Get-DomainDFSShare",
+            "Get-DomainDNSRecord",
+            "Get-DomainDNSZone",
+            "Get-DomainFileServer",
+            "Get-DomainGPOComputerLocalGroupMapping",
+            "Get-DomainGPOLocalGroup",
+            "Get-DomainGPOUserLocalGroupMapping",
+            "Get-LastLoggedOn",
+            "Get-LoggedOnLocal",
+            "Get-NetFileServer",
+            "Get-NetForest",
+            "Get-NetGPOGroup",
+            "Get-NetProcess",
+            "Get-NetRDPSession",
+            "Get-RegistryMountedDrive",
+            "Get-RegLoggedOn",
+            "Get-WMIRegCachedRDPConnection",
+            "Get-WMIRegLastLoggedOn",
+            "Get-WMIRegMountedDrive",
+            "Get-WMIRegProxy",
+            "Invoke-ACLScanner",
+            "Invoke-CheckLocalAdminAccess",
+            "Invoke-EnumerateLocalAdmin",
+            "Invoke-EventHunter",
+            "Invoke-FileFinder",
+            "Invoke-Kerberoast",
+            "Invoke-MapDomainTrust",
+            "Invoke-ProcessHunter",
+            "Invoke-RevertToSelf",
+            "Invoke-ShareFinder",
+            "Invoke-UserHunter",
+            "Invoke-UserImpersonation",
+            "Remove-RemoteConnection",
+            "Request-SPNTicket",
+            "Resolve-IPAddress"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

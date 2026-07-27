@@ -1,0 +1,90 @@
+{
+  "title": "Potentially Suspicious Child Process Of WinRAR.EXE",
+  "rule_id": "146aace8-9bd6-42ba-be7a-0070d8027b76",
+  "description": "Detects potentially suspicious child processes of WinRAR.exe.",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1203"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_winrar_susp_child_process.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_parent": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "endswith",
+          "values": [
+            "\\WinRAR.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_binaries": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\cmd.exe",
+                "\\cscript.exe",
+                "\\mshta.exe",
+                "\\powershell.exe",
+                "\\pwsh.exe",
+                "\\regsvr32.exe",
+                "\\rundll32.exe",
+                "\\wscript.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "Cmd.Exe",
+                "cscript.exe",
+                "mshta.exe",
+                "PowerShell.EXE",
+                "pwsh.dll",
+                "regsvr32.exe",
+                "RUNDLL32.EXE",
+                "wscript.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

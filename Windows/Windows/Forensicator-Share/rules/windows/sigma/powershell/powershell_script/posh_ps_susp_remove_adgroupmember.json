@@ -1,0 +1,40 @@
+{
+  "title": "Remove Account From Domain Admin Group",
+  "rule_id": "48a45d45-8112-416b-8a67-46e03a4b2107",
+  "description": "Adversaries may interrupt availability of system and network resources by inhibiting access to accounts utilized by legitimate users.\nAccounts may be deleted, locked, or manipulated (ex: changed credentials) to remove access to accounts.\n",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.impact",
+    "attack.t1531"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_susp_remove_adgroupmember.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "Remove-ADGroupMember",
+            "-Identity ",
+            "-Members "
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

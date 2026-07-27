@@ -128,6 +128,45 @@ Forensicator detects suspicious activity through:
 * Object access
 * Suspicious activities
 
+## 🏛️ Active Directory (Domain Controllers only)
+
+Automatically detected and enabled only when the host is a Domain Controller:
+
+* NTDS database integrity & metadata
+* SYSVOL / GPO script analysis (suspicious keyword matching, configurable via `config.json`)
+* Privileged group membership (Domain/Enterprise/Schema Admins, Operators)
+* KRBTGT account age
+* Service Principal Names — Kerberoasting exposure
+* Kerberos delegation (unconstrained, constrained, RBCD)
+* DCSync rights enumeration
+* Privileged & Kerberos security events, directory object changes
+* WMI permanent event subscriptions
+* Known AD attack tooling process cross-check (configurable via `config.json`)
+* Domain password policy, FSMO role owners, LDAP/SMB signing configuration
+
+## 🗄️ Microsoft SQL Server (MSSQL, if installed)
+
+Automatically detected and enabled only when a SQL Server instance is present:
+
+* Service inventory & service account exposure
+* Dangerous configuration options — `xp_cmdshell`, OLE Automation Procedures, CLR integration
+* `sysadmin` role membership & `sa` account status
+* Linked servers & `TRUSTWORTHY` database enumeration
+* SQL Server Agent jobs with CmdExec/ActiveScripting/PowerShell steps (suspicious keyword matching, configurable via `config.json`)
+* Recently created/modified SQL logins
+* SQL Server login failure events (Event ID 18456)
+
+## 📘 Microsoft SharePoint Server (if installed)
+
+Automatically detected and enabled only when SharePoint Server is present:
+
+* Farm overview (build version, farm services running)
+* Service & IIS application pool account exposure
+* Suspicious IIS worker process (`w3wp.exe`) child processes — webshell/RCE execution signature
+* Webshell / dropped-file scan across LAYOUTS and web application content (suspicious keyword matching, configurable via `config.json`)
+* `web.config` ViewState/`machineKey` misconfiguration review
+* IIS log scan for known SharePoint exploit URI patterns (configurable via `config.json`)
+
 ## 🔎 Additional Checks
 
 * USB devices
@@ -196,16 +235,8 @@ https://mit.com/licenses/mit/
 
 # ☕ Full Usage & WalkThrough
 
-<a href="https://forensicator.io/walkthrough.html">
+<a href="https://opendocs.forensicator.io">
   <img width="239" height="31" alt="image" src="https://github.com/user-attachments/assets/f4cb261c-65c8-4592-a42e-6b9ba54dc990" />
 
 </a>
 
----
-
-# 🔗 Project Home
-
-<a href="https://forensicator.io">
-  <img width="147" height="36" alt="image" src="https://github.com/user-attachments/assets/824f5c19-9bf4-41a3-bad9-32549fa0d3bc" />
-
-</a>

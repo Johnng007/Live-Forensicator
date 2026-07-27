@@ -1,0 +1,54 @@
+{
+  "title": "Chromium Browser Instance Executed With Custom Extension",
+  "rule_id": "88d6e60c-759d-4ac1-a447-c0f1466c2d21",
+  "description": "Detects a Chromium based browser process with the 'load-extension' flag to start a instance with a custom extension",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.persistence",
+    "attack.t1176.001"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_browsers_chromium_load_extension.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\brave.exe",
+            "\\chrome.exe",
+            "\\msedge.exe",
+            "\\opera.exe",
+            "\\vivaldi.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "--load-extension="
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

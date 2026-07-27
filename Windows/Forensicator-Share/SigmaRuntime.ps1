@@ -41,7 +41,14 @@ function Get-SigmaStructuredRuleSet {
     }
 
     try{
-        $sources = @(Get-Content $sourcesPath -Raw -ErrorAction Stop | ConvertFrom-Json)
+        $parsedSources = Get-Content $sourcesPath -Raw -ErrorAction Stop | ConvertFrom-Json
+        # NOTE: do not wrap the pipe itself in @(...) — on Windows PowerShell 5.1,
+        # ConvertFrom-Json writes a top-level JSON array to the pipeline as a single
+        # nested array object rather than unrolling it element-by-element (PS7 unrolls
+        # it), so @(Get-Content ... | ConvertFrom-Json) collapses to a 1-element array
+        # on 5.1 instead of one element per source. Checking -is [Array] after the
+        # pipe has already completed avoids that collapse on both versions.
+        $sources = if($parsedSources -is [System.Array]){ $parsedSources } else { ,$parsedSources }
     }
     catch{
         Write-ForensicLog "Failed to parse structured Sigma sources: $($_.Exception.Message)" -Level ERROR -Section "SIGMA" -Detail $sourcesPath

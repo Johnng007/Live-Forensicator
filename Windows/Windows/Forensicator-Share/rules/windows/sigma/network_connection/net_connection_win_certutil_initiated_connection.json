@@ -1,0 +1,63 @@
+{
+  "title": "Uncommon Network Connection Initiated By Certutil.EXE",
+  "rule_id": "0dba975d-a193-4ed1-a067-424df57570d1",
+  "description": "Detects a network connection initiated by the certutil.exe utility.\nAttackers can abuse the utility in order to download malware or additional payloads.\n",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.command-and-control",
+    "attack.t1105"
+  ],
+  "category": "network_connection",
+  "rule_file": "rules/windows/network_connection/net_connection_win_certutil_initiated_connection.yml",
+  "sources": [
+    "sysmon_network_connection"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\certutil.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Initiated",
+          "operator": "exact",
+          "values": [
+            "true"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "DestinationPort",
+          "operator": "exact",
+          "values": [
+            "80",
+            "135",
+            "443",
+            "445"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

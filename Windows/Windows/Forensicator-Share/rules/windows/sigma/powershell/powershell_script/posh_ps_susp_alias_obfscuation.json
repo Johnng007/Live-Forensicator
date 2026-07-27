@@ -1,0 +1,41 @@
+{
+  "title": "Potential PowerShell Obfuscation Using Character Join",
+  "rule_id": "e8314f79-564d-4f79-bc13-fbc0bf2660d8",
+  "description": "Detects specific techniques often seen used inside of PowerShell scripts to obfscuate Alias creation",
+  "level": "low",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.stealth",
+    "attack.t1027",
+    "attack.t1059.001"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_susp_alias_obfscuation.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "-Alias",
+            " -Value (-join("
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

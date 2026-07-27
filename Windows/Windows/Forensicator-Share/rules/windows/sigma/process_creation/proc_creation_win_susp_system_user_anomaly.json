@@ -1,0 +1,287 @@
+{
+  "title": "Suspicious SYSTEM User Process Creation",
+  "rule_id": "2617e7ed-adb7-40ba-b0f3-8f9945fe6c09",
+  "description": "Detects a suspicious process creation as SYSTEM user (suspicious program or command line parameter)",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.credential-access",
+    "attack.privilege-escalation",
+    "attack.stealth",
+    "attack.t1134",
+    "attack.t1003",
+    "attack.t1027"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_susp_system_user_anomaly.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "IntegrityLevel",
+          "operator": "exact",
+          "values": [
+            "System",
+            "S-1-16-16384"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "User",
+          "operator": "contains",
+          "values": [
+            "AUTHORI",
+            "AUTORI"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_special": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\calc.exe",
+                "\\cscript.exe",
+                "\\forfiles.exe",
+                "\\hh.exe",
+                "\\mshta.exe",
+                "\\ping.exe",
+                "\\wscript.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "re",
+              "values": [
+                "net\\s+user\\s+"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": false
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "contains",
+              "values": [
+                " -NoP ",
+                " -W Hidden ",
+                " -decode ",
+                " /decode ",
+                " /urlcache ",
+                " -urlcache ",
+                " -e* JAB",
+                " -e* SUVYI",
+                " -e* SQBFAFgA",
+                " -e* aWV4I",
+                " -e* IAB",
+                " -e* PAA",
+                " -e* aQBlAHgA",
+                "vssadmin delete shadows",
+                "reg SAVE HKLM",
+                " -ma ",
+                "Microsoft\\Windows\\CurrentVersion\\Run",
+                ".downloadstring(",
+                ".downloadfile(",
+                " /ticket:",
+                "dpapi::",
+                "event::clear",
+                "event::drop",
+                "id::modify",
+                "kerberos::",
+                "lsadump::",
+                "misc::",
+                "privilege::",
+                "rpc::",
+                "sekurlsa::",
+                "sid::",
+                "token::",
+                "vault::cred",
+                "vault::list",
+                " p::d ",
+                ";iex(",
+                "MiniDump"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "filter_main_ping": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "ping",
+            "127.0.0.1",
+            " -n "
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_vs": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\PING.EXE"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "ParentCommandLine",
+          "operator": "contains",
+          "values": [
+            "\\DismFoDInstall.cmd"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_config_mgr": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "contains",
+          "values": [
+            ":\\Packages\\Plugins\\Microsoft.GuestConfiguration.ConfigurationforWindows\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter_java": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "contains",
+          "values": [
+            ":\\Program Files (x86)\\Java\\",
+            ":\\Program Files\\Java\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "ParentImage",
+          "operator": "endswith",
+          "values": [
+            "\\bin\\javaws.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "contains",
+          "values": [
+            ":\\Program Files (x86)\\Java\\",
+            ":\\Program Files\\Java\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\bin\\jp2launcher.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " -ma "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "wildcard_ref",
+        "mode": "all",
+        "pattern": "selection*"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "wildcard_ref",
+          "mode": "any",
+          "pattern": "filter_*"
+        }
+      }
+    ]
+  }
+}

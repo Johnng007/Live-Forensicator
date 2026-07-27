@@ -1,0 +1,41 @@
+{
+  "title": "Code Executed Via Office Add-in XLL File",
+  "rule_id": "36fbec91-fa1b-4d5d-8df1-8d8edcb632ad",
+  "description": "Adversaries may abuse Microsoft Office add-ins to obtain persistence on a compromised system.\nOffice add-ins can be used to add functionality to Office programs\n",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.persistence",
+    "attack.t1137.006"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_office_comobject_registerxll.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "new-object ",
+            "-ComObject ",
+            ".application",
+            ".RegisterXLL"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

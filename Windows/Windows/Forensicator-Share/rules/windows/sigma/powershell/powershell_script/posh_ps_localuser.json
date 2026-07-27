@@ -1,0 +1,45 @@
+{
+  "title": "Powershell LocalAccount Manipulation",
+  "rule_id": "4fdc44df-bfe9-4fcc-b041-68f5a2d3031c",
+  "description": "Adversaries may manipulate accounts to maintain access to victim systems.\nAccount manipulation may consist of any action that preserves adversary access to a compromised account, such as modifying credentials or permission groups\n",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.privilege-escalation",
+    "attack.persistence",
+    "attack.t1098"
+  ],
+  "category": "ps_script",
+  "rule_file": "rules/windows/powershell/powershell_script/posh_ps_localuser.yml",
+  "sources": [
+    "powershell_script_block"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "ScriptBlockText",
+          "operator": "contains",
+          "values": [
+            "Disable-LocalUser",
+            "Enable-LocalUser",
+            "Get-LocalUser",
+            "Set-LocalUser",
+            "New-LocalUser",
+            "Rename-LocalUser",
+            "Remove-LocalUser"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

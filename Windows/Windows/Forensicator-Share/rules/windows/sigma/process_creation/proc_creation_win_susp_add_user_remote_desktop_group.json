@@ -1,0 +1,85 @@
+{
+  "title": "User Added to Remote Desktop Users Group",
+  "rule_id": "ffa28e60-bdb1-46e0-9f82-05f7a61cc06e",
+  "description": "Detects addition of users to the local Remote Desktop Users group via \"Net\" or \"Add-LocalGroupMember\".",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.initial-access",
+    "attack.persistence",
+    "attack.lateral-movement",
+    "attack.t1133",
+    "attack.t1136.001",
+    "attack.t1021.001"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_susp_add_user_remote_desktop_group.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_main": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "contains",
+              "values": [
+                "localgroup ",
+                " /add"
+              ],
+              "match": "all",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "CommandLine",
+              "operator": "contains",
+              "values": [
+                "Add-LocalGroupMember ",
+                " -Group "
+              ],
+              "match": "all",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_group": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "Remote Desktop Users",
+            "Utilisateurs du Bureau \u00e0 distance",
+            "Usuarios de escritorio remoto"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

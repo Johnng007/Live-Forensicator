@@ -1,0 +1,115 @@
+{
+  "title": "Copying Sensitive Files with Credential Data",
+  "rule_id": "e7be6119-fc37-43f0-ad4f-1f3f99be2f9f",
+  "description": "Files with well-known filenames (sensitive files with credential data) copying",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.credential-access",
+    "attack.t1003.002",
+    "attack.t1003.003",
+    "car.2013-07-001",
+    "attack.s0404"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_esentutl_sensitive_file_copy.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_esent_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\esentutl.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "\\esentutl.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_esent_cli": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "vss",
+            " /m ",
+            " /y "
+          ],
+          "match": "any",
+          "windash": true,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_susp_paths": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "\\config\\RegBack\\sam",
+            "\\config\\RegBack\\security",
+            "\\config\\RegBack\\system",
+            "\\config\\sam",
+            "\\config\\security",
+            "\\config\\system ",
+            "\\repair\\sam",
+            "\\repair\\security",
+            "\\repair\\system",
+            "\\windows\\ntds\\ntds.dit"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "any",
+    "children": [
+      {
+        "type": "wildcard_ref",
+        "mode": "all",
+        "pattern": "selection_esent_*"
+      },
+      {
+        "type": "item_ref",
+        "name": "selection_susp_paths"
+      }
+    ]
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "title": "Persistence Via Sticky Key Backdoor",
+  "rule_id": "1070db9a-3e5d-412e-8e7b-7183b616e1b3",
+  "description": "By replacing the sticky keys executable with the local admins CMD executable, an attacker is able to access a privileged windows console session without authenticating to the system.\nWhen the sticky keys are \"activated\" the privilleged shell is launched.\n",
+  "level": "critical",
+  "status": "test",
+  "tags": [
+    "attack.persistence",
+    "attack.t1546.008",
+    "attack.privilege-escalation"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_cmd_sticky_keys_replace.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "copy ",
+            "/y ",
+            "C:\\windows\\system32\\cmd.exe C:\\windows\\system32\\sethc.exe"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

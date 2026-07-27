@@ -1,0 +1,40 @@
+{
+  "title": "Copy From VolumeShadowCopy Via Cmd.EXE",
+  "rule_id": "c73124a7-3e89-44a3-bdc1-25fe4df754b1",
+  "description": "Detects the execution of the builtin \"copy\" command that targets a shadow copy (sometimes used to copy registry hives that are in use)",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.impact",
+    "attack.t1490"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_cmd_shadowcopy_access.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "copy ",
+            "\\\\\\\\\\?\\\\GLOBALROOT\\\\Device\\\\HarddiskVolumeShadowCopy"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

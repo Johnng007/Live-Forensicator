@@ -1,0 +1,111 @@
+{
+  "title": "Suspicious New Service Creation",
+  "rule_id": "17a1be64-8d88-40bf-b5ff-a4f7a50ebcc8",
+  "description": "Detects creation of a new service via \"sc\" command or the powershell \"new-service\" cmdlet with suspicious binary paths",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.persistence",
+    "attack.privilege-escalation",
+    "attack.t1543.003"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_susp_service_creation.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_sc": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\sc.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "create",
+            "binPath="
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_posh": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "New-Service",
+            "-BinaryPathName"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "susp_binpath": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "powershell",
+            "mshta",
+            "wscript",
+            "cscript",
+            "svchost",
+            "dllhost",
+            "cmd ",
+            "cmd.exe /c",
+            "cmd.exe /k",
+            "cmd.exe /r",
+            "rundll32",
+            "C:\\Users\\Public",
+            "\\Downloads\\",
+            "\\Desktop\\",
+            "\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\",
+            "C:\\Windows\\TEMP\\",
+            "\\AppData\\Local\\Temp"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "wildcard_ref",
+        "mode": "any",
+        "pattern": "selection*"
+      },
+      {
+        "type": "item_ref",
+        "name": "susp_binpath"
+      }
+    ]
+  }
+}

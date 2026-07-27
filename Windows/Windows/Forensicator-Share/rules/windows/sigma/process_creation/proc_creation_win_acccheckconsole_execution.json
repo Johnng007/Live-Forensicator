@@ -1,0 +1,78 @@
+{
+  "title": "Potential DLL Injection Via AccCheckConsole",
+  "rule_id": "0f6da907-5854-4be6-859a-e9958747b0aa",
+  "description": "Detects the execution \"AccCheckConsole\" a command-line tool for verifying the accessibility implementation of an application's UI.\nOne of the tests that this checker can run are called \"verification routine\", which tests for things like Consistency, Navigation, etc.\nThe tool allows a user to provide a DLL that can contain a custom \"verification routine\". An attacker can build such DLLs and pass it via the CLI, which would then be loaded in the context of the \"AccCheckConsole\" utility.\n",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "detection.threat-hunting"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_acccheckconsole_execution.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\AccCheckConsole.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "AccCheckConsole.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_cli": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " -hwnd",
+            " -process ",
+            " -window "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "title": "HackTool - DInjector PowerShell Cradle Execution",
+  "rule_id": "d78b5d61-187d-44b6-bf02-93486a80de5a",
+  "description": "Detects the use of the Dinject PowerShell cradle based on the specific flags",
+  "level": "critical",
+  "status": "test",
+  "tags": [
+    "attack.privilege-escalation",
+    "attack.stealth",
+    "attack.t1055"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_hktl_dinjector.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " /am51",
+            " /password"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

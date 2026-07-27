@@ -470,5 +470,21 @@
         "name": "ProviderName"
       }
     }
+  },
+  {
+    "id": "security_sensitive_privilege_use",
+    "category": "sensitive_privilege_use",
+    "log_name": "Security",
+    "event_ids": [4672],
+    "field_map": {
+        "SubjectUserSid": {"kind": "eventdata", "name": "SubjectUserSid"},
+        "SubjectUserName": {"kind": "eventdata", "name": "SubjectUserName"},
+        "SubjectDomainName": {"kind": "eventdata", "name": "SubjectDomainName"},
+        "SubjectLogonId": {"kind": "eventdata", "name": "SubjectLogonId"},
+        "PrivilegeList": {"kind": "eventdata", "name": "PrivilegeList"},
+        "EventID": {"kind": "system", "name": "EventID"},
+        "Channel": {"kind": "system", "name": "Channel"},
+        "Provider_Name": {"kind": "system", "name": "ProviderName"}
+    }
   }
 ]

@@ -1,0 +1,39 @@
+{
+  "title": "Potential Provisioning Registry Key Abuse For Binary Proxy Execution",
+  "rule_id": "2a4b3e61-9d22-4e4a-b60f-6e8f0cde6f25",
+  "description": "Detects potential abuse of the provisioning registry key for indirect command execution through \"Provlaunch.exe\".",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.stealth",
+    "attack.t1218"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_registry_provlaunch_provisioning_command.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "SOFTWARE\\Microsoft\\Provisioning\\Commands\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "title": "Email Exifiltration Via Powershell",
+  "rule_id": "312d0384-401c-4b8b-abdf-685ffba9a332",
+  "description": "Detects email exfiltration via powershell cmdlets",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.exfiltration"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_powershell_email_exfil.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\powershell.exe",
+            "\\pwsh.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        },
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "Add-PSSnapin",
+            "Get-Recipient",
+            "-ExpandProperty",
+            "EmailAddresses",
+            "SmtpAddress",
+            "-hidetableheaders"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

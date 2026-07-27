@@ -1,0 +1,149 @@
+{
+  "title": "Suspicious Manipulation Of Default Accounts Via Net.EXE",
+  "rule_id": "5b768e71-86f2-4879-b448-81061cbae951",
+  "description": "Detects suspicious manipulations of default accounts such as 'administrator' and 'guest'. For example 'enable' or 'disable' accounts or change the password...etc",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.collection",
+    "attack.t1560.001"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_net_user_default_accounts_manipulation.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_img": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Image",
+              "operator": "endswith",
+              "values": [
+                "\\net.exe",
+                "\\net1.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "net.exe",
+                "net1.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "selection_user_option": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " user "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_username": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            " J\u00e4rjestelm\u00e4nvalvoja ",
+            " Rendszergazda ",
+            " \u0410\u0434\u043c\u0438\u043d\u0438\u0441\u0442\u0440\u0430\u0442\u043e\u0440 ",
+            " Administrateur ",
+            " Administrador ",
+            " Administrat\u00f6r ",
+            " Administrator ",
+            " guest ",
+            " DefaultAccount ",
+            " \"J\u00e4rjestelm\u00e4nvalvoja\" ",
+            " \"Rendszergazda\" ",
+            " \"\u0410\u0434\u043c\u0438\u043d\u0438\u0441\u0442\u0440\u0430\u0442\u043e\u0440\" ",
+            " \"Administrateur\" ",
+            " \"Administrador\" ",
+            " \"Administrat\u00f6r\" ",
+            " \"Administrator\" ",
+            " \"guest\" ",
+            " \"DefaultAccount\" ",
+            " 'J\u00e4rjestelm\u00e4nvalvoja' ",
+            " 'Rendszergazda' ",
+            " '\u0410\u0434\u043c\u0438\u043d\u0438\u0441\u0442\u0440\u0430\u0442\u043e\u0440' ",
+            " 'Administrateur' ",
+            " 'Administrador' ",
+            " 'Administrat\u00f6r' ",
+            " 'Administrator' ",
+            " 'guest' ",
+            " 'DefaultAccount' "
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "filter": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "guest",
+            "/active no"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "wildcard_ref",
+        "mode": "all",
+        "pattern": "selection_*"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "item_ref",
+          "name": "filter"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,86 @@
+{
+  "title": "Java Running with Remote Debugging",
+  "rule_id": "8f88e3f6-2a49-48f5-a5c4-2f7eedf78710",
+  "description": "Detects a JAVA process running with remote debugging allowing more than just localhost to connect",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.t1203",
+    "attack.execution"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_java_remote_debugging.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection_jdwp_transport": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "transport=dt_socket,address="
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_old_jvm_version": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "jre1.",
+            "jdk1."
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "exclusion": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "address=127.0.0.1",
+            "address=localhost"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "wildcard_ref",
+        "mode": "all",
+        "pattern": "selection_*"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "item_ref",
+          "name": "exclusion"
+        }
+      }
+    ]
+  }
+}

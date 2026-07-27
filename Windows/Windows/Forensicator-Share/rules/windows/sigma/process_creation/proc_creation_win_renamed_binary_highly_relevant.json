@@ -1,0 +1,160 @@
+{
+  "title": "Potential Defense Evasion Via Rename Of Highly Relevant Binaries",
+  "rule_id": "0ba1da6d-b6ce-4366-828c-18826c9de23e",
+  "description": "Detects the execution of a renamed binary often used by attackers or malware leveraging new Sysmon OriginalFileName datapoint.",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.stealth",
+    "attack.t1036.003",
+    "car.2013-05-009"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_renamed_binary_highly_relevant.yml",
+  "sources": [
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "any",
+      "children": [
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Description",
+              "operator": "exact",
+              "values": [
+                "Execute processes remotely"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Product",
+              "operator": "exact",
+              "values": [
+                "Sysinternals PsExec"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "Description",
+              "operator": "startswith",
+              "values": [
+                "Windows PowerShell",
+                "pwsh"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        },
+        {
+          "type": "all",
+          "children": [
+            {
+              "type": "field",
+              "field": "OriginalFileName",
+              "operator": "exact",
+              "values": [
+                "certutil.exe",
+                "cmstp.exe",
+                "cscript.exe",
+                "IE4UINIT.EXE",
+                "finger.exe",
+                "mshta.exe",
+                "msiexec.exe",
+                "msxsl.exe",
+                "powershell_ise.exe",
+                "powershell.exe",
+                "psexec.c",
+                "psexec.exe",
+                "psexesvc.exe",
+                "pwsh.dll",
+                "reg.exe",
+                "regsvr32.exe",
+                "rundll32.exe",
+                "WerMgr",
+                "wmic.exe",
+                "wscript.exe"
+              ],
+              "match": "any",
+              "windash": false,
+              "ignore_case": true
+            }
+          ]
+        }
+      ]
+    },
+    "filter": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "Image",
+          "operator": "endswith",
+          "values": [
+            "\\certutil.exe",
+            "\\cmstp.exe",
+            "\\cscript.exe",
+            "\\ie4uinit.exe",
+            "\\finger.exe",
+            "\\mshta.exe",
+            "\\msiexec.exe",
+            "\\msxsl.exe",
+            "\\powershell_ise.exe",
+            "\\powershell.exe",
+            "\\psexec.exe",
+            "\\psexec64.exe",
+            "\\psexec64a.exe",
+            "\\PSEXESVC.exe",
+            "\\pwsh.exe",
+            "\\reg.exe",
+            "\\regsvr32.exe",
+            "\\rundll32.exe",
+            "\\wermgr.exe",
+            "\\wmic.exe",
+            "\\wscript.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "all",
+    "children": [
+      {
+        "type": "item_ref",
+        "name": "selection"
+      },
+      {
+        "type": "not",
+        "child": {
+          "type": "item_ref",
+          "name": "filter"
+        }
+      }
+    ]
+  }
+}

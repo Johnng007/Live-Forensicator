@@ -1,0 +1,79 @@
+{
+  "title": "Suspicious Camera and Microphone Access",
+  "rule_id": "62120148-6b7a-42be-8b91-271c04e281a3",
+  "description": "Detects Processes accessing the camera and microphone from suspicious folder",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.collection",
+    "attack.t1125",
+    "attack.t1123"
+  ],
+  "category": "registry_event",
+  "rule_file": "rules/windows/registry/registry_event/registry_event_susp_mic_cam_access.yml",
+  "sources": [
+    "sysmon_registry_event"
+  ],
+  "items": {
+    "selection_1": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "TargetObject",
+          "operator": "contains",
+          "values": [
+            "\\Software\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\",
+            "\\NonPackaged"
+          ],
+          "match": "all",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_2": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "TargetObject",
+          "operator": "contains",
+          "values": [
+            "microphone",
+            "webcam"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    },
+    "selection_3": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "TargetObject",
+          "operator": "contains",
+          "values": [
+            ":#Windows#Temp#",
+            ":#$Recycle.bin#",
+            ":#Temp#",
+            ":#Users#Public#",
+            ":#Users#Default#",
+            ":#Users#Desktop#"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "wildcard_ref",
+    "mode": "all",
+    "pattern": "selection_*"
+  }
+}

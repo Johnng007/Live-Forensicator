@@ -1,0 +1,41 @@
+{
+  "title": "CMSTP Execution Registry Event",
+  "rule_id": "b6d235fc-1d38-4b12-adbe-325f06728f37",
+  "description": "Detects various indicators of Microsoft Connection Manager Profile Installer execution",
+  "level": "high",
+  "status": "stable",
+  "tags": [
+    "attack.execution",
+    "attack.stealth",
+    "attack.t1218.003",
+    "attack.g0069",
+    "car.2019-04-001"
+  ],
+  "category": "registry_event",
+  "rule_file": "rules/windows/registry/registry_event/registry_event_cmstp_execution_by_registry.yml",
+  "sources": [
+    "sysmon_registry_event"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "TargetObject",
+          "operator": "contains",
+          "values": [
+            "\\cmmgr32.exe"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

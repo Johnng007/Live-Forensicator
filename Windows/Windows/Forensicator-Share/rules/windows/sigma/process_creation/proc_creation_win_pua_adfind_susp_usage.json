@@ -1,0 +1,61 @@
+{
+  "title": "PUA - AdFind Suspicious Execution",
+  "rule_id": "9a132afa-654e-11eb-ae93-0242ac130002",
+  "description": "Detects AdFind execution with common flags seen used during attacks",
+  "level": "high",
+  "status": "test",
+  "tags": [
+    "attack.discovery",
+    "attack.t1018",
+    "attack.t1087.002",
+    "attack.t1482",
+    "attack.t1069.002",
+    "stp.1u"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_pua_adfind_susp_usage.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "domainlist",
+            "trustdmp",
+            "dcmodes",
+            "adinfo",
+            "-sc dclist",
+            "computer_pwdnotreqd",
+            "objectcategory=",
+            "-subnets -f",
+            "name=\"Domain Admins\"",
+            "-sc u:",
+            "domainncs",
+            "dompol",
+            " oudmp ",
+            "subnetdmp",
+            "gpodmp",
+            "fspdmp",
+            "users_noexpire",
+            "computers_active",
+            "computers_pwdnotreqd"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}

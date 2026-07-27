@@ -1,0 +1,52 @@
+{
+  "title": "Import PowerShell Modules From Suspicious Directories - ProcCreation",
+  "rule_id": "c31364f7-8be6-4b77-8483-dd2b5a7b69a3",
+  "description": "Detects powershell scripts that import modules from suspicious directories",
+  "level": "medium",
+  "status": "test",
+  "tags": [
+    "attack.execution",
+    "attack.t1059.001"
+  ],
+  "category": "process_creation",
+  "rule_file": "rules/windows/process_creation/proc_creation_win_powershell_import_module_susp_dirs.yml",
+  "sources": [
+    "security_process_creation",
+    "sysmon_process_creation"
+  ],
+  "items": {
+    "selection": {
+      "type": "all",
+      "children": [
+        {
+          "type": "field",
+          "field": "CommandLine",
+          "operator": "contains",
+          "values": [
+            "Import-Module \"$Env:Temp\\",
+            "Import-Module '$Env:Temp\\",
+            "Import-Module $Env:Temp\\",
+            "Import-Module \"$Env:Appdata\\",
+            "Import-Module '$Env:Appdata\\",
+            "Import-Module $Env:Appdata\\",
+            "Import-Module C:\\Users\\Public\\",
+            "ipmo \"$Env:Temp\\",
+            "ipmo '$Env:Temp\\",
+            "ipmo $Env:Temp\\",
+            "ipmo \"$Env:Appdata\\",
+            "ipmo '$Env:Appdata\\",
+            "ipmo $Env:Appdata\\",
+            "ipmo C:\\Users\\Public\\"
+          ],
+          "match": "any",
+          "windash": false,
+          "ignore_case": true
+        }
+      ]
+    }
+  },
+  "condition": {
+    "type": "item_ref",
+    "name": "selection"
+  }
+}
