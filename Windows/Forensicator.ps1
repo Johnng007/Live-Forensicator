@@ -164,6 +164,70 @@ Start-Sleep -Milliseconds 150
 Write-Host "[✓] Enumerating operating system..." -ForegroundColor Green
 Start-Sleep -Milliseconds 150
 
+# ── Forensicator AI status check ─────────────────────────────────────────────
+# Runs before the transcript starts (so it's visible either way) and before
+# any evidence collection — a real reachability probe, not just "enabled in
+# config.json", so the operator knows up front whether findings will get an
+# AI verdict this run. Never blocks or fails the acquisition: any outcome
+# here is purely informational, and never throws past this block.
+try {
+    # Write-ForensicLog isn't defined until the LOGGING INITIALISATION region
+    # further down — ForensicatorAiClient.ps1's functions log warnings via
+    # it on failure, so stub it for now; the real one (defined later)
+    # naturally replaces this for the rest of the run.
+    if (-not (Get-Command Write-ForensicLog -ErrorAction SilentlyContinue)) {
+        function Write-ForensicLog {
+            param([string]$Message, [string]$Level = "INFO", [string]$Section = "", [string]$Detail = "")
+        }
+    }
+
+    . "$PSScriptRoot\Forensicator-Share\ForensicatorAiClient.ps1"
+
+    $earlyConfigPath = "$PSScriptRoot\config.json"
+    if (Test-Path $earlyConfigPath) {
+        Initialize-ForensicatorAiConfig -ConfigData (Get-Content $earlyConfigPath -Raw | ConvertFrom-Json)
+    }
+
+    if (-not $Script:ForensicatorAiConfig -or -not $Script:ForensicatorAiConfig.enabled) {
+        Write-Host "[•] Forensicator AI : Disabled — set ai.enabled=true in config.json for AI verdicts on findings" -ForegroundColor DarkGray
+    } else {
+        $providerLabel = "$($Script:ForensicatorAiConfig.provider) / $($Script:ForensicatorAiConfig.model)"
+        Write-Host "[*] Forensicator AI : Testing $providerLabel..." -ForegroundColor Yellow
+
+        # Shortened timeout for this startup probe only — the operator is
+        # waiting on this before acquisition even begins — but NOT so short
+        # it misreports a healthy endpoint as unreachable. Ollama unloads an
+        # idle model after a few minutes (default keep_alive), so the first
+        # call of almost every run is a genuine cold load: measured directly
+        # against a real remote Ollama host serving mistral:7b-instruct
+        # (the documented production default), a cold load+response took
+        # ~8.75s, vs. ~0.2s once warm. 30s keeps real headroom above that
+        # while still being quick relative to a full acquisition. Restored
+        # right after the probe; the full config.json timeout_seconds still
+        # applies later, during actual finding analysis, once
+        # Initialize-ForensicatorAiConfig re-runs in its normal place
+        # further down the script anyway.
+        $realTimeoutSeconds = $Script:ForensicatorAiConfig.timeout_seconds
+        $Script:ForensicatorAiConfig.timeout_seconds = [Math]::Max($realTimeoutSeconds, 30)
+
+        $probeStart = Get-Date
+        $probeResult = Invoke-ForensicatorAiCompletion -Prompt "Reply with exactly the single word: OK"
+        $probeMs = [Math]::Round(((Get-Date) - $probeStart).TotalMilliseconds)
+
+        $Script:ForensicatorAiConfig.timeout_seconds = $realTimeoutSeconds
+
+        if ($probeResult -and $probeResult.Trim()) {
+            Write-Host "[✓] Forensicator AI : Online — $providerLabel responded in ${probeMs}ms. Findings will include AI verdicts this run." -ForegroundColor Green
+        } else {
+            Write-Host "[!] Forensicator AI : Enabled but unreachable — $providerLabel did not respond (base_url: $($Script:ForensicatorAiConfig.base_url))." -ForegroundColor Red
+            Write-Host "[!] Forensicator AI : Findings will NOT include AI verdicts this run. If the endpoint is reachable, this can also mean the model was still loading into memory (first request after idle) — try again or check $($Script:ForensicatorAiConfig.provider) logs on the host." -ForegroundColor Red
+        }
+    }
+}
+catch {
+    Write-Host "[!] Forensicator AI : Status check failed ($($_.Exception.Message)) — continuing without it." -ForegroundColor DarkGray
+}
+
 Write-Host ""
 Write-Host ""
 
@@ -532,8 +596,31 @@ Write-Host ""
 # configuration file path
 $configFile = "$PSScriptRoot\config.json"
 
-# Read and parse the configuration file
-$configData = Get-Content $configFile | ConvertFrom-Json
+# Read and parse the configuration file. -Raw is required: Get-Content
+# without it returns an array of per-line strings, and piping that into
+# ConvertFrom-Json on PowerShell 7 can silently split one JSON object into
+# a System.Object[] of 2+ *partial* objects (each holding a subset of the
+# real top-level keys) instead of erroring — confirmed by direct testing
+# against this exact config.json. Most consumers below (`$configData.sigma`,
+# `$configData.ad`, etc.) still "work" by accident, because PowerShell's
+# member-enumeration-over-arrays feature transparently reaches into
+# whichever split element actually has that property. Initialize-
+# ForensicatorAiConfig doesn't get that accidental pass: it explicitly
+# checks `$ConfigData.PSObject.Properties.Name -contains 'ai'` before
+# touching it (a real existence check, not a direct property read), and an
+# array's own PSObject.Properties never includes 'ai' — so it always fell
+# through to "disabled", regardless of the real ai.enabled value.
+$configData = Get-Content $configFile -Raw | ConvertFrom-Json
+
+# Enriched finding construction (New-ForensicatorFinding, risk scoring,
+# artifact knowledge base). Dot-sourced here — after Write-ForensicLog and
+# $localVersion exist, before any $Cmd_*/finding-generation region runs.
+. "$PSScriptRoot\Forensicator-Share\ForensicatorFindingBuilder.ps1"
+
+# Load config.json's optional "ai" block (off by default). Must run before
+# the first New-ForensicatorFinding call so every finding this run gets a
+# verdict when enabled, not just ones collected after some later point.
+Initialize-ForensicatorAiConfig -ConfigData $configData
 
 $Hostname = $env:computername
 
@@ -819,68 +906,9 @@ $DNSCache = & $Cmd_DnsCache.Action
 # 2. CREATE STRUCTURED FINDING OBJECT
 # ---------------------------------------------------
 
-$Finding = @{
-    finding_id   = "dns-cache-001"
-    finding_type = "DNS Cache Entries"
-    category     = "Network Activity"
-    findingtags  = @("network-recon", "live-response")
-    severity     = "Informational"
-
-    host = @{
-        hostname = $env:COMPUTERNAME
-        username = $env:USERNAME
-    }
-
-    source = @{
-        collector = "Get-DnsClientCache"
-        artifact  = "Windows DNS Client Cache"
-        command   = $Cmd_DnsCache.Display
-    }
-
-    summary = @{
-        title         = "Forensicator DNS Cache Enumeration"
-        description   = "Collected DNS cache entries from the endpoint."
-        total_entries = $DNSCache.Count
-    }
-
-    risk = @{
-        score  = 10
-        level  = "Low"
-        reason = "DNS cache may reveal recently contacted domains."
-    }
-
-    mitre = @(
-        @{
-            technique_id = "T1016"
-            technique    = "System Network Configuration Discovery"
-        }
-    )
-
-    ai_analysis = @{
-        status      = "pending"
-        summary     = $null
-        anomalies   = @()
-        confidence  = $null
-    }
-
-    timeline = @(
-        @{
-            timestamp = (Get-Date).ToString("o")
-            event     = "Forensicator collected DNS cache from endpoint"
-        }
-    )
-
-    evidence = [System.Collections.Generic.List[object]]::new()
-
-    metadata = @{
-        collected_by     = "Forensicator"
-        collector_version = $localVersion
-        collection_time   = (Get-Date).ToString("o")
-    }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 foreach ($Entry in $DNSCache) {
-    $Finding.evidence.Add(@{
+    $Evidence.Add(@{
         entry  = $Entry.Entry
         name   = $Entry.Name
         status = $Entry.Status
@@ -888,6 +916,8 @@ foreach ($Entry in $DNSCache) {
         data   = $Entry.Data
     })
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "dns-cache" -Evidence $Evidence
+
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\network\dns-cache-finding.json"
 
@@ -919,33 +949,9 @@ $Cmd_NetworkAdapter = @{
 
 $NetworkAdapter = & $Cmd_NetworkAdapter.Action
 
-$Finding = @{
-    finding_id   = "net-adapter-001"
-    finding_type = "Network Adapter Inventory"
-    category     = "Network Activity"
-    findingtags  = @("network-recon", "live-response")
-    severity     = "Informational"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "Get-CimInstance Win32_NetworkAdapter"
-        artifact  = "Windows Network Adapters"
-        command   = $Cmd_NetworkAdapter.Display
-    }
-    summary = @{
-        title         = "Forensicator Network Adapter Inventory"
-        description   = "Collected network adapter inventory from the endpoint."
-        total_entries = $NetworkAdapter.Count
-    }
-    risk = @{ score = 10; level = "Low"; reason = "Network adapter details help identify unauthorized or suspicious network interfaces." }
-    mitre = @(@{ technique_id = "T1016"; technique = "System Network Configuration Discovery" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected network adapters from endpoint" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 foreach ($Entry in $NetworkAdapter) {
-    $Finding.evidence.Add(@{
+    $Evidence.Add(@{
         adapter_type          = $Entry.AdapterType
         product_name          = $Entry.ProductName
         description           = $Entry.Description
@@ -956,6 +962,8 @@ foreach ($Entry in $NetworkAdapter) {
         physical_adapter      = $Entry.PhysicalAdapter
     })
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "net-adapter" -Evidence $Evidence
+
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\network\net-adapter-finding.json"
 $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
@@ -988,33 +996,9 @@ $Cmd_IPConfiguration = @{
 
 $IPConfiguration = & $Cmd_IPConfiguration.Action
 
-$Finding = @{
-    finding_id   = "ip-config-001"
-    finding_type = "IP Configuration"
-    category     = "Network Activity"
-    findingtags  = @("network-recon", "live-response")
-    severity     = "Informational"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "Get-CimInstance Win32_NetworkAdapterConfiguration"
-        artifact  = "Windows IP Configuration"
-        command   = $Cmd_IPConfiguration.Display
-    }
-    summary = @{
-        title         = "Forensicator IP Configuration Enumeration"
-        description   = "Collected IP configuration from the endpoint."
-        total_entries = $IPConfiguration.Count
-    }
-    risk = @{ score = 10; level = "Low"; reason = "IP configuration details reveal network ranges, gateways, and DHCP status useful for network mapping." }
-    mitre = @(@{ technique_id = "T1016"; technique = "System Network Configuration Discovery" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected IP configuration from endpoint" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 foreach ($Entry in $IPConfiguration) {
-    $Finding.evidence.Add(@{
+    $Evidence.Add(@{
         description  = $Entry.Description
         mac_address  = $Entry.MACAddress
         dns_domain   = $Entry.DNSDomain
@@ -1023,6 +1007,8 @@ foreach ($Entry in $IPConfiguration) {
         service_name = $Entry.ServiceName
     })
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "ip-config" -Evidence $Evidence
+
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\network\ip-config-finding.json"
 $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
@@ -1064,39 +1050,17 @@ $NetIPAddress = foreach ($ip in Get-NetIPAddress -AddressFamily IPv4 | Where-Obj
     }
 }
 
-$Finding = @{
-    finding_id   = "net-ip-address-001"
-    finding_type = "Net IP Address Information"
-    category     = "Network Activity"
-    findingtags  = @("network-recon", "live-response")
-    severity     = "Informational"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "Get-NetIPAddress / Get-NetAdapter"
-        artifact  = "Windows Network IP Addresses"
-        command   = $Cmd_NetIPAddress.Display
-    }
-    summary = @{
-        title         = "Forensicator Net IP Address Enumeration"
-        description   = "Collected active IPv4 address and interface status from the endpoint."
-        total_entries = @($NetIPAddress).Count
-    }
-    risk = @{ score = 10; level = "Low"; reason = "Active IPv4 addresses show which network segments the host is connected to." }
-    mitre = @(@{ technique_id = "T1016"; technique = "System Network Configuration Discovery" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected IP address information from endpoint" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 foreach ($Entry in $NetIPAddress) {
-    $Finding.evidence.Add(@{
+    $Evidence.Add(@{
         interface_alias = $Entry.InterfaceAlias
         ip_address      = $Entry.IPAddress
         status          = $Entry.Status
         link_speed      = $Entry.LinkSpeed
     })
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "net-ip-address" -Evidence $Evidence
+
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\network\net-ip-address-finding.json"
 $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
@@ -1125,33 +1089,9 @@ $Cmd_NetConnectProfile = @{
 
 $NetConnectProfile = & $Cmd_NetConnectProfile.Action
 
-$Finding = @{
-    finding_id   = "net-connect-profile-001"
-    finding_type = "Network Connection Profiles"
-    category     = "Network Activity"
-    findingtags  = @("network-recon", "live-response")
-    severity     = "Informational"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "Get-NetConnectionProfile"
-        artifact  = "Windows Network Connection Profiles"
-        command   = $Cmd_NetConnectProfile.Display
-    }
-    summary = @{
-        title         = "Forensicator Network Connection Profiles Enumeration"
-        description   = "Collected network connection profiles from the endpoint."
-        total_entries = $NetConnectProfile.Count
-    }
-    risk = @{ score = 15; level = "Low"; reason = "Network category reveals trust level assigned to connected networks; misconfiguration may expose services." }
-    mitre = @(@{ technique_id = "T1016"; technique = "System Network Configuration Discovery" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected network connection profiles from endpoint" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 foreach ($Entry in $NetConnectProfile) {
-    $Finding.evidence.Add(@{
+    $Evidence.Add(@{
         name              = $Entry.Name
         interface_alias   = $Entry.InterfaceAlias
         network_category  = $Entry.NetworkCategory
@@ -1159,6 +1099,8 @@ foreach ($Entry in $NetConnectProfile) {
         ipv6_connectivity = $Entry.IPv6Connectivity
     })
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "net-connect-profile" -Evidence $Evidence
+
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\network\net-connect-profile-finding.json"
 $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
@@ -1188,33 +1130,9 @@ $Cmd_NetAdapter = @{
 
 $NetAdapter = & $Cmd_NetAdapter.Action
 
-$Finding = @{
-    finding_id   = "net-interface-001"
-    finding_type = "Network Interfaces"
-    category     = "Network Activity"
-    findingtags  = @("network-recon", "live-response")
-    severity     = "Informational"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "Get-NetAdapter"
-        artifact  = "Windows Network Adapters (Get-NetAdapter)"
-        command   = $Cmd_NetAdapter.Display
-    }
-    summary = @{
-        title         = "Forensicator Network Interface Enumeration"
-        description   = "Collected network interface details from the endpoint."
-        total_entries = $NetAdapter.Count
-    }
-    risk = @{ score = 10; level = "Low"; reason = "Interface status and link speed help detect unusual or rogue network devices." }
-    mitre = @(@{ technique_id = "T1016"; technique = "System Network Configuration Discovery" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected network interfaces from endpoint" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 foreach ($Entry in $NetAdapter) {
-    $Finding.evidence.Add(@{
+    $Evidence.Add(@{
         name                  = $Entry.Name
         interface_description = $Entry.InterfaceDescription
         status                = $Entry.Status
@@ -1222,6 +1140,8 @@ foreach ($Entry in $NetAdapter) {
         link_speed            = $Entry.LinkSpeed
     })
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "net-interface" -Evidence $Evidence
+
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\network\net-interface-finding.json"
 $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
@@ -1251,38 +1171,16 @@ $Cmd_NetNeighbor = @{
 
 $NetNeighbor = & $Cmd_NetNeighbor.Action
 
-$Finding = @{
-    finding_id   = "net-neighbor-001"
-    finding_type = "Net Neighbour (ARP Cache)"
-    category     = "Network Activity"
-    findingtags  = @("network-recon", "live-response")
-    severity     = "Informational"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "Get-NetNeighbor"
-        artifact  = "Windows ARP Cache"
-        command   = $Cmd_NetNeighbor.Display
-    }
-    summary = @{
-        title         = "Forensicator ARP Cache Enumeration"
-        description   = "Collected ARP neighbour cache from the endpoint."
-        total_entries = $NetNeighbor.Count
-    }
-    risk = @{ score = 20; level = "Low"; reason = "ARP cache reveals recently contacted hosts; anomalous entries may indicate ARP poisoning." }
-    mitre = @(@{ technique_id = "T1016"; technique = "System Network Configuration Discovery" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected ARP cache from endpoint" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 foreach ($Entry in $NetNeighbor) {
-    $Finding.evidence.Add(@{
+    $Evidence.Add(@{
         interface_alias    = $Entry.InterfaceAlias
         ip_address         = $Entry.IPAddress
         link_layer_address = $Entry.LinkLayerAddress
     })
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "net-neighbor" -Evidence $Evidence
+
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\network\net-neighbor-finding.json"
 $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
@@ -1322,33 +1220,9 @@ $NetTCPConnect = foreach ($conn in Get-NetTCPConnection) {
     }
 }
 
-$Finding = @{
-    finding_id   = "tcp-connections-001"
-    finding_type = "TCP Connections"
-    category     = "Network Activity"
-    findingtags  = @("network-recon", "data-exfiltration", "lateral-movement", "live-response")
-    severity     = "Interesting"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "Get-NetTCPConnection"
-        artifact  = "Windows TCP Connections"
-        command   = $Cmd_NetTCPConnect.Display
-    }
-    summary = @{
-        title         = "Forensicator TCP Connections Enumeration"
-        description   = "Collected active TCP connections from the endpoint."
-        total_entries = $NetTCPConnect.Count
-    }
-    risk = @{ score = 40; level = "Medium"; reason = "Active TCP connections may reveal C2 communication, lateral movement, or data exfiltration." }
-    mitre = @(@{ technique_id = "T1049"; technique = "System Network Connections Discovery" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected TCP connections from endpoint" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 foreach ($Entry in $NetTCPConnect) {
-    $Finding.evidence.Add(@{
+    $Evidence.Add(@{
         local_address  = $Entry.LocalAddress
         local_port     = $Entry.LocalPort
         remote_address = $Entry.RemoteAddress
@@ -1358,6 +1232,8 @@ foreach ($Entry in $NetTCPConnect) {
         process        = $Entry.Process
     })
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "tcp-connections" -Evidence $Evidence
+
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\network\tcp-connections-finding.json"
 $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
@@ -1413,39 +1289,17 @@ foreach ($c in Get-NetUDPEndpoint) {
     })
 }
 
-$Finding = @{
-    finding_id   = "listening-ports-001"
-    finding_type = "Listening Ports (TCP + UDP)"
-    category     = "Network Activity"
-    findingtags  = @("network-recon", "data-exfiltration", "lateral-movement", "live-response")
-    severity     = "Interesting"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "Get-NetTCPConnection -State Listen / Get-NetUDPEndpoint"
-        artifact  = "Windows Listening Ports"
-        command   = $Cmd_ListeningPorts.Display
-    }
-    summary = @{
-        title         = "Forensicator Listening Ports Enumeration"
-        description   = "Collected all listening TCP and UDP ports from the endpoint."
-        total_entries = $ListeningPortsData.Count
-    }
-    risk = @{ score = 35; level = "Medium"; reason = "Listening ports expose services that may be exploited by attackers for initial access or lateral movement." }
-    mitre = @(@{ technique_id = "T1049"; technique = "System Network Connections Discovery" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected listening ports from endpoint" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 foreach ($Entry in $ListeningPortsData) {
-    $Finding.evidence.Add(@{
+    $Evidence.Add(@{
         local_port     = $Entry.local_port
         protocol       = $Entry.protocol
         owning_process = $Entry.owning_process
         process_name   = $Entry.process_name
     })
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "listening-ports" -Evidence $Evidence
+
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\network\listening-ports-finding.json"
 $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
@@ -1469,37 +1323,15 @@ $Cmd_WlanPasswords = @{
 
 $WlanPasswords = & $Cmd_WlanPasswords.Action
 
-$Finding = @{
-    finding_id   = "wifi-passwords-001"
-    finding_type = "Wi-Fi Saved Passwords"
-    category     = "Credential Access"
-    findingtags  = @("credential-access", "network-recon", "live-response")
-    severity     = "Notable"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "netsh wlan show profiles / netsh wlan show profile key=clear"
-        artifact  = "Windows Wireless Profile Credentials"
-        command   = $Cmd_WlanPasswords.Display
-    }
-    summary = @{
-        title         = "Forensicator Wi-Fi Password Enumeration"
-        description   = "Collected saved Wi-Fi profile passwords from the endpoint."
-        total_entries = @($WlanPasswords).Count
-    }
-    risk = @{ score = 75; level = "High"; reason = "Saved Wi-Fi passwords expose pre-shared keys that can be used to access wireless networks or pivot to other segments." }
-    mitre = @(@{ technique_id = "T1555"; technique = "Credentials from Password Stores" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected Wi-Fi passwords from endpoint" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 foreach ($Entry in $WlanPasswords) {
-    $Finding.evidence.Add(@{
+    $Evidence.Add(@{
         profile_name = $Entry.PROFILE_NAME
         password     = $Entry.PASSWORD
     })
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "wifi-passwords" -Evidence $Evidence
+
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\network\wifi-passwords-finding.json"
 $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
@@ -1527,33 +1359,9 @@ $Cmd_FirewallRule = @{
 
 $FirewallRule = & $Cmd_FirewallRule.Action
 
-$Finding = @{
-    finding_id   = "firewall-rules-001"
-    finding_type = "Firewall Rules"
-    category     = "Defense Evasion"
-    findingtags  = @("defense-evasion", "network-recon", "live-response")
-    severity     = "Interesting"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "Get-NetFirewallRule"
-        artifact  = "Windows Firewall Rules"
-        command   = $Cmd_FirewallRule.Display
-    }
-    summary = @{
-        title         = "Forensicator Firewall Rules Enumeration"
-        description   = "Collected firewall rules from the endpoint."
-        total_entries = $FirewallRule.Count
-    }
-    risk = @{ score = 40; level = "Medium"; reason = "Modified firewall rules may indicate an attacker disabled defenses or opened inbound ports for persistence." }
-    mitre = @(@{ technique_id = "T1562.004"; technique = "Impair Defenses: Disable or Modify System Firewall" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected firewall rules from endpoint" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 foreach ($Entry in $FirewallRule) {
-    $Finding.evidence.Add(@{
+    $Evidence.Add(@{
         name                  = $Entry.Name
         display_name          = $Entry.DisplayName
         description           = $Entry.Description
@@ -1564,6 +1372,8 @@ foreach ($Entry in $FirewallRule) {
         enforcement_status    = $Entry.EnforcementStatus
     })
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "firewall-rules" -Evidence $Evidence
+
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\network\firewall-rules-finding.json"
 $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
@@ -1596,33 +1406,9 @@ $Cmd_OutboundSmbSessions = @{
 
 $outboundSmbSessions = & $Cmd_OutboundSmbSessions.Action
 
-$Finding = @{
-    finding_id   = "outbound-smb-001"
-    finding_type = "Outbound SMB Sessions"
-    category     = "Lateral Movement"
-    findingtags  = @("lateral-movement", "data-exfiltration", "live-response")
-    severity     = "Notable"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "Get-NetTCPConnection (LocalPort 445, State Established)"
-        artifact  = "Windows Outbound SMB Connections"
-        command   = $Cmd_OutboundSmbSessions.Display
-    }
-    summary = @{
-        title         = "Forensicator Outbound SMB Sessions Enumeration"
-        description   = "Collected outbound SMB sessions from the endpoint."
-        total_entries = @($outboundSmbSessions).Count
-    }
-    risk = @{ score = 70; level = "High"; reason = "Outbound SMB connections may indicate lateral movement, pass-the-hash, or data exfiltration over SMB." }
-    mitre = @(@{ technique_id = "T1021.002"; technique = "Remote Services: SMB/Windows Admin Shares" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected outbound SMB sessions from endpoint" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 foreach ($Entry in $outboundSmbSessions) {
-    $Finding.evidence.Add(@{
+    $Evidence.Add(@{
         local_address   = $Entry.LocalAddress
         local_port      = $Entry.LocalPort
         remote_address  = $Entry.RemoteAddress
@@ -1632,6 +1418,8 @@ foreach ($Entry in $outboundSmbSessions) {
         owning_process  = $Entry.OwningProcess
     })
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "outbound-smb" -Evidence $Evidence
+
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\network\outbound-smb-finding.json"
 $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
@@ -1663,39 +1451,17 @@ $Cmd_SMBSessions = @{
 
 $SMBSessions = & $Cmd_SMBSessions.Action
 
-$Finding = @{
-    finding_id   = "smb-sessions-001"
-    finding_type = "Active SMB Sessions"
-    category     = "Lateral Movement"
-    findingtags  = @("lateral-movement", "network-recon", "live-response")
-    severity     = "Notable"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "Get-SmbSession"
-        artifact  = "Windows SMB Sessions"
-        command   = $Cmd_SMBSessions.Display
-    }
-    summary = @{
-        title         = "Forensicator Active SMB Sessions Enumeration"
-        description   = "Collected active inbound SMB sessions from the endpoint."
-        total_entries = @($SMBSessions).Count
-    }
-    risk = @{ score = 65; level = "High"; reason = "Active inbound SMB sessions may indicate unauthorized access or lateral movement by an attacker." }
-    mitre = @(@{ technique_id = "T1021.002"; technique = "Remote Services: SMB/Windows Admin Shares" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected active SMB sessions from endpoint" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 foreach ($Entry in $SMBSessions) {
-    $Finding.evidence.Add(@{
+    $Evidence.Add(@{
         session_id           = $Entry.SessionId
         client_computer_name = $Entry.ClientComputerName
         client_user_name     = $Entry.ClientUserName
         num_opens            = $Entry.NumOpens
     })
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "smb-sessions" -Evidence $Evidence
+
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\network\smb-sessions-finding.json"
 $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
@@ -1724,38 +1490,16 @@ $Cmd_SMBShares = @{
 
 $SMBShares = & $Cmd_SMBShares.Action
 
-$Finding = @{
-    finding_id   = "smb-shares-001"
-    finding_type = "SMB Network Shares"
-    category     = "Network Activity"
-    findingtags  = @("network-recon", "data-exfiltration", "lateral-movement", "live-response")
-    severity     = "Interesting"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "Get-SmbShare"
-        artifact  = "Windows SMB Shares"
-        command   = $Cmd_SMBShares.Display
-    }
-    summary = @{
-        title         = "Forensicator SMB Shares Enumeration"
-        description   = "Collected SMB network shares from the endpoint."
-        total_entries = $SMBShares.Count
-    }
-    risk = @{ score = 40; level = "Medium"; reason = "Exposed network shares may provide unauthorized access to sensitive data or be used as staging locations." }
-    mitre = @(@{ technique_id = "T1135"; technique = "Network Share Discovery" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected SMB shares from endpoint" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 foreach ($Entry in $SMBShares) {
-    $Finding.evidence.Add(@{
+    $Evidence.Add(@{
         description = $Entry.description
         path        = $Entry.path
         volume      = $Entry.volume
     })
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "smb-shares" -Evidence $Evidence
+
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\network\smb-shares-finding.json"
 $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
@@ -1783,33 +1527,9 @@ $Cmd_NetHops = @{
 
 $NetHops = & $Cmd_NetHops.Action
 
-$Finding = @{
-    finding_id   = "net-hops-001"
-    finding_type = "Network Hops (Non-local Routes)"
-    category     = "Network Activity"
-    findingtags  = @("network-recon", "live-response")
-    severity     = "Informational"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "Get-NetRoute (filtered non-local NextHop)"
-        artifact  = "Windows Routing Table"
-        command   = $Cmd_NetHops.Display
-    }
-    summary = @{
-        title         = "Forensicator Network Hops Enumeration"
-        description   = "Collected network routes with non-local next hops from the endpoint."
-        total_entries = @($NetHops).Count
-    }
-    risk = @{ score = 15; level = "Low"; reason = "Non-local routes may reveal unexpected network connectivity or attacker-injected routes for traffic redirection." }
-    mitre = @(@{ technique_id = "T1016"; technique = "System Network Configuration Discovery" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected network hops from endpoint" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 foreach ($Entry in $NetHops) {
-    $Finding.evidence.Add(@{
+    $Evidence.Add(@{
         if_index           = $Entry.ifIndex
         destination_prefix = $Entry.DestinationPrefix
         next_hop           = $Entry.NextHop
@@ -1818,6 +1538,8 @@ foreach ($Entry in $NetHops) {
         interface_alias    = $Entry.InterfaceAlias
     })
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "net-hops" -Evidence $Evidence
+
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\network\net-hops-finding.json"
 $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
@@ -1848,33 +1570,9 @@ $Cmd_AdaptHops = @{
 
 $AdaptHops = & $Cmd_AdaptHops.Action
 
-$Finding = @{
-    finding_id   = "adapter-hops-001"
-    finding_type = "Adapter Hops (Adapters with Non-local Routes)"
-    category     = "Network Activity"
-    findingtags  = @("network-recon", "live-response")
-    severity     = "Informational"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "Get-NetRoute | Get-NetAdapter (filtered non-local NextHop)"
-        artifact  = "Windows Network Adapters with Routes"
-        command   = $Cmd_AdaptHops.Display
-    }
-    summary = @{
-        title         = "Forensicator Adapter Hops Enumeration"
-        description   = "Collected network adapters associated with non-local routes from the endpoint."
-        total_entries = @($AdaptHops).Count
-    }
-    risk = @{ score = 15; level = "Low"; reason = "Adapters with non-local routes indicate the host is connected to multiple network segments, which may be leveraged for pivoting." }
-    mitre = @(@{ technique_id = "T1016"; technique = "System Network Configuration Discovery" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected adapter hops from endpoint" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 foreach ($Entry in $AdaptHops) {
-    $Finding.evidence.Add(@{
+    $Evidence.Add(@{
         name                  = $Entry.Name
         interface_description = $Entry.InterfaceDescription
         if_index              = $Entry.ifIndex
@@ -1883,6 +1581,8 @@ foreach ($Entry in $AdaptHops) {
         link_speed            = $Entry.LinkSpeed
     })
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "adapter-hops" -Evidence $Evidence
+
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\network\adapter-hops-finding.json"
 $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
@@ -1913,33 +1613,9 @@ $Cmd_IpHops = @{
 
 $IpHops = & $Cmd_IpHops.Action
 
-$Finding = @{
-    finding_id   = "ip-hops-001"
-    finding_type = "IP Hops (Infinite Lifetime Routes)"
-    category     = "Network Activity"
-    findingtags  = @("network-recon", "live-response")
-    severity     = "Informational"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "Get-NetRoute (ValidLifetime -eq MaxValue)"
-        artifact  = "Windows Persistent Routes"
-        command   = $Cmd_IpHops.Display
-    }
-    summary = @{
-        title         = "Forensicator Persistent Routes Enumeration"
-        description   = "Collected persistent routes with infinite valid lifetime from the endpoint."
-        total_entries = @($IpHops).Count
-    }
-    risk = @{ score = 15; level = "Low"; reason = "Persistent routes with infinite lifetime may be attacker-injected for sustained traffic redirection." }
-    mitre = @(@{ technique_id = "T1016"; technique = "System Network Configuration Discovery" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected persistent routes from endpoint" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 foreach ($Entry in $IpHops) {
-    $Finding.evidence.Add(@{
+    $Evidence.Add(@{
         if_index           = $Entry.ifIndex
         destination_prefix = $Entry.DestinationPrefix
         next_hop           = $Entry.NextHop
@@ -1948,6 +1624,8 @@ foreach ($Entry in $IpHops) {
         interface_alias    = $Entry.InterfaceAlias
     })
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "ip-hops" -Evidence $Evidence
+
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\network\ip-hops-finding.json"
 $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
@@ -1990,33 +1668,9 @@ $Cmd_LocalUserAccounts = @{
 
 $LocalUserAccounts = & $Cmd_LocalUserAccounts.Action
 
-$Finding = @{
-    finding_id   = "local-users-001"
-    finding_type = "Local User Accounts"
-    category     = "User Accounts"
-    findingtags  = @("insider-threat", "credential-access", "live-response")
-    severity     = "Interesting"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "Get-LocalUser"
-        artifact  = "Windows Local User Accounts"
-        command   = $Cmd_LocalUserAccounts.Display
-    }
-    summary = @{
-        title         = "Forensicator Local User Accounts Enumeration"
-        description   = "Collected local user accounts from the endpoint."
-        total_entries = $LocalUserAccounts.Count
-    }
-    risk = @{ score = 40; level = "Medium"; reason = "Local user accounts reveal enabled/disabled accounts and last logon — useful for detecting rogue accounts." }
-    mitre = @(@{ technique_id = "T1087.001"; technique = "Account Discovery: Local Account" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected local user accounts from endpoint" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 foreach ($Entry in $LocalUserAccounts) {
-    $Finding.evidence.Add(@{
+    $Evidence.Add(@{
         name                     = $Entry.Name
         enabled                  = $Entry.Enabled
         last_logon               = $Entry.LastLogon
@@ -2027,6 +1681,8 @@ foreach ($Entry in $LocalUserAccounts) {
         user_may_change_password = $Entry.UserMayChangePassword
     })
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "local-users" -Evidence $Evidence
+
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\users\local-users-finding.json"
 New-Item -ItemType Directory -Force -Path "$PSScriptRoot\$env:COMPUTERNAME\investigation\users" | Out-Null
@@ -2060,38 +1716,16 @@ $Cmd_Administrators = @{
 
 $administrators = & $Cmd_Administrators.Action
 
-$Finding = @{
-    finding_id   = "admin-group-001"
-    finding_type = "Local Administrators Group Members"
-    category     = "Privilege Escalation"
-    findingtags  = @("insider-threat", "credential-access", "privilege-escalation", "live-response")
-    severity     = "Notable"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = 'Get-LocalGroupMember -Group "Administrators"'
-        artifact  = "Windows Local Administrators Group"
-        command   = $Cmd_Administrators.Display
-    }
-    summary = @{
-        title         = "Forensicator Local Administrators Enumeration"
-        description   = "Collected members of the local Administrators group from the endpoint."
-        total_entries = @($administrators).Count
-    }
-    risk = @{ score = 70; level = "High"; reason = "Unexpected members in the local Administrators group are a strong indicator of privilege escalation or persistence." }
-    mitre = @(@{ technique_id = "T1078.001"; technique = "Valid Accounts: Local Accounts" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected local administrators from endpoint" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 foreach ($Entry in $administrators) {
-    $Finding.evidence.Add(@{
+    $Evidence.Add(@{
         name             = $Entry.Name
         object_class     = $Entry.ObjectClass
         principal_source = $Entry.PrincipalSource
     })
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "admin-group" -Evidence $Evidence
+
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\users\admin-group-finding.json"
 $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
@@ -2119,33 +1753,9 @@ $Cmd_logonsession = @{
 
 $logonsession = & $Cmd_logonsession.Action
 
-$Finding = @{
-    finding_id   = "active-logon-001"
-    finding_type = "Active Logon Sessions"
-    category     = "User Accounts"
-    findingtags  = @("insider-threat", "credential-access", "live-response")
-    severity     = "Interesting"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "quser"
-        artifact  = "Windows Active Logon Sessions"
-        command   = $Cmd_logonsession.Display
-    }
-    summary = @{
-        title         = "Forensicator Active Logon Sessions Enumeration"
-        description   = "Collected active interactive logon sessions from the endpoint."
-        total_entries = @($logonsession).Count
-    }
-    risk = @{ score = 35; level = "Medium"; reason = "Active interactive logon sessions may indicate unauthorized users currently logged in to the system." }
-    mitre = @(@{ technique_id = "T1033"; technique = "System Owner/User Discovery" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected active logon sessions from endpoint" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 foreach ($Entry in $logonsession) {
-    $Finding.evidence.Add(@{
+    $Evidence.Add(@{
         username   = $Entry.Username
         domain     = $Entry.Domain
         logon_type = $Entry.LogonType
@@ -2153,6 +1763,8 @@ foreach ($Entry in $logonsession) {
         idle_time  = $Entry.IdleTime
     })
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "active-logon" -Evidence $Evidence
+
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\users\active-logon-finding.json"
 $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
@@ -2182,38 +1794,16 @@ $Cmd_UserProfiles = @{
 
 $userprofiles = & $Cmd_UserProfiles.Action
 
-$Finding = @{
-    finding_id   = "user-profiles-001"
-    finding_type = "User Profiles (Historical Presence)"
-    category     = "User Accounts"
-    findingtags  = @("insider-threat", "live-response")
-    severity     = "Informational"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "Get-CimInstance Win32_UserProfile"
-        artifact  = "Windows User Profiles"
-        command   = $Cmd_UserProfiles.Display
-    }
-    summary = @{
-        title         = "Forensicator User Profiles Enumeration"
-        description   = "Collected user profiles and last use times from the endpoint."
-        total_entries = $userprofiles.Count
-    }
-    risk = @{ score = 15; level = "Low"; reason = "Historical user profiles reveal accounts that have logged on, including deleted or dormant accounts." }
-    mitre = @(@{ technique_id = "T1033"; technique = "System Owner/User Discovery" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected user profiles from endpoint" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 foreach ($Entry in $userprofiles) {
-    $Finding.evidence.Add(@{
+    $Evidence.Add(@{
         username      = $Entry.Username
         sid           = $Entry.SID
         last_use_time = $Entry.LastUseTime
     })
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "user-profiles" -Evidence $Evidence
+
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\users\user-profiles-finding.json"
 $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
@@ -2242,39 +1832,17 @@ $Cmd_LocalGroup = @{
 
 $LocalGroup = & $Cmd_LocalGroup.Action
 
-$Finding = @{
-    finding_id   = "local-groups-001"
-    finding_type = "Important Local Group Members"
-    category     = "Privilege Escalation"
-    findingtags  = @("insider-threat", "credential-access", "privilege-escalation", "live-response")
-    severity     = "Notable"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "Get-LocalGroupMember (Administrators, Remote Desktop Users, Backup Operators, Power Users)"
-        artifact  = "Windows Local Group Membership"
-        command   = $Cmd_LocalGroup.Display
-    }
-    summary = @{
-        title         = "Forensicator Local Group Membership Enumeration"
-        description   = "Collected members of important local groups from the endpoint."
-        total_entries = @($LocalGroup).Count
-    }
-    risk = @{ score = 65; level = "High"; reason = "Members of privileged groups such as Backup Operators may be leveraged for lateral movement or data access." }
-    mitre = @(@{ technique_id = "T1069.001"; technique = "Permission Groups Discovery: Local Groups" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected local group members from endpoint" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 foreach ($Entry in $LocalGroup) {
-    $Finding.evidence.Add(@{
+    $Evidence.Add(@{
         group    = $Entry.Group
         username = $Entry.Username
         domain   = $Entry.Domain
         type     = $Entry.Type
     })
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "local-groups" -Evidence $Evidence
+
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\users\local-groups-finding.json"
 $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
@@ -2317,33 +1885,9 @@ $Cmd_OSinfo = @{
 
 $OSinfo = & $Cmd_OSinfo.Action
 
-$Finding = @{
-    finding_id   = "os-info-001"
-    finding_type = "Operating System Information"
-    category     = "System Information"
-    findingtags  = @("live-response")
-    severity     = "Informational"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "Get-CimInstance Win32_OperatingSystem"
-        artifact  = "Windows Operating System Details"
-        command   = $Cmd_OSinfo.Display
-    }
-    summary = @{
-        title         = "Forensicator OS Information Enumeration"
-        description   = "Collected operating system information from the endpoint."
-        total_entries = @($OSinfo).Count
-    }
-    risk = @{ score = 5; level = "Low"; reason = "OS version and build number help identify unpatched or end-of-life systems." }
-    mitre = @(@{ technique_id = "T1082"; technique = "System Information Discovery" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected OS information from endpoint" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 foreach ($Entry in $OSinfo) {
-    $Finding.evidence.Add(@{
+    $Evidence.Add(@{
         name             = $Entry.Name
         version          = $Entry.Version
         build_number     = $Entry.BuildNumber
@@ -2356,6 +1900,8 @@ foreach ($Entry in $OSinfo) {
         organization     = $Entry.Organization
     })
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "os-info" -Evidence $Evidence
+
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\system\os-info-finding.json"
 New-Item -ItemType Directory -Force -Path "$PSScriptRoot\$env:COMPUTERNAME\investigation\system" | Out-Null
@@ -2394,33 +1940,9 @@ $paths = @(
 
 $InstalledApps = Get-ItemProperty $paths | Where-Object {$_.DisplayName} | Select-Object DisplayName, DisplayVersion, Publisher, InstallDate, InstallLocation, UninstallString
 
-$Finding = @{
-    finding_id   = "installed-apps-001"
-    finding_type = "Installed Applications"
-    category     = "System Information"
-    findingtags  = @("malware", "live-response")
-    severity     = "Informational"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "Get-ItemProperty HKLM:\Software\...\Uninstall\*"
-        artifact  = "Windows Installed Applications (Registry)"
-        command   = $Cmd_InstalledApps.Display
-    }
-    summary = @{
-        title         = "Forensicator Installed Applications Enumeration"
-        description   = "Collected installed applications from the endpoint."
-        total_entries = @($InstalledApps).Count
-    }
-    risk = @{ score = 20; level = "Low"; reason = "Installed applications may include known vulnerable software or attacker-deployed utilities." }
-    mitre = @(@{ technique_id = "T1518"; technique = "Software Discovery" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected installed applications from endpoint" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 foreach ($Entry in $InstalledApps) {
-    $Finding.evidence.Add(@{
+    $Evidence.Add(@{
         display_name     = $Entry.DisplayName
         display_version  = $Entry.DisplayVersion
         publisher        = $Entry.Publisher
@@ -2429,6 +1951,8 @@ foreach ($Entry in $InstalledApps) {
         uninstall_string = $Entry.UninstallString
     })
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "installed-apps" -Evidence $Evidence
+
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\system\installed-apps-finding.json"
 $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
@@ -2459,33 +1983,9 @@ $Cmd_LogicalDrives = @{
 
 $LogicalDrives = & $Cmd_LogicalDrives.Action
 
-$Finding = @{
-    finding_id   = "logical-drives-001"
-    finding_type = "Logical Drives (Storage)"
-    category     = "System Information"
-    findingtags  = @("usb-activity", "live-response")
-    severity     = "Informational"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "Get-CimInstance Win32_LogicalDisk -Filter DriveType=3"
-        artifact  = "Windows Logical Drives"
-        command   = $Cmd_LogicalDrives.Display
-    }
-    summary = @{
-        title         = "Forensicator Logical Drives Enumeration"
-        description   = "Collected logical drive details from the endpoint."
-        total_entries = @($LogicalDrives).Count
-    }
-    risk = @{ score = 10; level = "Low"; reason = "Drive free space analysis may reveal large data deletions or staging of exfiltration archives." }
-    mitre = @(@{ technique_id = "T1082"; technique = "System Information Discovery" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected logical drives from endpoint" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 foreach ($Entry in $LogicalDrives) {
-    $Finding.evidence.Add(@{
+    $Evidence.Add(@{
         drive    = $Entry.Drive
         label    = $Entry.Label
         size_gb  = $Entry.'Size (GB)'
@@ -2493,6 +1993,8 @@ foreach ($Entry in $LogicalDrives) {
         pct_free = $Entry.'%Free'
     })
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "logical-drives" -Evidence $Evidence
+
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\system\logical-drives-finding.json"
 $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
@@ -2524,37 +2026,15 @@ $interestingenv = 'PATH','TEMP','TMP','USERNAME','USERDOMAIN','COMPUTERNAME','AP
 
 $envData = Get-ChildItem Env: | Where-Object { $interestingenv -contains $_.Name } | Select-Object Name, Value
 
-$Finding = @{
-    finding_id   = "env-vars-001"
-    finding_type = "Environment Variables"
-    category     = "System Information"
-    findingtags  = @("malware", "live-response")
-    severity     = "Informational"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "Get-ChildItem Env: (filtered to key variables)"
-        artifact  = "Windows Environment Variables"
-        command   = $Cmd_interestingenv.Display
-    }
-    summary = @{
-        title         = "Forensicator Environment Variables Enumeration"
-        description   = "Collected key environment variables from the endpoint."
-        total_entries = @($envData).Count
-    }
-    risk = @{ score = 10; level = "Low"; reason = "Environment variables may reveal user context, temp paths used by malware, or custom attacker-set variables." }
-    mitre = @(@{ technique_id = "T1082"; technique = "System Information Discovery" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected environment variables from endpoint" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 foreach ($Entry in $envData) {
-    $Finding.evidence.Add(@{
+    $Evidence.Add(@{
         name  = $Entry.Name
         value = $Entry.Value
     })
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "env-vars" -Evidence $Evidence
+
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\system\env-vars-finding.json"
 $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
@@ -2581,33 +2061,9 @@ $Cmd_Hotfixes = @{
 
 $Hotfixes = & $Cmd_Hotfixes.Action
 
-$Finding = @{
-    finding_id   = "hotfixes-001"
-    finding_type = "Installed Hotfixes"
-    category     = "System Information"
-    findingtags  = @("defense-evasion", "live-response")
-    severity     = "Informational"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "Get-HotFix"
-        artifact  = "Windows Installed Patches"
-        command   = $Cmd_Hotfixes.Display
-    }
-    summary = @{
-        title         = "Forensicator Hotfixes Enumeration"
-        description   = "Collected installed hotfixes and patches from the endpoint."
-        total_entries = @($Hotfixes).Count
-    }
-    risk = @{ score = 20; level = "Low"; reason = "Missing patches may expose the system to known exploited vulnerabilities (CVEs)." }
-    mitre = @(@{ technique_id = "T1082"; technique = "System Information Discovery" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected hotfixes from endpoint" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 foreach ($Entry in $Hotfixes) {
-    $Finding.evidence.Add(@{
+    $Evidence.Add(@{
         cs_name      = $Entry.CSName
         caption      = $Entry.Caption
         description  = $Entry.Description
@@ -2616,6 +2072,8 @@ foreach ($Entry in $Hotfixes) {
         installed_on = $Entry.InstalledOn
     })
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "hotfixes" -Evidence $Evidence
+
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\system\hotfixes-finding.json"
 $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
@@ -2646,33 +2104,9 @@ $Cmd_WinDefender = @{
 
 $WinDefender = & $Cmd_WinDefender.Action
 
-$Finding = @{
-    finding_id   = "win-defender-001"
-    finding_type = "Windows Defender Status"
-    category     = "Defense Evasion"
-    findingtags  = @("malware", "defense-evasion", "live-response")
-    severity     = "Notable"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "Get-MpComputerStatus"
-        artifact  = "Windows Defender Configuration"
-        command   = $Cmd_WinDefender.Display
-    }
-    summary = @{
-        title         = "Forensicator Windows Defender Status Enumeration"
-        description   = "Collected Windows Defender status and configuration from the endpoint."
-        total_entries = @($WinDefender).Count
-    }
-    risk = @{ score = 70; level = "High"; reason = "Disabled or outdated Windows Defender indicates defense evasion; out-of-date signatures increase exposure to current malware." }
-    mitre = @(@{ technique_id = "T1562.001"; technique = "Impair Defenses: Disable or Modify Tools" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected Windows Defender status from endpoint" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 foreach ($Entry in $WinDefender) {
-    $Finding.evidence.Add(@{
+    $Evidence.Add(@{
         am_product_version                   = $Entry.AMProductVersion
         am_running_mode                      = $Entry.AMRunningMode
         am_service_enabled                   = $Entry.AMServiceEnabled
@@ -2689,6 +2123,8 @@ foreach ($Entry in $WinDefender) {
         real_time_protection_enabled         = $Entry.RealTimeProtectionEnabled
     })
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "win-defender" -Evidence $Evidence
+
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\system\win-defender-finding.json"
 $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
@@ -2777,33 +2213,9 @@ function Encode-Cell {
 # Forensicator - Running Processes Finding Collector
 # ============================================
 
-$Finding = @{
-    finding_id   = "processes-001"
-    finding_type = "Running Processes"
-    category     = "Execution"
-    findingtags  = @("malware", "ransomware", "live-response")
-    severity     = "Interesting"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "Get-CimInstance Win32_Process + Get-Process + Get-AuthenticodeSignature"
-        artifact  = "Running Processes"
-        command   = $Cmd_Processes.Display
-    }
-    summary = @{
-        title         = "Forensicator Running Processes Enumeration"
-        description   = "Collected running processes with owner, signature, and command-line details from the endpoint."
-        total_entries = @($ProcessFragment).Count
-    }
-    risk = @{ score = 50; level = "Medium"; reason = "Unsigned or suspicious executables running from unusual paths may indicate malware execution." }
-    mitre = @(@{ technique_id = "T1057"; technique = "Process Discovery" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected running processes from endpoint" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 foreach ($Entry in $ProcessFragment) {
-    $Finding.evidence.Add(@{
+    $Evidence.Add(@{
         name             = $Entry.Name
         pid              = $Entry.PID
         ppid             = $Entry.PPID
@@ -2816,6 +2228,8 @@ foreach ($Entry in $ProcessFragment) {
         signature_status = "$($Entry.SignatureStatus)"
     })
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "processes" -Evidence $Evidence
+
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\processes\processes-finding.json"
 New-Item -ItemType Directory -Force -Path "$PSScriptRoot\$env:COMPUTERNAME\investigation\processes" | Out-Null
@@ -2838,39 +2252,17 @@ $Cmd_StartupProgs = @{
 
 $StartupProgs = & $Cmd_StartupProgs.Action
 
-$Finding = @{
-    finding_id   = "startup-progs-001"
-    finding_type = "Startup Programs"
-    category     = "Persistence"
-    findingtags  = @("malware", "persistence", "live-response")
-    severity     = "Notable"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "Get-CimInstance Win32_StartupCommand"
-        artifact  = "Windows Startup Programs (WMI)"
-        command   = $Cmd_StartupProgs.Display
-    }
-    summary = @{
-        title         = "Forensicator Startup Programs Enumeration"
-        description   = "Collected startup programs from the endpoint."
-        total_entries = @($StartupProgs).Count
-    }
-    risk = @{ score = 65; level = "High"; reason = "Startup programs are a common persistence mechanism; malicious entries execute automatically on user logon." }
-    mitre = @(@{ technique_id = "T1547.001"; technique = "Boot or Logon Autostart Execution: Registry Run Keys / Startup Folder" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected startup programs from endpoint" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 foreach ($Entry in $StartupProgs) {
-    $Finding.evidence.Add(@{
+    $Evidence.Add(@{
         name     = $Entry.Name
         command  = $Entry.command
         location = $Entry.Location
         user     = $Entry.User
     })
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "startup-progs" -Evidence $Evidence
+
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\processes\startup-progs-finding.json"
 New-Item -ItemType Directory -Force -Path "$PSScriptRoot\$env:COMPUTERNAME\investigation\processes" | Out-Null
@@ -2928,33 +2320,9 @@ $Services = Get-CimInstance Win32_Service | Select-Object `
     }},
     Description
 
-$Finding = @{
-    finding_id   = "services-001"
-    finding_type = "Windows Services"
-    category     = "Persistence"
-    findingtags  = @("malware", "persistence", "live-response")
-    severity     = "Notable"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "Get-CimInstance Win32_Service"
-        artifact  = "Windows Services"
-        command   = $Cmd_Services.Display
-    }
-    summary = @{
-        title         = "Forensicator Windows Services Enumeration"
-        description   = "Collected Windows services from the endpoint."
-        total_entries = @($Services).Count
-    }
-    risk = @{ score = 60; level = "High"; reason = "Malicious services are a classic persistence mechanism; unusual service accounts or binary paths warrant investigation." }
-    mitre = @(@{ technique_id = "T1543.003"; technique = "Create or Modify System Process: Windows Service" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected Windows services from endpoint" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 foreach ($Entry in $Services) {
-    $Finding.evidence.Add(@{
+    $Evidence.Add(@{
         name         = $Entry.Name
         display_name = $Entry.DisplayName
         state        = $Entry.State
@@ -2965,6 +2333,8 @@ foreach ($Entry in $Services) {
         description  = $Entry.Description
     })
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "services" -Evidence $Evidence
+
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\services\services-finding.json"
 New-Item -ItemType Directory -Force -Path "$PSScriptRoot\$env:COMPUTERNAME\investigation\services" | Out-Null
@@ -3022,33 +2392,9 @@ $ScheduledTasksData = foreach ($t in Get-ScheduledTask) {
     }
 }
 
-$Finding = @{
-    finding_id   = "scheduled-tasks-001"
-    finding_type = "Scheduled Tasks"
-    category     = "Persistence"
-    findingtags  = @("malware", "persistence", "live-response")
-    severity     = "Notable"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "Get-ScheduledTask / Get-ScheduledTaskInfo"
-        artifact  = "Windows Scheduled Tasks"
-        command   = $Cmd_ScheduledTasks.Display
-    }
-    summary = @{
-        title         = "Forensicator Scheduled Tasks Enumeration"
-        description   = "Collected scheduled tasks from the endpoint."
-        total_entries = @($ScheduledTasksData).Count
-    }
-    risk = @{ score = 65; level = "High"; reason = "Scheduled tasks are frequently abused for persistence, lateral movement execution, and privilege escalation." }
-    mitre = @(@{ technique_id = "T1053.005"; technique = "Scheduled Task/Job: Scheduled Task" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected scheduled tasks from endpoint" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 foreach ($Entry in $ScheduledTasksData) {
-    $Finding.evidence.Add(@{
+    $Evidence.Add(@{
         task_name        = $Entry.task_name
         task_path        = $Entry.task_path
         state            = $Entry.state
@@ -3059,6 +2405,8 @@ foreach ($Entry in $ScheduledTasksData) {
         last_task_result = $Entry.last_task_result
     })
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "scheduled-tasks" -Evidence $Evidence
+
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\tasks\scheduled-tasks-finding.json"
 New-Item -ItemType Directory -Force -Path "$PSScriptRoot\$env:COMPUTERNAME\investigation\tasks" | Out-Null
@@ -3131,43 +2479,18 @@ $Cmd_USBDevices = @{
 }
 $USBDevices = & $Cmd_USBDevices.Action
 
-$Finding = @{
-    finding_id   = "usb-devices-001"
-    finding_type = "USB Devices"
-    category     = "External Device"
-    findingtags  = @("usb-activity", "insider-threat", "data-exfiltration", "live-response")
-    severity     = "Notable"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "Get-ItemProperty HKLM USB Registry"
-        artifact  = "USB Device Registry"
-        command   = $Cmd_USBDevices.Display
-    }
-    summary = @{
-        title         = "Forensicator USB Devices Enumeration"
-        description   = "Collected USB device registry entries from the endpoint."
-        total_entries = @($USBDevices).Count
-    }
-    risk = @{ score = 70; level = "High"; reason = "USB devices can be used to exfiltrate data or introduce malware; historical device tracking is critical evidence." }
-    mitre = @(@{ technique_id = "T1091"; technique = "Replication Through Removable Media" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected USB device registry entries from endpoint" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 if ($USBDevices) {
     foreach ($Entry in $USBDevices) {
-        $Finding.evidence.Add(@{
+        $Evidence.Add(@{
             friendly_name = $Entry.FriendlyName
             driver        = $Entry.Driver
             manufacturer  = $Entry.mfg
             device_desc   = $Entry.DeviceDesc
         })
     }
-} else {
-    $Finding.evidence.Add(@{ note = "No USB devices found" })
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "usb-devices" -Evidence $Evidence
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\files\usb-devices-finding.json"
 New-Item -ItemType Directory -Force -Path "$PSScriptRoot\$env:COMPUTERNAME\investigation\files" | Out-Null
@@ -3197,43 +2520,18 @@ $Cmd_Imagedevice = @{
 
 $Imagedevice = & $Cmd_Imagedevice.Action
 
-$Finding = @{
-    finding_id   = "image-devices-001"
-    finding_type = "Imaging Devices"
-    category     = "External Device"
-    findingtags  = @("usb-activity", "live-response")
-    severity     = "Interesting"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "Get-CimInstance Win32_PnPEntity"
-        artifact  = "Imaging Devices (Cameras/Webcams)"
-        command   = $Cmd_Imagedevice.Display
-    }
-    summary = @{
-        title         = "Forensicator Imaging Devices Enumeration"
-        description   = "Collected imaging devices (cameras, webcams) from the endpoint."
-        total_entries = @($Imagedevice).Count
-    }
-    risk = @{ score = 40; level = "Medium"; reason = "Imaging devices may be used for surveillance or data capture; unknown cameras warrant investigation." }
-    mitre = @(@{ technique_id = "T1125"; technique = "Video Capture" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected imaging devices from endpoint" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 if ($Imagedevice) {
     foreach ($Entry in $Imagedevice) {
-        $Finding.evidence.Add(@{
+        $Evidence.Add(@{
             caption      = $Entry.Caption
             manufacturer = $Entry.Manufacturer
             status       = $Entry.Status
             present      = "$($Entry.Present)"
         })
     }
-} else {
-    $Finding.evidence.Add(@{ note = "No imaging devices found" })
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "image-devices" -Evidence $Evidence
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\files\image-devices-finding.json"
 $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
@@ -3262,43 +2560,18 @@ $Cmd_UPNPDevices = @{
 
 $UPNPDevices = & $Cmd_UPNPDevices.Action
 
-$Finding = @{
-    finding_id   = "upnp-devices-001"
-    finding_type = "Connected PnP Devices"
-    category     = "External Device"
-    findingtags  = @("network-recon", "live-response")
-    severity     = "Informational"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "Get-PnpDevice"
-        artifact  = "Connected Plug-and-Play Devices"
-        command   = $Cmd_UPNPDevices.Display
-    }
-    summary = @{
-        title         = "Forensicator PnP Devices Enumeration"
-        description   = "Collected currently connected PnP devices from the endpoint."
-        total_entries = @($UPNPDevices).Count
-    }
-    risk = @{ score = 20; level = "Informational"; reason = "Baseline of connected hardware; unusual or unexpected devices may indicate unauthorized access." }
-    mitre = @(@{ technique_id = "T1120"; technique = "Peripheral Device Discovery" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected PnP devices from endpoint" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 if ($UPNPDevices) {
     foreach ($Entry in $UPNPDevices) {
-        $Finding.evidence.Add(@{
+        $Evidence.Add(@{
             status        = $Entry.Status
             class         = $Entry.Class
             friendly_name = $Entry.FriendlyName
             instance_id   = $Entry.InstanceId
         })
     }
-} else {
-    $Finding.evidence.Add(@{ note = "No PnP devices found" })
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "upnp-devices" -Evidence $Evidence
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\files\upnp-devices-finding.json"
 $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
@@ -3327,43 +2600,18 @@ $Cmd_UnknownDrives = @{
 
 $UnknownDrives = & $Cmd_UnknownDrives.Action
 
-$Finding = @{
-    finding_id   = "unknown-drives-001"
-    finding_type = "Historical USB Storage Devices"
-    category     = "External Device"
-    findingtags  = @("usb-activity", "data-exfiltration", "live-response")
-    severity     = "Notable"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "Get-ItemProperty HKLM USBSTOR Registry"
-        artifact  = "USBSTOR Registry History"
-        command   = $Cmd_UnknownDrives.Display
-    }
-    summary = @{
-        title         = "Forensicator Historical USB Storage Devices Enumeration"
-        description   = "Collected previously connected USB storage devices from the USBSTOR registry hive."
-        total_entries = @($UnknownDrives).Count
-    }
-    risk = @{ score = 75; level = "High"; reason = "Historical USB storage records track all drives ever connected; critical for data exfiltration investigations." }
-    mitre = @(@{ technique_id = "T1052.001"; technique = "Exfiltration over Physical Medium: Exfiltration over USB" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected USBSTOR registry history from endpoint" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 if ($UnknownDrives) {
     foreach ($Entry in $UnknownDrives) {
-        $Finding.evidence.Add(@{
+        $Evidence.Add(@{
             friendly_name   = $Entry.FriendlyName
             manufacturer    = $Entry.Mfg
             serial          = $Entry.Serial
             last_write_time = if ($Entry.LastWriteTime) { $Entry.LastWriteTime.ToString("o") } else { $null }
         })
     }
-} else {
-    $Finding.evidence.Add(@{ note = "No historical USB storage devices found" })
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "unknown-drives" -Evidence $Evidence
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\files\unknown-drives-finding.json"
 $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
@@ -3411,32 +2659,9 @@ $shortcuts = foreach ($file in $lnkFiles) {
 
 
 if ($shortcuts) {
-    $Finding = @{
-        finding_id   = "link-files-001"
-        finding_type = "Link Files (Shortcuts)"
-        category     = "Persistence"
-        findingtags  = @("usb-activity", "insider-threat", "live-response")
-        severity     = "Interesting"
-        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-        source = @{
-            collector = "Get-ChildItem + WScript.Shell.CreateShortcut"
-            artifact  = "Windows Shortcut Files (.lnk)"
-            command   = $Cmd_LinkFiles.Display
-        }
-        summary = @{
-            title         = "Forensicator Link Files (Shortcuts) Enumeration"
-            description   = "Collected .lnk shortcut files from user profiles on the endpoint."
-            total_entries = @($shortcuts).Count
-        }
-        risk = @{ score = 45; level = "Medium"; reason = "Malicious shortcut files can be used for persistence and initial access; suspicious targets indicate compromise." }
-        mitre = @(@{ technique_id = "T1547.009"; technique = "Boot or Logon Autostart Execution: Shortcut Modification" })
-        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected shortcut files from endpoint" })
-        evidence = [System.Collections.Generic.List[object]]::new()
-        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-    }
+        $Evidence = [System.Collections.Generic.List[object]]::new()
     foreach ($s in $shortcuts) {
-        $Finding.evidence.Add(@{
+        $Evidence.Add(@{
             name        = $s.Name
             path        = $s.Path
             target      = $s.Target
@@ -3445,6 +2670,8 @@ if ($shortcuts) {
             created     = if ($s.Created) { $s.Created.ToString("o") } else { $null }
         })
     }
+    $Finding = New-ForensicatorFinding -ArtifactKey "link-files" -Evidence $Evidence
+
     $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\files\link-files-finding.json"
     $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
     #Write-ForensicLog "[!] Link Files JSON finding exported to: $JsonOutputPath" -Level SUCCESS -Section "FILES_USB"
@@ -3523,64 +2750,6 @@ $PSHistory = @($sessionHistory) + $fileHistory
 # Finding
 ##################################################
 
-$Finding = @{
-    finding_id   = "ps-history-001"
-    finding_type = "PowerShell Command History"
-    category     = "Execution"
-    findingtags  = @("malware","credential-access","live-response")
-    severity     = "Notable"
-
-    host = @{
-        hostname = $env:COMPUTERNAME
-        username = $env:USERNAME
-    }
-
-    source = @{
-        collector = "Get-History + PSReadLine"
-        artifact  = "PowerShell Command History"
-        command   = $Cmd_PSHistory.Display
-    }
-
-    summary = @{
-        title         = "Forensicator PowerShell History Enumeration"
-        description   = "Collected PowerShell command history from session and PSReadLine history."
-        total_entries = $PSHistory.Count
-    }
-
-    risk = @{
-        score  = 70
-        level  = "High"
-        reason = "PowerShell history may reveal attacker activity."
-    }
-
-    mitre = @(
-        @{
-            technique_id = "T1059.001"
-            technique    = "Command and Scripting Interpreter: PowerShell"
-        }
-    )
-
-    ai_analysis = @{
-        status     = "pending"
-        summary    = $null
-        anomalies  = @()
-        confidence = $null
-    }
-
-    timeline = @(
-        @{
-            timestamp = (Get-Date).ToString("o")
-            event     = "Collected PowerShell history."
-        }
-    )
-
-    metadata = @{
-        collected_by      = "Forensicator"
-        collector_version = $localVersion
-        collection_time   = (Get-Date).ToString("o")
-    }
-}
-
 ##################################################
 # Evidence (Fast List)
 ##################################################
@@ -3609,15 +2778,7 @@ foreach ($cmd in $PSHistory) {
 
 }
 
-if ($evidence.Count -eq 0) {
-
-    $evidence.Add(@{
-        note = "No PowerShell history found"
-    })
-
-}
-
-$Finding.evidence = $evidence
+$Finding = New-ForensicatorFinding -ArtifactKey "ps-history" -Evidence $evidence
 
 ##################################################
 # Export JSON
@@ -3633,7 +2794,7 @@ $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding UTF8
 
 $PSHistoryFragment = ""
 
-if ($evidence.Count -eq 1 -and $evidence[0].ContainsKey("note")) {
+if ($evidence.Count -eq 0) {
 
     $PSHistoryFragment = "<tr><td colspan='2'>No PowerShell history found</td></tr>"
 
@@ -4249,73 +3410,7 @@ if (-not $UsedUsnJournal) {
 # Finding
 ##################################################
 
-$Finding = @{
-    finding_id   = "new-files-001"
-    finding_type = "Recently Created Executables"
-    category     = "Execution"
-    findingtags  = @("malware","ransomware","live-response")
-    severity     = "Notable"
-
-    host = @{
-        hostname = $env:COMPUTERNAME
-        username = $env:USERNAME
-    }
-
-    source = @{
-        collector = "Get-ChildItem"
-        artifact  = "Recently Created Executables"
-        command   = $Cmd_NewFiles.Display
-    }
-
-    summary = @{
-        title         = "Forensicator Recently Created Executables Enumeration"
-        description   = "Collected recently created executables and scripts from common user-writable locations."
-        total_entries = $Evidence.Count
-    }
-
-    risk = @{
-        score  = 75
-        level  = "High"
-        reason = "Recently dropped executables may indicate malware staging."
-    }
-
-    mitre = @(
-        @{
-            technique_id = "T1105"
-            technique    = "Ingress Tool Transfer"
-        }
-    )
-
-    ai_analysis = @{
-        status     = "pending"
-        summary    = $null
-        anomalies  = @()
-        confidence = $null
-    }
-
-    timeline = @(
-        @{
-            timestamp = (Get-Date).ToString("o")
-            event     = "Collected recently created executables."
-        }
-    )
-
-    metadata = @{
-        collected_by      = "Forensicator"
-        collector_version = $localVersion
-        collection_time   = (Get-Date).ToString("o")
-    }
-}
-
-if ($Evidence.Count -eq 0) {
-
-    $Evidence.Add(@{
-        note = "No recently created executables found"
-    })
-
-}
-
-$Finding.evidence = $Evidence
+$Finding = New-ForensicatorFinding -ArtifactKey "new-files" -Evidence $Evidence
 
 ##################################################
 # Export JSON
@@ -4333,7 +3428,7 @@ $Finding |
 
 $sb = New-Object System.Text.StringBuilder
 
-if ($Evidence.Count -eq 1 -and $Evidence[0].ContainsKey("note")) {
+if ($Evidence.Count -eq 0) {
 
     [void]$sb.Append("<tr><td colspan='5'>No recently created executables found</td></tr>")
 
@@ -4368,34 +3463,10 @@ $Cmd_Downloads = @{
 }
 $Downloads = & $Cmd_Downloads.Action
 
-$Finding = @{
-    finding_id   = "downloads-001"
-    finding_type = "Executable Downloads"
-    category     = "Execution"
-    findingtags  = @("malware", "live-response")
-    severity     = "Notable"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "Get-ChildItem C:\\Users\\*\\Downloads"
-        artifact  = "Executable Files in Downloads Folder"
-        command   = $Cmd_Downloads.Display
-    }
-    summary = @{
-        title         = "Forensicator Downloads Executable Enumeration"
-        description   = "Collected .exe files from all user Downloads folders on the endpoint."
-        total_entries = @($Downloads).Count
-    }
-    risk = @{ score = 70; level = "High"; reason = "Executables in Downloads may represent attacker-delivered tools or malware installers." }
-    mitre = @(@{ technique_id = "T1105"; technique = "Ingress Tool Transfer" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected downloaded executables from endpoint" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 if ($Downloads) {
     foreach ($Entry in $Downloads) {
-        $Finding.evidence.Add(@{
+        $Evidence.Add(@{
             name              = $Entry.Name
             full_path         = $Entry.FullName
             creation_time_utc = if ($Entry.CreationTimeUTC) { $Entry.CreationTimeUTC.ToString("o") } else { $null }
@@ -4404,9 +3475,8 @@ if ($Downloads) {
             attributes        = "$($Entry.Attributes)"
         })
     }
-} else {
-    $Finding.evidence.Add(@{ note = "No executable downloads found" })
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "downloads" -Evidence $Evidence
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\files\downloads-finding.json"
 $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
@@ -4440,34 +3510,10 @@ $Cmd_HiddenExecs1 = @{
 }
 $HiddenExecs1 = & $Cmd_HiddenExecs1.Action
 
-$Finding = @{
-    finding_id   = "hidden-execs-temp-001"
-    finding_type = "Executables in Temp Folder"
-    category     = "Execution"
-    findingtags  = @("malware", "ransomware", "live-response")
-    severity     = "Notable"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "Get-ChildItem C:\\Users\\*\\AppData\\Local\\Temp"
-        artifact  = "Executables in AppData Temp"
-        command   = $Cmd_HiddenExecs1.Display
-    }
-    summary = @{
-        title         = "Forensicator Temp Folder Executable Enumeration"
-        description   = "Collected executable files from user AppData Temp folders on the endpoint."
-        total_entries = @($HiddenExecs1).Count
-    }
-    risk = @{ score = 80; level = "High"; reason = "Executables in AppData\\Temp are a classic malware staging and dropper location." }
-    mitre = @(@{ technique_id = "T1036.005"; technique = "Masquerading: Match Legitimate Name or Location" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected Temp folder executables from endpoint" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 if ($HiddenExecs1) {
     foreach ($Entry in $HiddenExecs1) {
-        $Finding.evidence.Add(@{
+        $Evidence.Add(@{
             name              = $Entry.Name
             full_path         = $Entry.FullName
             creation_time_utc = if ($Entry.CreationTimeUTC) { $Entry.CreationTimeUTC.ToString("o") } else { $null }
@@ -4476,9 +3522,8 @@ if ($HiddenExecs1) {
             attributes        = "$($Entry.Attributes)"
         })
     }
-} else {
-    $Finding.evidence.Add(@{ note = "No executables found in Temp" })
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "hidden-execs-temp" -Evidence $Evidence
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\files\hidden-execs-temp-finding.json"
 $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
@@ -4508,34 +3553,10 @@ $Cmd_HiddenExecs2 = @{
 }
 $HiddenExecs2 = & $Cmd_HiddenExecs2.Action
 
-$Finding = @{
-    finding_id   = "hidden-execs-ctemp-001"
-    finding_type = "Executables in C:\\Temp"
-    category     = "Execution"
-    findingtags  = @("malware", "ransomware", "live-response")
-    severity     = "Notable"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "Get-ChildItem C:\\Temp"
-        artifact  = "Executables in C:\\Temp"
-        command   = $Cmd_HiddenExecs2.Display
-    }
-    summary = @{
-        title         = "Forensicator C:\\Temp Executable Enumeration"
-        description   = "Collected executable files from C:\\Temp on the endpoint."
-        total_entries = @($HiddenExecs2).Count
-    }
-    risk = @{ score = 80; level = "High"; reason = "C:\\Temp is a world-writable location commonly used by attackers to stage malware payloads." }
-    mitre = @(@{ technique_id = "T1036.005"; technique = "Masquerading: Match Legitimate Name or Location" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected C:\\Temp executables from endpoint" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 if ($HiddenExecs2) {
     foreach ($Entry in $HiddenExecs2) {
-        $Finding.evidence.Add(@{
+        $Evidence.Add(@{
             name              = $Entry.Name
             full_path         = $Entry.FullName
             creation_time_utc = if ($Entry.CreationTimeUTC) { $Entry.CreationTimeUTC.ToString("o") } else { $null }
@@ -4544,9 +3565,8 @@ if ($HiddenExecs2) {
             attributes        = "$($Entry.Attributes)"
         })
     }
-} else {
-    $Finding.evidence.Add(@{ note = "No executables found in C:\\Temp" })
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "hidden-execs-ctemp" -Evidence $Evidence
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\files\hidden-execs-ctemp-finding.json"
 $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
@@ -4576,34 +3596,10 @@ $Cmd_HiddenExecs3 = @{
 }
 $HiddenExecs3 = & $Cmd_HiddenExecs3.Action
 
-$Finding = @{
-    finding_id   = "hidden-execs-perflogs-001"
-    finding_type = "Executables in C:\\PerfLogs"
-    category     = "Execution"
-    findingtags  = @("malware", "ransomware", "live-response")
-    severity     = "Notable"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "Get-ChildItem C:\\PerfLogs"
-        artifact  = "Executables in C:\\PerfLogs"
-        command   = $Cmd_HiddenExecs3.Display
-    }
-    summary = @{
-        title         = "Forensicator C:\\PerfLogs Executable Enumeration"
-        description   = "Collected executable files from C:\\PerfLogs on the endpoint."
-        total_entries = @($HiddenExecs3).Count
-    }
-    risk = @{ score = 75; level = "High"; reason = "C:\\PerfLogs is rarely used for executables; presence of binaries here is highly suspicious." }
-    mitre = @(@{ technique_id = "T1036.005"; technique = "Masquerading: Match Legitimate Name or Location" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected C:\\PerfLogs executables from endpoint" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 if ($HiddenExecs3) {
     foreach ($Entry in $HiddenExecs3) {
-        $Finding.evidence.Add(@{
+        $Evidence.Add(@{
             name              = $Entry.Name
             full_path         = $Entry.FullName
             creation_time_utc = if ($Entry.CreationTimeUTC) { $Entry.CreationTimeUTC.ToString("o") } else { $null }
@@ -4612,9 +3608,8 @@ if ($HiddenExecs3) {
             attributes        = "$($Entry.Attributes)"
         })
     }
-} else {
-    $Finding.evidence.Add(@{ note = "No executables found in C:\\PerfLogs" })
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "hidden-execs-perflogs" -Evidence $Evidence
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\files\hidden-execs-perflogs-finding.json"
 $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
@@ -4648,34 +3643,10 @@ $Cmd_HiddenExecs4 = @{
 }
 $HiddenExecs4 = & $Cmd_HiddenExecs4.Action
 
-$Finding = @{
-    finding_id   = "hidden-execs-docs-001"
-    finding_type = "Executables in User Documents"
-    category     = "Execution"
-    findingtags  = @("malware", "ransomware", "live-response")
-    severity     = "Notable"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "Get-ChildItem C:\\Users\\*\\Documents"
-        artifact  = "Executables in User Documents Folders"
-        command   = $Cmd_HiddenExecs4.Display
-    }
-    summary = @{
-        title         = "Forensicator User Documents Executable Enumeration"
-        description   = "Collected executable files from all user Documents folders on the endpoint."
-        total_entries = @($HiddenExecs4).Count
-    }
-    risk = @{ score = 70; level = "High"; reason = "Executables disguised in Documents folders are a common social engineering and persistence technique." }
-    mitre = @(@{ technique_id = "T1036.005"; technique = "Masquerading: Match Legitimate Name or Location" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected Documents folder executables from endpoint" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 if ($HiddenExecs4) {
     foreach ($Entry in $HiddenExecs4) {
-        $Finding.evidence.Add(@{
+        $Evidence.Add(@{
             name              = $Entry.Name
             full_path         = $Entry.FullName
             creation_time_utc = if ($Entry.CreationTimeUTC) { $Entry.CreationTimeUTC.ToString("o") } else { $null }
@@ -4684,9 +3655,8 @@ if ($HiddenExecs4) {
             attributes        = "$($Entry.Attributes)"
         })
     }
-} else {
-    $Finding.evidence.Add(@{ note = "No executables found in Documents" })
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "hidden-execs-docs" -Evidence $Evidence
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\files\hidden-execs-docs-finding.json"
 $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
@@ -5346,7 +4316,10 @@ $maliciousUrlsFilePath = "$PSScriptRoot\Forensicator-Share\malicious_URLs.txt"
 
 
 $configFile = "$PSScriptRoot\config.json"
-  $configData = Get-Content $configFile | ConvertFrom-Json
+  # -Raw required — see the detailed comment on the first $configData read
+  # near the top of this file for why (Get-Content without it can corrupt
+  # ConvertFrom-Json's result into a split array on PowerShell 7).
+  $configData = Get-Content $configFile -Raw | ConvertFrom-Json
 
 
 
@@ -5743,34 +4716,8 @@ foreach($user in $users){
 Write-ForensicLog "[!] Browser history extraction complete" -Level SUCCESS -Section "BROWSER_HISTORY"
 
 # Export browser history JSON finding
-$BrowserFinding = @{
-    finding_id   = "browser-history-001"
-    finding_type = "Browser History"
-    category     = "Collection"
-    findingtags  = @("insider-threat", "data-exfiltration", "malware", "live-response")
-    severity     = "Notable"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "SQLite (Chrome/Edge/Brave/Opera) + FF places.sqlite + IE TypedURLs"
-        artifact  = "Browser History Databases"
-        command   = "Process-ChromiumBrowser / Process-FirefoxHistory / Process-IEHistory"
-    }
-    summary = @{
-        title          = "Forensicator Browser History Enumeration"
-        description    = "Collected browsing history from all user profiles and supported browsers on the endpoint."
-        total_entries  = $script:AllBrowserRecords.Count
-        malicious_hits = $script:IocHits.Count
-    }
-    risk = @{ score = 75; level = "High"; reason = "Browser history can reveal attacker recon, C2 communication, phishing sites visited, and data exfiltration destinations. Malicious URL hits confirm IOC contact." }
-    mitre = @(
-        @{ technique_id = "T1217"; technique = "Browser Information Discovery" }
-        @{ technique_id = "T1071.001"; technique = "Application Layer Protocol: Web Protocols" }
-    )
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected browser history from endpoint" })
-    evidence = $script:AllBrowserRecords.ToArray()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
+$BrowserFinding = New-ForensicatorFinding -ArtifactKey "browser-history" -Evidence $script:AllBrowserRecords.ToArray()
+$BrowserFinding.summary.malicious_hits = $script:IocHits.Count
 
 $BrowserJsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\browser\browser-history-finding.json"
 New-Item -ItemType Directory -Force -Path "$PSScriptRoot\$env:COMPUTERNAME\investigation\browser" | Out-Null
@@ -6885,8 +5832,9 @@ Write-ForensicLog ""
 # configuration file path
 $configFile = "$PSScriptRoot\config.json"
 
-# Read and parse the configuration file
-$configData = Get-Content $configFile | ConvertFrom-Json
+# Read and parse the configuration file. -Raw required — see the detailed
+# comment on the first $configData read near the top of this file.
+$configData = Get-Content $configFile -Raw | ConvertFrom-Json
 
 
 function ConvertTo-ConfigStringArray {
@@ -7102,26 +6050,12 @@ $GroupMembership = Get-ForensicWinEvent -LogName 'Security' -ProviderName 'Micro
   }
 } 
 
-$Finding = @{
-    finding_id   = "group-enum-001"
-    finding_type = "Group Membership Enumeration"
-    category     = "Discovery"
-    findingtags  = @("credential-access", "insider-threat", "live-response")
-    severity     = "Interesting"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{ collector = "Get-ForensicWinEvent Security 4798/4799"; artifact = "Group Membership Enumeration Events"; command = "Get-WinEvent -Id @(4798,4799)" }
-    summary = @{ title = "Forensicator Group Enumeration Events"; description = "Collected group membership enumeration events (4798/4799) from the Security log."; total_entries = @($GroupMembership).Count }
-    risk = @{ score = 40; level = "Medium"; reason = "Attackers enumerate group memberships to map privileges and identify targets for lateral movement." }
-    mitre = @(@{ technique_id = "T1069.001"; technique = "Permission Groups Discovery: Local Groups" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected group enumeration events" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 foreach ($Entry in $GroupMembership) {
-    $Finding.evidence.Add(@{ time = "$($Entry.Time)"; performed_on = $Entry.PerformedOn; performed_by = $Entry.PerformedBy; logon_type = $Entry.LogonType; pid = "$($Entry.PID)"; process_name = $Entry.ProcessName })
+    $Evidence.Add(@{ time = "$($Entry.Time)"; performed_on = $Entry.PerformedOn; performed_by = $Entry.PerformedBy; logon_type = $Entry.LogonType; pid = "$($Entry.PID)"; process_name = $Entry.ProcessName })
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "group-enum" -Evidence $Evidence
+
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\events\group-enum-finding.json"
 New-Item -ItemType Directory -Force -Path "$PSScriptRoot\$env:COMPUTERNAME\investigation\events" | Out-Null
@@ -7189,25 +6123,11 @@ $RDPLogins = Get-ForensicWinEvent -LogName 'Security' -ProviderName 'Microsoft-W
 }
 
 # Build HTML
-$Finding = @{
-    finding_id   = "rdp-logins-001"
-    finding_type = "RDP Login Events"
-    category     = "Lateral Movement"
-    findingtags  = @("lateral-movement", "credential-access", "live-response")
-    severity     = "Notable"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{ collector = "Get-ForensicWinEvent Security 4624/4778"; artifact = "RDP Login Events"; command = "Get-WinEvent -Id @(4624,4778) FilterLogonType 3,10" }
-    summary = @{ title = "Forensicator RDP Login Events"; description = "Collected RDP login events (4624 LogonType 10, 4778) from the Security log."; total_entries = @($RDPLogins).Count }
-    risk = @{ score = 80; level = "High"; reason = "RDP logins from unexpected IPs or accounts indicate lateral movement or remote access by an attacker." }
-    mitre = @(@{ technique_id = "T1021.001"; technique = "Remote Services: Remote Desktop Protocol" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected RDP login events" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
+$Evidence = [System.Collections.Generic.List[object]]::new()
 if ($RDPLogins) {
-    foreach ($Entry in $RDPLogins) { $Finding.evidence.Add(@{ event_id = "$($Entry.EventID)"; type = $Entry.Type; time = "$($Entry.Time)"; logon_user = $Entry.LogonUser; logon_user_domain = $Entry.LogonUserDomain; logon_ip = $Entry.LogonIP }) }
+    foreach ($Entry in $RDPLogins) { $Evidence.Add(@{ event_id = "$($Entry.EventID)"; type = $Entry.Type; time = "$($Entry.Time)"; logon_user = $Entry.LogonUser; logon_user_domain = $Entry.LogonUserDomain; logon_ip = $Entry.LogonIP }) }
 }
+$Finding = New-ForensicatorFinding -ArtifactKey "rdp-logins" -Evidence $Evidence
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\events\rdp-logins-finding.json"
 $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
 #Write-ForensicLog "[!] RDP Logins JSON finding exported to: $JsonOutputPath" -Level SUCCESS -Section "EventLog"
@@ -7262,23 +6182,12 @@ try {
     if (!$EventData -or $EventData.Count -eq 0) {
         $RDPAuthsFragment = "<tr><td colspan='4' style='text-align:center;color:#27ae60;'>No RDP authentication events found</td></tr>"
     } else {
-        $FindingRDPAuths = @{
-            finding_id   = "rdp-auths-001"
-            finding_type = "RDP Authentication History"
-            category     = "Lateral Movement"
-            findingtags  = @("lateral-movement", "credential-access", "live-response")
-            severity     = "Notable"
-            host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-            source = @{ collector = "Get-ForensicWinEvent TerminalServices-RemoteConnectionManager 1149"; artifact = "RDP Authentication History (Event 1149)"; command = "Get-WinEvent -LogName Microsoft-Windows-TerminalServices-RemoteConnectionManager/Operational -Id 1149" }
-            summary = @{ title = "Forensicator RDP Authentication History"; description = "Collected RDP authentication history events (1149) from the endpoint."; total_entries = @($EventData).Count }
-            risk = @{ score = 80; level = "High"; reason = "RDP authentication history reveals all remote sessions including those by attackers." }
-            mitre = @(@{ technique_id = "T1021.001"; technique = "Remote Services: Remote Desktop Protocol" })
-            ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-            timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected RDP authentication history" })
-            evidence = [System.Collections.Generic.List[object]]::new()
-            metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+                $Evidence = [System.Collections.Generic.List[object]]::new()
+        foreach ($Entry in $EventData) {
+            $Evidence.Add(@{ time_created = "$($Entry.TimeCreated)"; user = $Entry.User; domain = $Entry.Domain; client = $Entry.Client })
         }
-        foreach ($Entry in $EventData) { $FindingRDPAuths.evidence.Add(@{ time_created = "$($Entry.TimeCreated)"; user = $Entry.User; domain = $Entry.Domain; client = $Entry.Client }) }
+        $FindingRDPAuths = New-ForensicatorFinding -ArtifactKey "rdp-auths" -Evidence $Evidence
+
         $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\events\rdp-auths-finding.json"
         $FindingRDPAuths | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
         #Write-ForensicLog "[!] RDP Auth History JSON finding exported to: $JsonOutputPath" -Level SUCCESS -Section "EventLog"
@@ -7320,29 +6229,17 @@ $properties = @(
 $OutRDP = Get-ForensicWinEvent -LogName 'Microsoft-Windows-TerminalServices-RDPClient/Operational' -Id 1102 | Select-Object $properties
 
 # Initialize the HTML fragment
-$OutRDPFinding = @{
-    finding_id   = "outgoing-rdp-001"
-    finding_type = "Outgoing RDP Connections"
-    category     = "Lateral Movement"
-    findingtags  = @("lateral-movement", "live-response")
-    severity     = "Notable"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{ collector = "Get-ForensicWinEvent TerminalServices-RDPClient 1102"; artifact = "Outgoing RDP Connection Events"; command = "Get-WinEvent -LogName Microsoft-Windows-TerminalServices-RDPClient/Operational -Id 1102" }
-    summary = @{ title = "Forensicator Outgoing RDP Connections"; description = "Collected outgoing RDP connection events (1102) from the endpoint."; total_entries = @($OutRDP).Count }
-    risk = @{ score = 75; level = "High"; reason = "Outgoing RDP connections from endpoints indicate potential lateral movement or attacker pivoting." }
-    mitre = @(@{ technique_id = "T1021.001"; technique = "Remote Services: Remote Desktop Protocol" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected outgoing RDP connection events" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
+$Evidence = [System.Collections.Generic.List[object]]::new()
 if ($OutRDP.Count -eq 0) {
-    $OutRDPFinding.evidence.Add(@{ note = "No outgoing RDP connection events found" })
+    # Leave $Evidence empty — no placeholder row — so the case summary's
+    # zero-evidence exclusion correctly treats this as "nothing found"
+    # instead of a real finding.
 } else {
     foreach ($event in $OutRDP) {
-        $OutRDPFinding.evidence.Add(@{ timestamp = "$($event.TimeStamp)"; local_user = "$($event.LocalUser)"; target_rdp_host = "$($event.'Target RDP host')" })
+        $Evidence.Add(@{ timestamp = "$($event.TimeStamp)"; local_user = "$($event.LocalUser)"; target_rdp_host = "$($event.'Target RDP host')" })
     }
 }
+$OutRDPFinding = New-ForensicatorFinding -ArtifactKey "outgoing-rdp" -Evidence $Evidence
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\events\outgoing-rdp-finding.json"
 $OutRDPFinding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
 #Write-ForensicLog "[!] Outgoing RDP JSON finding exported to: $JsonOutputPath" -Level SUCCESS -Section "EventLog"
@@ -7385,23 +6282,12 @@ $CreatedUsers = Get-ForensicWinEvent -LogName 'Security' -ProviderName 'Microsof
   }
 } # | ConvertTo-Html -As LIST -fragment | Select-Object -Skip 1 | Select-Object -SkipLast 1
 
-$Finding = @{
-    finding_id   = "created-users-001"
-    finding_type = "User Creation Events"
-    category     = "Persistence"
-    findingtags  = @("insider-threat", "credential-access", "persistence", "live-response")
-    severity     = "Notable"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{ collector = "Get-ForensicWinEvent Security 4720"; artifact = "User Creation Events"; command = "Get-WinEvent -Id 4720" }
-    summary = @{ title = "Forensicator User Creation Events"; description = "Collected user account creation events (4720) from the Security log."; total_entries = @($CreatedUsers).Count }
-    risk = @{ score = 75; level = "High"; reason = "New account creation may indicate persistence via backdoor accounts." }
-    mitre = @(@{ technique_id = "T1136.001"; technique = "Create Account: Local Account" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected user creation events" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+$Evidence = [System.Collections.Generic.List[object]]::new()
+foreach ($Entry in $CreatedUsers) {
+    $Evidence.Add(@{ time = "$($Entry.Time)"; created_user = $Entry.CreatedUser; created_by = $Entry.CreatedBy })
 }
-foreach ($Entry in $CreatedUsers) { $Finding.evidence.Add(@{ time = "$($Entry.Time)"; created_user = $Entry.CreatedUser; created_by = $Entry.CreatedBy }) }
+$Finding = New-ForensicatorFinding -ArtifactKey "created-users" -Evidence $Evidence
+
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\events\created-users-finding.json"
 $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
 #Write-ForensicLog "[!] Created Users JSON finding exported to: $JsonOutputPath" -Level SUCCESS -Section "EventLog"
@@ -7441,23 +6327,12 @@ $PassReset = Get-ForensicWinEvent -LogName 'Security' -ProviderName 'Microsoft-W
   }
 } #| ConvertTo-Html -As LIST -fragment | Select-Object -Skip 1 | Select-Object -SkipLast 1
 
-$Finding = @{
-    finding_id   = "pass-reset-001"
-    finding_type = "Password Reset Events"
-    category     = "Credential Access"
-    findingtags  = @("insider-threat", "credential-access", "live-response")
-    severity     = "Notable"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{ collector = "Get-ForensicWinEvent Security 4724"; artifact = "Password Reset Events"; command = "Get-WinEvent -Id 4724" }
-    summary = @{ title = "Forensicator Password Reset Events"; description = "Collected password reset events (4724) from the Security log."; total_entries = @($PassReset).Count }
-    risk = @{ score = 80; level = "High"; reason = "Password resets on accounts not initiated by the user may indicate account takeover or privilege escalation." }
-    mitre = @(@{ technique_id = "T1098"; technique = "Account Manipulation" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected password reset events" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+$Evidence = [System.Collections.Generic.List[object]]::new()
+foreach ($Entry in $PassReset) {
+    $Evidence.Add(@{ time = "$($Entry.Time)"; target_user = $Entry.TargetUser; actioned_by = $Entry.ActionedBy })
 }
-foreach ($Entry in $PassReset) { $Finding.evidence.Add(@{ time = "$($Entry.Time)"; target_user = $Entry.TargetUser; actioned_by = $Entry.ActionedBy }) }
+$Finding = New-ForensicatorFinding -ArtifactKey "pass-reset" -Evidence $Evidence
+
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\events\pass-reset-finding.json"
 $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
 #Write-ForensicLog "[!] Password Reset Events JSON finding exported to: $JsonOutputPath" -Level SUCCESS -Section "EventLog"
@@ -7512,23 +6387,12 @@ try {
     if (-not $AddedUsers -or $AddedUsers.Count -eq 0) {
         $AddedUsersFragment = "<tr><td colspan='4' style='text-align:center;color:#27ae60;'>No group membership change events found in the last $script:EventLogDaysBack days</td></tr>"
     } else {
-        $FindingAddedUsers = @{
-            finding_id   = "added-users-001"
-            finding_type = "Group Membership Change Events"
-            category     = "Privilege Escalation"
-            findingtags  = @("insider-threat", "privilege-escalation", "credential-access", "live-response")
-            severity     = "Notable"
-            host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-            source = @{ collector = "Get-ForensicWinEvent Security 4728/4732"; artifact = "Group Membership Change Events"; command = "Get-WinEvent -Id @(4728,4732)" }
-            summary = @{ title = "Forensicator Group Membership Changes"; description = "Collected group membership change events (4728/4732) from the Security log."; total_entries = @($AddedUsers).Count }
-            risk = @{ score = 80; level = "High"; reason = "Adding users to privileged groups is a common privilege escalation and persistence technique." }
-            mitre = @(@{ technique_id = "T1098"; technique = "Account Manipulation" })
-            ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-            timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected group membership change events" })
-            evidence = [System.Collections.Generic.List[object]]::new()
-            metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+                $Evidence = [System.Collections.Generic.List[object]]::new()
+        foreach ($Entry in $AddedUsers) {
+            $Evidence.Add(@{ time = "$($Entry.Time)"; added_by = $Entry.AddedBy; group = $Entry.Group; target = $Entry.Target })
         }
-        foreach ($Entry in $AddedUsers) { $FindingAddedUsers.evidence.Add(@{ time = "$($Entry.Time)"; added_by = $Entry.AddedBy; group = $Entry.Group; target = $Entry.Target }) }
+        $FindingAddedUsers = New-ForensicatorFinding -ArtifactKey "added-users" -Evidence $Evidence
+
         $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\events\added-users-finding.json"
         $FindingAddedUsers | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
         #Write-ForensicLog "[!] Added Users JSON finding exported to: $JsonOutputPath" -Level SUCCESS -Section "EventLog"
@@ -7573,23 +6437,12 @@ $EnabledUsers = Get-ForensicWinEvent -LogName 'Security' -ProviderName 'Microsof
   }
 }# | ConvertTo-Html -As LIST -fragment | Select-Object -Skip 1 | Select-Object -SkipLast 1
 
-$Finding = @{
-    finding_id   = "enabled-users-001"
-    finding_type = "User Account Enabled Events"
-    category     = "Persistence"
-    findingtags  = @("insider-threat", "credential-access", "live-response")
-    severity     = "Notable"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{ collector = "Get-ForensicWinEvent Security 4722"; artifact = "User Account Enabled Events"; command = "Get-WinEvent -Id 4722" }
-    summary = @{ title = "Forensicator Enabled Users Events"; description = "Collected user account enabled events (4722) from the Security log."; total_entries = @($EnabledUsers).Count }
-    risk = @{ score = 65; level = "High"; reason = "Re-enabling disabled accounts may indicate persistence or account recovery by an attacker." }
-    mitre = @(@{ technique_id = "T1098"; technique = "Account Manipulation" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected user enabled events" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+$Evidence = [System.Collections.Generic.List[object]]::new()
+foreach ($Entry in $EnabledUsers) {
+    $Evidence.Add(@{ time = "$($Entry.Time)"; enabled_by = $Entry.EnabledBy; enabled_account = $Entry.EnabledAccount })
 }
-foreach ($Entry in $EnabledUsers) { $Finding.evidence.Add(@{ time = "$($Entry.Time)"; enabled_by = $Entry.EnabledBy; enabled_account = $Entry.EnabledAccount }) }
+$Finding = New-ForensicatorFinding -ArtifactKey "enabled-users" -Evidence $Evidence
+
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\events\enabled-users-finding.json"
 $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
 #Write-ForensicLog "[!] Enabled Users JSON finding exported to: $JsonOutputPath" -Level SUCCESS -Section "EventLog"
@@ -7627,23 +6480,12 @@ $DisabledUsers = Get-ForensicWinEvent -LogName 'Security' -ProviderName 'Microso
   }
 }# | ConvertTo-Html -As LIST -fragment | Select-Object -Skip 1 | Select-Object -SkipLast 1
 
-$Finding = @{
-    finding_id   = "disabled-users-001"
-    finding_type = "User Account Disabled Events"
-    category     = "Defense Evasion"
-    findingtags  = @("insider-threat", "defense-evasion", "live-response")
-    severity     = "Interesting"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{ collector = "Get-ForensicWinEvent Security 4723"; artifact = "User Account Disabled Events"; command = "Get-WinEvent -Id 4723" }
-    summary = @{ title = "Forensicator Disabled Users Events"; description = "Collected user account disabled events (4723) from the Security log."; total_entries = @($DisabledUsers).Count }
-    risk = @{ score = 35; level = "Medium"; reason = "Disabling accounts may be an anti-forensic action or evidence of account cleanup after compromise." }
-    mitre = @(@{ technique_id = "T1531"; technique = "Account Access Removal" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected user disabled events" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+$Evidence = [System.Collections.Generic.List[object]]::new()
+foreach ($Entry in $DisabledUsers) {
+    $Evidence.Add(@{ time = "$($Entry.Time)"; disabled_by = $Entry.DisabledBy; disabled_account = $Entry.Disabled })
 }
-foreach ($Entry in $DisabledUsers) { $Finding.evidence.Add(@{ time = "$($Entry.Time)"; disabled_by = $Entry.DisabledBy; disabled_account = $Entry.Disabled }) }
+$Finding = New-ForensicatorFinding -ArtifactKey "disabled-users" -Evidence $Evidence
+
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\events\disabled-users-finding.json"
 $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
 #Write-ForensicLog "[!] Disabled Users JSON finding exported to: $JsonOutputPath" -Level SUCCESS -Section "EventLog"
@@ -7681,23 +6523,12 @@ $DeletedUsers = Get-ForensicWinEvent -LogName 'Security' -ProviderName 'Microsof
   }
 } #| ConvertTo-Html -As LIST -fragment | Select-Object -Skip 1 | Select-Object -SkipLast 1
 
-$Finding = @{
-    finding_id   = "deleted-users-001"
-    finding_type = "User Account Deleted Events"
-    category     = "Defense Evasion"
-    findingtags  = @("insider-threat", "defense-evasion", "live-response")
-    severity     = "Notable"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{ collector = "Get-ForensicWinEvent Security 4726"; artifact = "User Account Deleted Events"; command = "Get-WinEvent -Id 4726" }
-    summary = @{ title = "Forensicator Deleted Users Events"; description = "Collected user account deletion events (4726) from the Security log."; total_entries = @($DeletedUsers).Count }
-    risk = @{ score = 70; level = "High"; reason = "Deleting accounts can be an anti-forensic tactic; unexpected deletions warrant investigation." }
-    mitre = @(@{ technique_id = "T1531"; technique = "Account Access Removal" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected user deletion events" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+$Evidence = [System.Collections.Generic.List[object]]::new()
+foreach ($Entry in $DeletedUsers) {
+    $Evidence.Add(@{ time = "$($Entry.Time)"; deleted_by = $Entry.DeletedBy; deleted_account = $Entry.DeletedAccount })
 }
-foreach ($Entry in $DeletedUsers) { $Finding.evidence.Add(@{ time = "$($Entry.Time)"; deleted_by = $Entry.DeletedBy; deleted_account = $Entry.DeletedAccount }) }
+$Finding = New-ForensicatorFinding -ArtifactKey "deleted-users" -Evidence $Evidence
+
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\events\deleted-users-finding.json"
 $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
 #Write-ForensicLog "[!] Deleted Users JSON finding exported to: $JsonOutputPath" -Level SUCCESS -Section "EventLog"
@@ -7735,23 +6566,12 @@ $LockOut = Get-ForensicWinEvent -LogName 'Security' -ProviderName 'Microsoft-Win
   }
 }# | ConvertTo-Html -As LIST -fragment | Select-Object -Skip 1 | Select-Object -SkipLast 1
 
-$Finding = @{
-    finding_id   = "account-lockout-001"
-    finding_type = "Account Lockout Events"
-    category     = "Credential Access"
-    findingtags  = @("credential-access", "malware", "live-response")
-    severity     = "Notable"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{ collector = "Get-ForensicWinEvent Security 4740"; artifact = "Account Lockout Events"; command = "Get-WinEvent -Id 4740" }
-    summary = @{ title = "Forensicator Account Lockout Events"; description = "Collected account lockout events (4740) from the Security log."; total_entries = @($LockOut).Count }
-    risk = @{ score = 65; level = "High"; reason = "Repeated lockouts may indicate a brute-force attack or credential stuffing in progress." }
-    mitre = @(@{ technique_id = "T1110"; technique = "Brute Force" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected account lockout events" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+$Evidence = [System.Collections.Generic.List[object]]::new()
+foreach ($Entry in $LockOut) {
+    $Evidence.Add(@{ time = "$($Entry.Time)"; locked_out_account = $Entry.LockedOutAccount; system = $Entry.System })
 }
-foreach ($Entry in $LockOut) { $Finding.evidence.Add(@{ time = "$($Entry.Time)"; locked_out_account = $Entry.LockedOutAccount; system = $Entry.System }) }
+$Finding = New-ForensicatorFinding -ArtifactKey "account-lockout" -Evidence $Evidence
+
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\events\account-lockout-finding.json"
 $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
 #Write-ForensicLog "[!] Account Lockout JSON finding exported to: $JsonOutputPath" -Level SUCCESS -Section "EventLog"
@@ -7793,23 +6613,12 @@ $CredManBackup = Get-ForensicWinEvent -LogName 'Security' -ProviderName 'Microso
   }
 }
 
-$Finding = @{
-    finding_id   = "credman-backup-001"
-    finding_type = "Credential Manager Backup Events"
-    category     = "Credential Access"
-    findingtags  = @("credential-access", "data-exfiltration", "live-response")
-    severity     = "Notable"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{ collector = "Get-ForensicWinEvent Security 5376"; artifact = "Credential Manager Backup Events"; command = "Get-WinEvent -Id 5376" }
-    summary = @{ title = "Forensicator Credential Manager Backup Events"; description = "Collected credential manager backup events (5376) from the Security log."; total_entries = @($CredManBackup).Count }
-    risk = @{ score = 85; level = "High"; reason = "Credential manager backup may be used by attackers to exfiltrate stored credentials." }
-    mitre = @(@{ technique_id = "T1555.004"; technique = "Credentials from Password Stores: Windows Credential Manager" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected credential manager backup events" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+$Evidence = [System.Collections.Generic.List[object]]::new()
+foreach ($Entry in $CredManBackup) {
+    $Evidence.Add(@{ time = "$($Entry.Time)"; backup_account = $Entry.BackupAccount; account_logon_type = $Entry.AccountLogonType; backup_file_name = $Entry.BackupFileName; process_id = "$($Entry.ProcessID)" })
 }
-foreach ($Entry in $CredManBackup) { $Finding.evidence.Add(@{ time = "$($Entry.Time)"; backup_account = $Entry.BackupAccount; account_logon_type = $Entry.AccountLogonType; backup_file_name = $Entry.BackupFileName; process_id = "$($Entry.ProcessID)" }) }
+$Finding = New-ForensicatorFinding -ArtifactKey "credman-backup" -Evidence $Evidence
+
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\events\credman-backup-finding.json"
 $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
 #Write-ForensicLog "[!] CredMan Backup JSON finding exported to: $JsonOutputPath" -Level SUCCESS -Section "EventLog"
@@ -7848,23 +6657,12 @@ $CredManRestore = Get-ForensicWinEvent -LogName 'Security' -ProviderName 'Micros
   }
 }# | ConvertTo-Html -As LIST -fragment | Select-Object -Skip 1 | Select-Object -SkipLast 1
 
-$Finding = @{
-    finding_id   = "credman-restore-001"
-    finding_type = "Credential Manager Restore Events"
-    category     = "Credential Access"
-    findingtags  = @("credential-access", "live-response")
-    severity     = "Notable"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{ collector = "Get-ForensicWinEvent Security 5377"; artifact = "Credential Manager Restore Events"; command = "Get-WinEvent -Id 5377" }
-    summary = @{ title = "Forensicator Credential Manager Restore Events"; description = "Collected credential manager restore events (5377) from the Security log."; total_entries = @($CredManRestore).Count }
-    risk = @{ score = 85; level = "High"; reason = "Restoring credential manager data may indicate attacker use of stolen credential backups." }
-    mitre = @(@{ technique_id = "T1555.004"; technique = "Credentials from Password Stores: Windows Credential Manager" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected credential manager restore events" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+$Evidence = [System.Collections.Generic.List[object]]::new()
+foreach ($Entry in $CredManRestore) {
+    $Evidence.Add(@{ time = "$($Entry.Time)"; restored_account = $Entry.RestoredAccount; account_logon_type = $Entry.AccountLogonType })
 }
-foreach ($Entry in $CredManRestore) { $Finding.evidence.Add(@{ time = "$($Entry.Time)"; restored_account = $Entry.RestoredAccount; account_logon_type = $Entry.AccountLogonType }) }
+$Finding = New-ForensicatorFinding -ArtifactKey "credman-restore" -Evidence $Evidence
+
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\events\credman-restore-finding.json"
 $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
 #Write-ForensicLog "[!] CredMan Restore JSON finding exported to: $JsonOutputPath" -Level SUCCESS -Section "EventLog"
@@ -7918,27 +6716,16 @@ $logonDetails = foreach ($logonEvent in $logonEvents) {
 # Convert the logon details to HTML
 #$Successhtml = $logonDetails #| ConvertTo-Html -As LIST -fragment | Select-Object -Skip 1 | Select-Object -SkipLast 1
 
-$FindingLogon = @{
-    finding_id   = "logon-events-001"
-    finding_type = "Successful Logon Events"
-    category     = "Credential Access"
-    findingtags  = @("credential-access", "insider-threat", "live-response")
-    severity     = "Informational"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{ collector = "Get-ForensicWinEvent Security 4624"; artifact = "Successful Logon Events (4624)"; command = "Get-WinEvent -Id 4624" }
-    summary = @{ title = "Forensicator Successful Logon Events"; description = "Collected successful logon events (4624) from the Security log."; total_entries = @($logonDetails).Count }
-    risk = @{ score = 30; level = "Informational"; reason = "Logon events provide audit trail; logons from unusual IPs or accounts indicate compromise." }
-    mitre = @(@{ technique_id = "T1078"; technique = "Valid Accounts" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected successful logon events" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+$Evidence = [System.Collections.Generic.List[object]]::new()
+if ($logonDetails.Count -gt 0) {
+    foreach ($Entry in $logonDetails) { $Evidence.Add(@{ time = "$($Entry.Time)"; user = $Entry.User; logon_type = $Entry.LogonType; source_network_address = $Entry.SourceNetworkAddress; status = $Entry.Status }) }
 }
+$FindingLogon = New-ForensicatorFinding -ArtifactKey "logon-events" -Evidence $Evidence
+
 $sb = New-Object System.Text.StringBuilder
 if ($logonDetails.Count -eq 0) {
     [void]$sb.Append("<tr><td colspan='5' style='text-align:center;color:#27ae60;'>No logon events found</td></tr>")
 } else {
-    foreach ($Entry in $logonDetails) { $FindingLogon.evidence.Add(@{ time = "$($Entry.Time)"; user = $Entry.User; logon_type = $Entry.LogonType; source_network_address = $Entry.SourceNetworkAddress; status = $Entry.Status }) }
     $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\events\logon-events-finding.json"
     $FindingLogon | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
     Write-ForensicLog "[!] Logon Events JSON finding exported to: $JsonOutputPath" -Level SUCCESS -Section "EventLog"
@@ -8010,28 +6797,14 @@ $logonDetails = foreach ($logonEvent in $logonEventsFailed) {
 
 
 
-$FindingFailedLogon = @{
-    finding_id   = "logon-failed-001"
-    finding_type = "Failed Logon Events"
-    category     = "Credential Access"
-    findingtags  = @("credential-access", "malware", "live-response")
-    severity     = "Notable"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{ collector = "Get-ForensicWinEvent Security 4625"; artifact = "Failed Logon Events (4625)"; command = "Get-WinEvent -Id 4625" }
-    summary = @{ title = "Forensicator Failed Logon Events"; description = "Collected failed logon events (4625) from the Security log."; total_entries = @($logonDetails).Count }
-    risk = @{ score = 65; level = "High"; reason = "Failed logon events may indicate brute-force attacks or credential stuffing." }
-    mitre = @(@{ technique_id = "T1110"; technique = "Brute Force" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected failed logon events" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
 if ($logonDetails.Count -eq 0 -and [string]::IsNullOrWhiteSpace($logonEventsFailedFragment)) {
+    $Evidence = [System.Collections.Generic.List[object]]::new()
+    $FindingFailedLogon = New-ForensicatorFinding -ArtifactKey "logon-failed" -Evidence $Evidence
     $logonEventsFailedFragment += "<tr><td colspan='10' style='text-align:center;color:#27ae60;'>No failed logon events found</td></tr>"
 } else {
+    $Evidence = [System.Collections.Generic.List[object]]::new()
     foreach ($Entry in $logonDetails) {
-        $FindingFailedLogon.evidence.Add(@{
+        $Evidence.Add(@{
             time                   = "$($Entry.Time)"
             user                   = $Entry.User
             logon_type             = $Entry.LogonType
@@ -8039,6 +6812,7 @@ if ($logonDetails.Count -eq 0 -and [string]::IsNullOrWhiteSpace($logonEventsFail
             status                 = $Entry.Status
         })
     }
+    $FindingFailedLogon = New-ForensicatorFinding -ArtifactKey "logon-failed" -Evidence $Evidence
     $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\events\logon-failed-finding.json"
     $FindingFailedLogon | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
     Write-ForensicLog "[!] Failed Logon Events JSON finding exported to: $JsonOutputPath" -Level SUCCESS -Section "EventLog"
@@ -8190,22 +6964,7 @@ if($canReadLog){
         }
     }
 
-    $FindingObjAccess = @{
-        finding_id   = "object-access-001"
-        finding_type = "Object Access Events"
-        category     = "Collection"
-        findingtags  = @("data-exfiltration", "insider-threat", "live-response")
-        severity     = "Interesting"
-        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-        source = @{ collector = "Get-WinEvent Security 4656/4663"; artifact = "Object Access Events (4656/4663)"; command = "Get-WinEvent FilterXml Security 4656/4663" }
-        summary = @{ title = "Forensicator Object Access Events"; description = "Collected object access events (4656/4663) from the Security log."; total_entries = $ObjectAccessData.Count }
-        risk = @{ score = 50; level = "Medium"; reason = "Object access events reveal which files attackers have read, modified, or deleted." }
-        mitre = @(@{ technique_id = "T1083"; technique = "File and Directory Discovery" })
-        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected object access events" })
-        evidence = $ObjectAccessData.ToArray()
-        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-    }
+    $FindingObjAccess = New-ForensicatorFinding -ArtifactKey "object-access" -Evidence $ObjectAccessData.ToArray()
     $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\events\object-access-finding.json"
     $FindingObjAccess | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
     #Write-ForensicLog "[!] Object Access JSON finding exported to: $JsonOutputPath" -Level SUCCESS -Section "EventLog"
@@ -8335,22 +7094,7 @@ foreach ($event in $events) {
     }
 }
 
-$FindingProcExec = @{
-    finding_id   = "process-exec-001"
-    finding_type = "Process Execution Events"
-    category     = "Execution"
-    findingtags  = @("malware", "ransomware", "live-response")
-    severity     = "Notable"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{ collector = "Get-ForensicWinEvent Security 4688"; artifact = "Process Creation Events (4688)"; command = "Get-WinEvent -Id 4688 Security" }
-    summary = @{ title = "Forensicator Process Execution Events"; description = "Collected process creation events (4688) from the Security log."; total_entries = $ProcessExecData.Count }
-    risk = @{ score = 70; level = "High"; reason = "Process creation events reveal which executables ran and their command lines — critical for malware and attacker tool identification." }
-    mitre = @(@{ technique_id = "T1059"; technique = "Command and Scripting Interpreter" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected process execution events" })
-    evidence = $ProcessExecData.ToArray()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
+$FindingProcExec = New-ForensicatorFinding -ArtifactKey "process-exec" -Evidence $ProcessExecData.ToArray()
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\events\process-exec-finding.json"
 $FindingProcExec | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
 #Write-ForensicLog "[!] Process Execution JSON finding exported to: $JsonOutputPath" -Level SUCCESS -Section "EventLog"
@@ -8510,26 +7254,10 @@ if($IsDomainController){
                        Where-Object { $_.Name -match '^(ntds\.dit|edb.*\.log|tmp\.edb|res.*\.log)$' })
     }
 
-    $Finding = @{
-        finding_id   = "ad-ntds-001"
-        finding_type = "NTDS Database Metadata"
-        category     = "Active Directory"
-        findingtags  = @("credential-access", "persistence", "live-response")
-        severity     = "Notable"
-        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-        source = @{ collector = "Get-ChildItem $ntdsPath"; artifact = "NTDS Database Files"; command = "Get-ChildItem $ntdsPath -Filter ntds.dit,edb*.log,tmp.edb,res*.log" }
-        summary = @{ title = "Forensicator NTDS Database Metadata"; description = "Collected metadata for the Active Directory database and transaction log files."; total_entries = @($ntdsFiles).Count }
-        risk = @{ score = 70; level = "High"; reason = "The NTDS database contains all domain credential material; unexpected size, timestamps, or a missing file may indicate NTDS theft or offline credential dumping." }
-        mitre = @(@{ technique_id = "T1003.003"; technique = "OS Credential Dumping: NTDS" })
-        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected NTDS database metadata" })
-        evidence = [System.Collections.Generic.List[object]]::new()
-        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-    }
-
+    $Evidence = [System.Collections.Generic.List[object]]::new()
     if($ntdsFiles.Count -gt 0){
         foreach($f in $ntdsFiles){
-            $Finding.evidence.Add(@{
+            $Evidence.Add(@{
                 name             = $f.Name
                 full_path        = $f.FullName
                 size_mb          = [Math]::Round($f.Length/1MB, 2)
@@ -8539,8 +7267,9 @@ if($IsDomainController){
         }
     }
     else{
-        $Finding.evidence.Add(@{ note = "ntds.dit not found — unexpected on a Domain Controller" })
+        $Evidence.Add(@{ note = "ntds.dit not found — unexpected on a Domain Controller" })
     }
+    $Finding = New-ForensicatorFinding -ArtifactKey "ad-ntds" -Evidence $Evidence
 
     $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\ad\ntds-finding.json"
     $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
@@ -8617,25 +7346,9 @@ if($IsDomainController){
         }
     }
 
-    $Finding = @{
-        finding_id   = "ad-sysvol-001"
-        finding_type = "SYSVOL Script Analysis"
-        category     = "Active Directory"
-        findingtags  = @("malware", "persistence", "live-response")
-        severity     = "Notable"
-        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-        source = @{ collector = "Get-ChildItem $sysvolPath"; artifact = "SYSVOL Policies/Scripts/Startup/Shutdown/Logon/Logoff"; command = "Get-ChildItem $sysvolPath -Recurse -Include *.bat,*.ps1,*.vbs,*.exe,*.dll,*.cmd,*.js" }
-        summary = @{ title = "Forensicator SYSVOL Script Analysis"; description = "Collected scripts/binaries from SYSVOL logon/logoff/startup/shutdown/GPO script locations and flagged suspicious content."; total_entries = @($sysvolFindingsList).Count }
-        risk = @{ score = 75; level = "High"; reason = "SYSVOL scripts run on every domain-joined machine that processes the relevant GPO; malicious content here is a domain-wide persistence and execution mechanism." }
-        mitre = @(@{ technique_id = "T1484.001"; technique = "Domain or Tenant Policy Modification: Group Policy Modification" })
-        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator scanned SYSVOL for suspicious scripts" })
-        evidence = [System.Collections.Generic.List[object]]::new()
-        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-    }
-
-    foreach($item in $sysvolFindingsList){
-        $Finding.evidence.Add(@{
+        $Evidence = [System.Collections.Generic.List[object]]::new()
+    foreach ($item in $sysvolFindingsList) {
+        $Evidence.Add(@{
             name             = $item.Name
             full_path        = $item.FullPath
             extension        = $item.Extension
@@ -8644,6 +7357,8 @@ if($IsDomainController){
             matched_keywords = $item.MatchedKeywords
         })
     }
+    $Finding = New-ForensicatorFinding -ArtifactKey "ad-sysvol" -Evidence $Evidence
+
 
     $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\ad\sysvol-finding.json"
     $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
@@ -8692,26 +7407,12 @@ if($IsDomainController){
         }
     }
 
-    $Finding = @{
-        finding_id   = "ad-priv-groups-001"
-        finding_type = "Privileged AD Group Membership"
-        category     = "Active Directory"
-        findingtags  = @("privilege-escalation", "insider-threat", "credential-access", "live-response")
-        severity     = "Notable"
-        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-        source = @{ collector = "net group <name> /domain"; artifact = "Privileged Directory Group Membership"; command = "net group `"<GroupName>`" /domain" }
-        summary = @{ title = "Forensicator Privileged Group Membership"; description = "Collected membership of Domain Admins, Enterprise Admins, Schema Admins, and other privileged groups."; total_entries = @($privGroupMembers).Count }
-        risk = @{ score = 80; level = "High"; reason = "Unexpected or unknown members of privileged directory groups are a primary indicator of privilege escalation or a backdoor account." }
-        mitre = @(@{ technique_id = "T1078.002"; technique = "Valid Accounts: Domain Accounts" })
-        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected privileged AD group membership" })
-        evidence = [System.Collections.Generic.List[object]]::new()
-        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+        $Evidence = [System.Collections.Generic.List[object]]::new()
+    foreach ($item in $privGroupMembers) {
+        $Evidence.Add(@{ group = $item.Group; member = $item.Member })
     }
+    $Finding = New-ForensicatorFinding -ArtifactKey "ad-priv-groups" -Evidence $Evidence
 
-    foreach($item in $privGroupMembers){
-        $Finding.evidence.Add(@{ group = $item.Group; member = $item.Member })
-    }
 
     $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\ad\priv-groups-finding.json"
     $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
@@ -8749,27 +7450,15 @@ if($IsDomainController){
     $krbtgtAgeDays = if($krbtgtPwdLastSet){ [Math]::Round(((Get-Date) - $krbtgtPwdLastSet).TotalDays, 1) } else { $null }
     $krbtgtRisk    = if($null -eq $krbtgtAgeDays){ "Unknown" } elseif($krbtgtAgeDays -gt 180){ "High — password older than 180 days" } else { "Low" }
 
-    $Finding = @{
-        finding_id   = "ad-krbtgt-001"
-        finding_type = "KRBTGT Account Age"
-        category     = "Active Directory"
-        findingtags  = @("credential-access", "persistence", "live-response")
-        severity     = "Notable"
-        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-        source = @{ collector = "net user krbtgt /domain"; artifact = "KRBTGT Account Metadata"; command = "net user krbtgt /domain" }
-        summary = @{ title = "Forensicator KRBTGT Account Age"; description = "Checked KRBTGT password last-set date. Golden Ticket forgery relies on the KRBTGT hash — an old or never-changed password extends the useful life of a stolen hash."; total_entries = 1 }
-        risk = @{ score = $(if($krbtgtRisk -like "High*"){85}elseif($krbtgtRisk -eq "Unknown"){40}else{15}); level = $(if($krbtgtRisk -like "High*"){"High"}elseif($krbtgtRisk -eq "Unknown"){"Medium"}else{"Low"}); reason = "KRBTGT password age directly bounds how long a forged Golden Ticket built from a stolen KRBTGT hash remains valid." }
-        mitre = @(@{ technique_id = "T1558.001"; technique = "Steal or Forge Kerberos Tickets: Golden Ticket" })
-        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator checked KRBTGT account age" })
-        evidence = [System.Collections.Generic.List[object]]::new()
-        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-    }
-    $Finding.evidence.Add(@{
+    $krbtgtScoreOverride = $(if($krbtgtRisk -like "High*"){85}elseif($krbtgtRisk -eq "Unknown"){40}else{15})
+    $Evidence = [System.Collections.Generic.List[object]]::new()
+    $Evidence.Add(@{
         password_last_set = $(if($krbtgtPwdLastSet){ $krbtgtPwdLastSet.ToString("o") } else { "Unknown" })
         age_days           = $(if($null -ne $krbtgtAgeDays){ "$krbtgtAgeDays" } else { "Unknown" })
         risk               = $krbtgtRisk
     })
+    $Finding = New-ForensicatorFinding -ArtifactKey "ad-krbtgt" -Evidence $Evidence -ScoreOverride $krbtgtScoreOverride `
+        -ReasoningOverride @("KRBTGT password age directly bounds how long a forged Golden Ticket built from a stolen KRBTGT hash remains valid.", "Measured age: $(if($null -ne $krbtgtAgeDays){"$krbtgtAgeDays days"}else{"unknown"}) ($krbtgtRisk)")
 
     $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\ad\krbtgt-finding.json"
     $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
@@ -8825,27 +7514,13 @@ if($IsDomainController){
     $channelBindingText = switch($ldapChannelBinding){ 2 {"Always (secure)"} 1 {"When supported"} 0 {"Never (insecure)"} default {"Not configured (default = disabled, insecure)"} }
     $smbSigningText = switch($smbSigningRequired){ 1 {"Required (secure)"} 0 {"Not required (insecure — relay risk)"} default {"Not configured (default = not required, insecure)"} }
 
-    $Finding = @{
-        finding_id   = "ad-ldap-smb-signing-001"
-        finding_type = "LDAP / SMB Signing Configuration"
-        category     = "Active Directory"
-        findingtags  = @("defense-evasion", "lateral-movement", "live-response")
-        severity     = "Notable"
-        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-        source = @{ collector = "Registry (NTDS\Parameters, LanManServer\Parameters)"; artifact = "LDAP/SMB Signing Configuration"; command = "Get-ItemProperty HKLM:\SYSTEM\CurrentControlSet\Services\NTDS\Parameters, HKLM:\SYSTEM\CurrentControlSet\Services\LanManServer\Parameters" }
-        summary = @{ title = "Forensicator LDAP/SMB Signing Configuration"; description = "Checked LDAP signing/channel binding and SMB signing enforcement on the Domain Controller."; total_entries = 1 }
-        risk = @{ score = 55; level = "Medium"; reason = "Unsigned LDAP or SMB allows credential relay attacks (e.g. NTLM relay to LDAP/LDAPS) against the Domain Controller." }
-        mitre = @(@{ technique_id = "T1557"; technique = "Adversary-in-the-Middle" })
-        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator checked LDAP/SMB signing configuration" })
-        evidence = [System.Collections.Generic.List[object]]::new()
-        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-    }
-    $Finding.evidence.Add(@{
+    $Evidence = [System.Collections.Generic.List[object]]::new()
+    $Evidence.Add(@{
         ldap_server_integrity = $ldapIntegrityText
         ldap_channel_binding  = $channelBindingText
         smb_signing           = $smbSigningText
     })
+    $Finding = New-ForensicatorFinding -ArtifactKey "ad-ldap-smb-signing" -Evidence $Evidence
 
     $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\ad\ldap-smb-signing-finding.json"
     $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
@@ -8902,24 +7577,9 @@ if($IsDomainController){
             Write-ForensicLog "[!] SPN enumeration failed: $($_.Exception.Message)" -Level WARN -Section "AD"
         }
 
-        $Finding = @{
-            finding_id   = "ad-spn-001"
-            finding_type = "Service Principal Names (Kerberoasting Exposure)"
-            category     = "Active Directory"
-            findingtags  = @("credential-access", "live-response")
-            severity     = "Notable"
-            host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-            source = @{ collector = "DirectorySearcher (servicePrincipalName=*)"; artifact = "User Accounts with Service Principal Names"; command = "(&(objectCategory=person)(objectClass=user)(servicePrincipalName=*))" }
-            summary = @{ title = "Forensicator SPN Enumeration"; description = "Collected user accounts with registered Service Principal Names — each is a Kerberoasting candidate, especially privileged accounts and those with non-expiring passwords."; total_entries = @($spnRows).Count }
-            risk = @{ score = 70; level = "High"; reason = "Accounts with an SPN can have their Kerberos service ticket requested and cracked offline (Kerberoasting); privileged or weakly-configured accounts are high-value targets." }
-            mitre = @(@{ technique_id = "T1558.003"; technique = "Steal or Forge Kerberos Tickets: Kerberoasting" })
-            ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-            timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator enumerated SPNs" })
-            evidence = [System.Collections.Generic.List[object]]::new()
-            metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-        }
-        foreach($row in $spnRows){
-            $Finding.evidence.Add(@{
+                $Evidence = [System.Collections.Generic.List[object]]::new()
+        foreach ($row in $spnRows) {
+            $Evidence.Add(@{
                 sam_account_name        = $row.SamAccountName
                 spns                    = $row.SPNs
                 privileged               = "$($row.Privileged)"
@@ -8927,6 +7587,8 @@ if($IsDomainController){
                 disabled                 = "$($row.Disabled)"
             })
         }
+        $Finding = New-ForensicatorFinding -ArtifactKey "ad-spn" -Evidence $Evidence
+
         $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\ad\spn-finding.json"
         $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
 
@@ -8977,30 +7639,17 @@ if($IsDomainController){
             Write-ForensicLog "[!] Delegation enumeration failed: $($_.Exception.Message)" -Level WARN -Section "AD"
         }
 
-        $Finding = @{
-            finding_id   = "ad-delegation-001"
-            finding_type = "Kerberos Delegation"
-            category     = "Active Directory"
-            findingtags  = @("privilege-escalation", "lateral-movement", "live-response")
-            severity     = "Notable"
-            host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-            source = @{ collector = "DirectorySearcher (userAccountControl delegation bits, msDS-AllowedToDelegateTo, RBCD)"; artifact = "Accounts/Computers Configured for Kerberos Delegation"; command = "LDAP filter on TRUSTED_FOR_DELEGATION / TRUSTED_TO_AUTH_FOR_DELEGATION / msDS-AllowedToDelegateTo / msDS-AllowedToActOnBehalfOfOtherIdentity" }
-            summary = @{ title = "Forensicator Kerberos Delegation Enumeration"; description = "Collected accounts and computers configured for unconstrained, constrained, or resource-based constrained delegation."; total_entries = @($delegationRows).Count }
-            risk = @{ score = 75; level = "High"; reason = "Delegation, especially unconstrained delegation, allows an attacker who compromises the delegated host to impersonate any user (including Domain Admins) that authenticates to it." }
-            mitre = @(@{ technique_id = "T1187"; technique = "Forced Authentication" })
-            ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-            timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator enumerated Kerberos delegation configuration" })
-            evidence = [System.Collections.Generic.List[object]]::new()
-            metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-        }
-        foreach($row in $delegationRows){
-            $Finding.evidence.Add(@{
+                $Evidence = [System.Collections.Generic.List[object]]::new()
+        foreach ($row in $delegationRows) {
+            $Evidence.Add(@{
                 sam_account_name = $row.SamAccountName
                 object_type      = $row.ObjectType
                 delegation_type  = $row.DelegationType
                 allowed_to       = $row.AllowedTo
             })
         }
+        $Finding = New-ForensicatorFinding -ArtifactKey "ad-delegation" -Evidence $Evidence
+
         $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\ad\delegation-finding.json"
         $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
 
@@ -9059,30 +7708,17 @@ if($IsDomainController){
             Write-ForensicLog "[!] dsacls query failed: $($_.Exception.Message)" -Level WARN -Section "AD"
         }
 
-        $Finding = @{
-            finding_id   = "ad-dcsync-001"
-            finding_type = "DCSync Rights"
-            category     = "Active Directory"
-            findingtags  = @("credential-access", "privilege-escalation", "live-response")
-            severity     = "Notable"
-            host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-            source = @{ collector = "dsacls <domain DN>"; artifact = "Domain Object ACL — Replicating Directory Changes rights"; command = "dsacls `"$adDomainDN`"" }
-            summary = @{ title = "Forensicator DCSync Rights Enumeration"; description = "Collected security principals granted 'Replicating Directory Changes' / 'Replicating Directory Changes All' on the domain object. Unexpected grantees can perform a DCSync attack to dump all domain credentials."; total_entries = @($dcSyncRows).Count }
-            risk = @{ score = 90; level = "Critical"; reason = "Any principal with both Replicating Directory Changes and Replicating Directory Changes All can extract every credential in the domain (DCSync) without ever touching the Domain Controller's disk." }
-            mitre = @(@{ technique_id = "T1003.006"; technique = "OS Credential Dumping: DCSync" })
-            ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-            timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator enumerated DCSync rights" })
-            evidence = [System.Collections.Generic.List[object]]::new()
-            metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-        }
-        foreach($row in $dcSyncRows){
-            $Finding.evidence.Add(@{
+                $Evidence = [System.Collections.Generic.List[object]]::new()
+        foreach ($row in $dcSyncRows) {
+            $Evidence.Add(@{
                 ace_type  = $row.AceType
                 principal = $row.Principal
                 right     = $row.Right
                 expected  = "$($row.Expected)"
             })
         }
+        $Finding = New-ForensicatorFinding -ArtifactKey "ad-dcsync" -Evidence $Evidence
+
         $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\ad\dcsync-finding.json"
         $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
 
@@ -9126,25 +7762,12 @@ if($IsDomainController){
         Write-ForensicLog "[!] Failed to collect AD privileged/Kerberos events: $($_.Exception.Message)" -Level WARN -Section "AD"
     }
 
-    $Finding = @{
-        finding_id   = "ad-priv-events-001"
-        finding_type = "Privileged & Kerberos Security Events"
-        category     = "Active Directory"
-        findingtags  = @("credential-access", "privilege-escalation", "live-response")
-        severity     = "Interesting"
-        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-        source = @{ collector = "Get-ForensicWinEvent Security"; artifact = "DC Privileged/Kerberos Events (4648,4672,4735,4738,4742,4756,4768,4769,4771,4776,4781)"; command = "Get-WinEvent -Id 4648,4672,4735,4738,4742,4756,4768,4769,4771,4776,4781" }
-        summary = @{ title = "Forensicator Privileged & Kerberos Events"; description = "Collected DC-specific privileged logon, Kerberos ticket, and account-change events not already covered by the generic Event Log section."; total_entries = @($adPrivEvents).Count }
-        risk = @{ score = 55; level = "Medium"; reason = "These events cover explicit-credential logons, special-privilege assignment, Kerberos TGT/service-ticket requests, and NTLM fallback — key signals for Golden/Silver Ticket, Kerberoasting, and pass-the-hash activity." }
-        mitre = @(@{ technique_id = "T1558"; technique = "Steal or Forge Kerberos Tickets" })
-        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected privileged/Kerberos events" })
-        evidence = [System.Collections.Generic.List[object]]::new()
-        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+        $Evidence = [System.Collections.Generic.List[object]]::new()
+    foreach ($row in $adPrivEvents) {
+        $Evidence.Add(@{ time = "$($row.Time)"; event_id = "$($row.EventId)"; user = $row.User; detail = $row.Detail })
     }
-    foreach($row in $adPrivEvents){
-        $Finding.evidence.Add(@{ time = "$($row.Time)"; event_id = "$($row.EventId)"; user = $row.User; detail = $row.Detail })
-    }
+    $Finding = New-ForensicatorFinding -ArtifactKey "ad-priv-events" -Evidence $Evidence
+
     $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\ad\priv-events-finding.json"
     $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
 
@@ -9184,25 +7807,12 @@ if($IsDomainController){
         Write-ForensicLog "[!] Failed to collect directory object change events: $($_.Exception.Message)" -Level WARN -Section "AD"
     }
 
-    $Finding = @{
-        finding_id   = "ad-object-changes-001"
-        finding_type = "Directory Object Changes"
-        category     = "Active Directory"
-        findingtags  = @("persistence", "privilege-escalation", "live-response")
-        severity     = "Interesting"
-        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-        source = @{ collector = "Get-ForensicWinEvent Security"; artifact = "Directory Object Change Events (5136,5137,5139,5141)"; command = "Get-WinEvent -Id 5136,5137,5139,5141" }
-        summary = @{ title = "Forensicator Directory Object Changes"; description = "Collected directory object modify/create/move/delete events. Requires 'Audit Directory Service Changes' to be enabled — an empty result here often just means that audit policy isn't configured."; total_entries = @($adObjEvents).Count }
-        risk = @{ score = 45; level = "Medium"; reason = "Directory object changes (ACL edits, new objects, moves, deletions) can reveal attacker persistence such as AdminSDHolder tampering or unexpected OU/GPO manipulation." }
-        mitre = @(@{ technique_id = "T1098"; technique = "Account Manipulation" })
-        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected directory object change events" })
-        evidence = [System.Collections.Generic.List[object]]::new()
-        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+        $Evidence = [System.Collections.Generic.List[object]]::new()
+    foreach ($row in $adObjEvents) {
+        $Evidence.Add(@{ time = "$($row.Time)"; event_id = "$($row.EventId)"; subject_user = $row.SubjectUser; object_dn = $row.ObjectDN; class = $row.Class })
     }
-    foreach($row in $adObjEvents){
-        $Finding.evidence.Add(@{ time = "$($row.Time)"; event_id = "$($row.EventId)"; subject_user = $row.SubjectUser; object_dn = $row.ObjectDN; class = $row.Class })
-    }
+    $Finding = New-ForensicatorFinding -ArtifactKey "ad-object-changes" -Evidence $Evidence
+
     $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\ad\object-changes-finding.json"
     $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
 
@@ -9239,25 +7849,12 @@ if($IsDomainController){
         Write-ForensicLog "[!] Could not enumerate WMI event subscriptions: $($_.Exception.Message)" -Level WARN -Section "AD"
     }
 
-    $Finding = @{
-        finding_id   = "ad-wmi-subs-001"
-        finding_type = "WMI Permanent Event Subscriptions"
-        category     = "Active Directory"
-        findingtags  = @("persistence", "malware", "live-response")
-        severity     = "Notable"
-        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-        source = @{ collector = "Get-CimInstance root\subscription"; artifact = "WMI Event Filters/Consumers/Bindings"; command = "Get-CimInstance -Namespace root\subscription -Class __EventFilter, __EventConsumer" }
-        summary = @{ title = "Forensicator WMI Permanent Event Subscriptions"; description = "Collected permanent WMI event subscriptions on the Domain Controller — a well-known fileless persistence mechanism."; total_entries = @($wmiSubs).Count }
-        risk = @{ score = 65; level = "High"; reason = "WMI permanent event subscriptions execute code on trigger without touching disk and survive reboots; unrecognized filters/consumers on a DC warrant immediate review." }
-        mitre = @(@{ technique_id = "T1546.003"; technique = "Event Triggered Execution: WMI Event Subscription" })
-        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected WMI event subscriptions" })
-        evidence = [System.Collections.Generic.List[object]]::new()
-        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+        $Evidence = [System.Collections.Generic.List[object]]::new()
+    foreach ($row in $wmiSubs) {
+        $Evidence.Add(@{ type = $row.Type; name = $row.Name; detail = $row.Detail })
     }
-    foreach($row in $wmiSubs){
-        $Finding.evidence.Add(@{ type = $row.Type; name = $row.Name; detail = $row.Detail })
-    }
+    $Finding = New-ForensicatorFinding -ArtifactKey "ad-wmi-subs" -Evidence $Evidence
+
     $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\ad\wmi-subs-finding.json"
     $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
 
@@ -9294,30 +7891,17 @@ if($IsDomainController){
         $hit
     })
 
-    $Finding = @{
-        finding_id   = "ad-suspicious-proc-001"
-        finding_type = "Known AD Attack Tooling (Process Cross-Check)"
-        category     = "Active Directory"
-        findingtags  = @("malware", "credential-access", "live-response")
-        severity     = "Notable"
-        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-        source = @{ collector = "Cross-check against Win32_Process collection"; artifact = "Known AD Attack Tooling"; command = "Filter collected process list against known tool name list" }
-        summary = @{ title = "Forensicator Known AD Attack Tooling"; description = "Cross-checked the already-collected process list for names associated with common AD attack tooling (Mimikatz, Rubeus, SharpHound, adfind, etc.)."; total_entries = @($suspiciousDCProcesses).Count }
-        risk = @{ score = 90; level = "Critical"; reason = "Presence of well-known offensive AD tooling running on a Domain Controller is a strong indicator of active compromise; some names (procdump, dsamain) can also be legitimate — verify context." }
-        mitre = @(@{ technique_id = "T1003"; technique = "OS Credential Dumping" })
-        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator cross-checked processes against known AD tooling" })
-        evidence = [System.Collections.Generic.List[object]]::new()
-        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-    }
-    foreach($proc in $suspiciousDCProcesses){
-        $Finding.evidence.Add(@{
+        $Evidence = [System.Collections.Generic.List[object]]::new()
+    foreach ($proc in $suspiciousDCProcesses) {
+        $Evidence.Add(@{
             name             = $proc.Name
             pid              = "$($proc.PID)"
             executable_path  = $proc.ExecutablePath
             command_line     = $proc.CommandLine
         })
     }
+    $Finding = New-ForensicatorFinding -ArtifactKey "ad-suspicious-proc" -Evidence $Evidence
+
     $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\ad\suspicious-proc-finding.json"
     $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
 
@@ -9594,25 +8178,12 @@ if($IsMSSQLServer){
         $_.Name -like 'MSSQL*' -or $_.Name -like 'SQLAgent*' -or $_.Name -eq 'SQLBrowser' -or $_.Name -eq 'SQLWriter' -or $_.Name -like 'MsDtsServer*' -or $_.Name -like 'ReportServer*'
     })
 
-    $Finding = @{
-        finding_id   = "mssql-services-001"
-        finding_type = "SQL Server Service Inventory"
-        category     = "Database"
-        findingtags  = @("privilege-escalation", "live-response")
-        severity     = "Notable"
-        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-        source = @{ collector = "Get-CimInstance Win32_Service"; artifact = "SQL Server Services"; command = "Get-CimInstance Win32_Service (Name like 'MSSQL%'/'SQLAgent%'/SQLBrowser/SQLWriter/'MsDtsServer%'/'ReportServer%')" }
-        summary = @{ title = "Forensicator SQL Server Service Inventory"; description = "Collected SQL Server-related Windows services and their run-as accounts."; total_entries = @($mssqlServices).Count }
-        risk = @{ score = 45; level = "Medium"; reason = "SQL Server services running as LocalSystem or an overly privileged domain account expand the blast radius of a SQL injection or xp_cmdshell compromise." }
-        mitre = @(@{ technique_id = "T1078"; technique = "Valid Accounts" })
-        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected SQL Server service inventory" })
-        evidence = [System.Collections.Generic.List[object]]::new()
-        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+        $Evidence = [System.Collections.Generic.List[object]]::new()
+    foreach ($svc in $mssqlServices) {
+        $Evidence.Add(@{ name = $svc.Name; display_name = $svc.DisplayName; state = $svc.State; start_mode = $svc.StartMode; start_name = $svc.StartName })
     }
-    foreach($svc in $mssqlServices){
-        $Finding.evidence.Add(@{ name = $svc.Name; display_name = $svc.DisplayName; state = $svc.State; start_mode = $svc.StartMode; start_name = $svc.StartName })
-    }
+    $Finding = New-ForensicatorFinding -ArtifactKey "mssql-services" -Evidence $Evidence
+
     $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\mssql\services-finding.json"
     $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
 
@@ -9761,25 +8332,12 @@ if($IsMSSQLServer){
     }
 
     # --- config options finding/fragment ---
-    $Finding = @{
-        finding_id   = "mssql-config-001"
-        finding_type = "SQL Server Dangerous Configuration Options"
-        category     = "Database"
-        findingtags  = @("credential-access", "privilege-escalation", "live-response")
-        severity     = "Notable"
-        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-        source = @{ collector = "sqlcmd sys.configurations"; artifact = "SQL Server Configuration Options"; command = "SELECT value_in_use FROM sys.configurations WHERE name IN ('xp_cmdshell','Ole Automation Procedures','clr enabled')" }
-        summary = @{ title = "Forensicator SQL Server Dangerous Configuration"; description = "Checked whether xp_cmdshell, Ole Automation Procedures, and CLR integration are enabled — each is a well-known SQL Server-to-OS command execution vector."; total_entries = @($mssqlConfigRows).Count }
-        risk = @{ score = 85; level = "High"; reason = "xp_cmdshell, OLE Automation, and CLR integration each allow a database-level compromise (e.g. SQL injection) to execute arbitrary OS commands." }
-        mitre = @(@{ technique_id = "T1505.001"; technique = "Server Software Component: SQL Stored Procedures" })
-        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator checked SQL Server dangerous configuration options" })
-        evidence = [System.Collections.Generic.List[object]]::new()
-        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+        $Evidence = [System.Collections.Generic.List[object]]::new()
+    foreach ($row in $mssqlConfigRows) {
+        $Evidence.Add(@{ instance = $row.Instance; xp_cmdshell = $row.XpCmdshell; ole_automation_procedures = $row.OleAutomation; clr_enabled = $row.ClrEnabled })
     }
-    foreach($row in $mssqlConfigRows){
-        $Finding.evidence.Add(@{ instance = $row.Instance; xp_cmdshell = $row.XpCmdshell; ole_automation_procedures = $row.OleAutomation; clr_enabled = $row.ClrEnabled })
-    }
+    $Finding = New-ForensicatorFinding -ArtifactKey "mssql-config" -Evidence $Evidence
+
     $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\mssql\config-finding.json"
     $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
 
@@ -9796,23 +8354,12 @@ if($IsMSSQLServer){
     $MSSQL_ConfigFragment = $sb.ToString()
 
     # --- sysadmin members finding/fragment ---
-    $Finding = @{
-        finding_id   = "mssql-sysadmin-001"
-        finding_type = "SQL Server sysadmin Role Members"
-        category     = "Database"
-        findingtags  = @("privilege-escalation", "insider-threat", "live-response")
-        severity     = "Notable"
-        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-        source = @{ collector = "sqlcmd IS_SRVROLEMEMBER"; artifact = "SQL Server sysadmin Role Members"; command = "SELECT name FROM sys.server_principals WHERE IS_SRVROLEMEMBER('sysadmin', name) = 1" }
-        summary = @{ title = "Forensicator SQL Server sysadmin Members"; description = "Collected logins holding the sysadmin server role — full control of the SQL Server instance."; total_entries = @($mssqlSysadminRows).Count }
-        risk = @{ score = 75; level = "High"; reason = "sysadmin membership grants complete control of the instance, including the ability to enable xp_cmdshell for OS command execution." }
-        mitre = @(@{ technique_id = "T1078"; technique = "Valid Accounts" })
-        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected SQL Server sysadmin role members" })
-        evidence = [System.Collections.Generic.List[object]]::new()
-        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+        $Evidence = [System.Collections.Generic.List[object]]::new()
+    foreach ($row in $mssqlSysadminRows) {
+        $Evidence.Add(@{ instance = $row.Instance; login = $row.Login })
     }
-    foreach($row in $mssqlSysadminRows){ $Finding.evidence.Add(@{ instance = $row.Instance; login = $row.Login }) }
+    $Finding = New-ForensicatorFinding -ArtifactKey "mssql-sysadmin" -Evidence $Evidence
+
     $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\mssql\sysadmin-finding.json"
     $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
 
@@ -9828,23 +8375,12 @@ if($IsMSSQLServer){
     $MSSQL_SysadminFragment = $sb.ToString()
 
     # --- linked servers finding/fragment ---
-    $Finding = @{
-        finding_id   = "mssql-linked-001"
-        finding_type = "SQL Server Linked Servers"
-        category     = "Database"
-        findingtags  = @("lateral-movement", "live-response")
-        severity     = "Interesting"
-        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-        source = @{ collector = "sqlcmd sys.servers"; artifact = "SQL Server Linked Servers"; command = "SELECT name, product, provider, data_source FROM sys.servers WHERE is_linked = 1" }
-        summary = @{ title = "Forensicator SQL Server Linked Servers"; description = "Collected configured linked servers — a common lateral movement path between SQL Server instances."; total_entries = @($mssqlLinkedRows).Count }
-        risk = @{ score = 55; level = "Medium"; reason = "Linked servers can be abused to pivot between SQL Server instances, especially when configured with stored 'sa'-equivalent credentials." }
-        mitre = @(@{ technique_id = "T1210"; technique = "Exploitation of Remote Services" })
-        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected SQL Server linked servers" })
-        evidence = [System.Collections.Generic.List[object]]::new()
-        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+        $Evidence = [System.Collections.Generic.List[object]]::new()
+    foreach ($row in $mssqlLinkedRows) {
+        $Evidence.Add(@{ instance = $row.Instance; name = $row.Name; product = $row.Product; provider = $row.Provider; data_source = $row.DataSource })
     }
-    foreach($row in $mssqlLinkedRows){ $Finding.evidence.Add(@{ instance = $row.Instance; name = $row.Name; product = $row.Product; provider = $row.Provider; data_source = $row.DataSource }) }
+    $Finding = New-ForensicatorFinding -ArtifactKey "mssql-linked" -Evidence $Evidence
+
     $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\mssql\linked-servers-finding.json"
     $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
 
@@ -9860,23 +8396,12 @@ if($IsMSSQLServer){
     $MSSQL_LinkedServersFragment = $sb.ToString()
 
     # --- trustworthy databases finding/fragment ---
-    $Finding = @{
-        finding_id   = "mssql-trustworthy-001"
-        finding_type = "SQL Server TRUSTWORTHY Databases"
-        category     = "Database"
-        findingtags  = @("privilege-escalation", "live-response")
-        severity     = "Notable"
-        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-        source = @{ collector = "sqlcmd sys.databases"; artifact = "TRUSTWORTHY Databases"; command = "SELECT name FROM sys.databases WHERE is_trustworthy_on = 1" }
-        summary = @{ title = "Forensicator SQL Server TRUSTWORTHY Databases"; description = "Collected databases with the TRUSTWORTHY property enabled — combined with a CLR assembly or ownership chaining, this can be used to escalate to sysadmin."; total_entries = @($mssqlTrustworthyRows).Count }
-        risk = @{ score = 65; level = "Medium"; reason = "TRUSTWORTHY ON, combined with db_owner access, is a well-known SQL Server privilege escalation path to sysadmin." }
-        mitre = @(@{ technique_id = "T1078"; technique = "Valid Accounts" })
-        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected TRUSTWORTHY databases" })
-        evidence = [System.Collections.Generic.List[object]]::new()
-        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+        $Evidence = [System.Collections.Generic.List[object]]::new()
+    foreach ($row in $mssqlTrustworthyRows) {
+        $Evidence.Add(@{ instance = $row.Instance; database = $row.Database })
     }
-    foreach($row in $mssqlTrustworthyRows){ $Finding.evidence.Add(@{ instance = $row.Instance; database = $row.Database }) }
+    $Finding = New-ForensicatorFinding -ArtifactKey "mssql-trustworthy" -Evidence $Evidence
+
     $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\mssql\trustworthy-finding.json"
     $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
 
@@ -9892,25 +8417,12 @@ if($IsMSSQLServer){
     $MSSQL_TrustworthyFragment = $sb.ToString()
 
     # --- agent jobs finding/fragment ---
-    $Finding = @{
-        finding_id   = "mssql-agent-jobs-001"
-        finding_type = "SQL Server Agent Jobs (Risky Step Types)"
-        category     = "Database"
-        findingtags  = @("persistence", "malware", "live-response")
-        severity     = "Notable"
-        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-        source = @{ collector = "sqlcmd msdb.dbo.sysjobs/sysjobsteps"; artifact = "SQL Server Agent Jobs with CmdExec/ActiveScripting/PowerShell Steps"; command = "SELECT ... FROM msdb.dbo.sysjobs j JOIN msdb.dbo.sysjobsteps s ON j.job_id = s.job_id WHERE s.subsystem IN (...)" }
-        summary = @{ title = "Forensicator SQL Server Agent Jobs"; description = "Collected SQL Server Agent job steps that execute OS commands, scripts, or PowerShell — a common SQL Server persistence mechanism."; total_entries = @($mssqlAgentJobRows).Count }
-        risk = @{ score = 70; level = "High"; reason = "SQL Server Agent jobs with CmdExec/PowerShell steps run with the Agent service account's privileges and are a common persistence and scheduled-execution mechanism." }
-        mitre = @(@{ technique_id = "T1053.005"; technique = "Scheduled Task/Job: Scheduled Task" })
-        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected SQL Server Agent jobs" })
-        evidence = [System.Collections.Generic.List[object]]::new()
-        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+        $Evidence = [System.Collections.Generic.List[object]]::new()
+    foreach ($row in $mssqlAgentJobRows) {
+        $Evidence.Add(@{ instance = $row.Instance; job_name = $row.JobName; step_name = $row.StepName; subsystem = $row.Subsystem; command = $row.Command; matched_keywords = $row.MatchedKeywords })
     }
-    foreach($row in $mssqlAgentJobRows){
-        $Finding.evidence.Add(@{ instance = $row.Instance; job_name = $row.JobName; step_name = $row.StepName; subsystem = $row.Subsystem; command = $row.Command; matched_keywords = $row.MatchedKeywords })
-    }
+    $Finding = New-ForensicatorFinding -ArtifactKey "mssql-agent-jobs" -Evidence $Evidence
+
     $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\mssql\agent-jobs-finding.json"
     $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
 
@@ -9927,24 +8439,13 @@ if($IsMSSQLServer){
     $MSSQL_AgentJobsFragment = $sb.ToString()
 
     # --- sa account + logins finding/fragment ---
-    $Finding = @{
-        finding_id   = "mssql-logins-001"
-        finding_type = "SQL Server Logins (sa Status + Recency Review)"
-        category     = "Database"
-        findingtags  = @("credential-access", "insider-threat", "live-response")
-        severity     = "Notable"
-        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-        source = @{ collector = "sqlcmd sys.sql_logins"; artifact = "SQL Server Logins"; command = "SELECT name, create_date, modify_date, is_disabled FROM sys.sql_logins" }
-        summary = @{ title = "Forensicator SQL Server Logins"; description = "Collected SQL Server logins including the built-in 'sa' account status, sorted by most recently modified — recently created or modified logins may indicate a backdoor account."; total_entries = @($mssqlLoginRows).Count }
-        risk = @{ score = 60; level = "Medium"; reason = "An enabled 'sa' account or an unexpected recently created/modified SQL login is a strong indicator of credential-based persistence." }
-        mitre = @(@{ technique_id = "T1136"; technique = "Create Account" })
-        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected SQL Server logins" })
-        evidence = [System.Collections.Generic.List[object]]::new()
-        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+        $Evidence = [System.Collections.Generic.List[object]]::new()
+    foreach ($row in $mssqlSaRows) {
+        $Evidence.Add(@{ instance = $row.Instance; name = $row.Name; is_disabled = $row.IsDisabled; type = "sa_status" })
     }
-    foreach($row in $mssqlSaRows){ $Finding.evidence.Add(@{ instance = $row.Instance; name = $row.Name; is_disabled = $row.IsDisabled; type = "sa_status" }) }
-    foreach($row in $mssqlLoginRows){ $Finding.evidence.Add(@{ instance = $row.Instance; name = $row.Name; create_date = $row.CreateDate; modify_date = $row.ModifyDate; is_disabled = $row.IsDisabled; type = "login" }) }
+    foreach($row in $mssqlLoginRows){ $Evidence.Add(@{ instance = $row.Instance; name = $row.Name; create_date = $row.CreateDate; modify_date = $row.ModifyDate; is_disabled = $row.IsDisabled; type = "login" }) }
+    $Finding = New-ForensicatorFinding -ArtifactKey "mssql-logins" -Evidence $Evidence
+
     $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\mssql\logins-finding.json"
     $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
 
@@ -9991,23 +8492,12 @@ if($IsMSSQLServer){
         Write-ForensicLog "[!] Failed to collect SQL Server login failure events: $($_.Exception.Message)" -Level WARN -Section "MSSQL"
     }
 
-    $Finding = @{
-        finding_id   = "mssql-login-failures-001"
-        finding_type = "SQL Server Login Failures"
-        category     = "Database"
-        findingtags  = @("credential-access", "live-response")
-        severity     = "Interesting"
-        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-        source = @{ collector = "Get-ForensicWinEvent Application 18456"; artifact = "SQL Server Login Failure Events"; command = "Get-WinEvent -LogName Application -Id 18456" }
-        summary = @{ title = "Forensicator SQL Server Login Failures"; description = "Collected SQL Server authentication failure events (18456) from the Windows Application log."; total_entries = @($mssqlLoginFailures).Count }
-        risk = @{ score = 50; level = "Medium"; reason = "A spike in SQL Server login failures may indicate brute-force or credential-stuffing against exposed SQL authentication." }
-        mitre = @(@{ technique_id = "T1110"; technique = "Brute Force" })
-        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected SQL Server login failure events" })
-        evidence = [System.Collections.Generic.List[object]]::new()
-        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+        $Evidence = [System.Collections.Generic.List[object]]::new()
+    foreach ($row in $mssqlLoginFailures) {
+        $Evidence.Add(@{ time = "$($row.Time)"; source = $row.Source; message = $row.Message })
     }
-    foreach($row in $mssqlLoginFailures){ $Finding.evidence.Add(@{ time = "$($row.Time)"; source = $row.Source; message = $row.Message }) }
+    $Finding = New-ForensicatorFinding -ArtifactKey "mssql-login-failures" -Evidence $Evidence
+
     $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\mssql\login-failures-finding.json"
     $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
 
@@ -10278,23 +8768,12 @@ if($IsSharePointServer){
         Write-ForensicLog "[!] WebAdministration module unavailable — skipping IIS app pool identity enumeration" -Level WARN -Section "SHAREPOINT"
     }
 
-    $Finding = @{
-        finding_id   = "sp-accounts-001"
-        finding_type = "SharePoint Service & App Pool Accounts"
-        category     = "Web Application"
-        findingtags  = @("privilege-escalation", "live-response")
-        severity     = "Notable"
-        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-        source = @{ collector = "Get-CimInstance Win32_Service + WebAdministration IIS:\AppPools"; artifact = "SharePoint Service and App Pool Accounts"; command = "Get-CimInstance Win32_Service | Where Name -in SPTimerV4,SPAdminV4,... ; Get-ChildItem IIS:\AppPools" }
-        summary = @{ title = "Forensicator SharePoint Service Accounts"; description = "Collected the run-as identities for SharePoint farm services and IIS application pools."; total_entries = @($spAccountRows).Count }
-        risk = @{ score = 55; level = "Medium"; reason = "SharePoint farm/app pool accounts often hold broad AD or database permissions; a compromised app pool identity can be used to pivot into the farm or SQL back-end." }
-        mitre = @(@{ technique_id = "T1078"; technique = "Valid Accounts" })
-        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected SharePoint service/app pool accounts" })
-        evidence = [System.Collections.Generic.List[object]]::new()
-        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+        $Evidence = [System.Collections.Generic.List[object]]::new()
+    foreach ($row in $spAccountRows) {
+        $Evidence.Add(@{ type = $row.Type; name = $row.Name; account = "$($row.Account)"; state = "$($row.State)" })
     }
-    foreach($row in $spAccountRows){ $Finding.evidence.Add(@{ type = $row.Type; name = $row.Name; account = "$($row.Account)"; state = "$($row.State)" }) }
+    $Finding = New-ForensicatorFinding -ArtifactKey "sp-accounts" -Evidence $Evidence
+
     $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\sharepoint\accounts-finding.json"
     $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
 
@@ -10322,25 +8801,12 @@ if($IsSharePointServer){
         $w3wpPids -contains "$($_.PPID)" -and (@($suspiciousChildNames) -icontains "$($_.Name)")
     })
 
-    $Finding = @{
-        finding_id   = "sp-w3wp-children-001"
-        finding_type = "Suspicious IIS Worker Process Children"
-        category     = "Web Application"
-        findingtags  = @("malware", "credential-access", "live-response")
-        severity     = "Notable"
-        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-        source = @{ collector = "Cross-check against Win32_Process collection (PPID -> w3wp.exe)"; artifact = "Suspicious w3wp.exe Child Processes"; command = "Filter collected process list where ParentProcessId is a w3wp.exe PID and Name is a shell/LOLBin" }
-        summary = @{ title = "Forensicator Suspicious IIS Worker Process Children"; description = "Collected processes spawned directly by an IIS worker process (w3wp.exe) that match shell or living-off-the-land binary names — the classic signature of webshell-based remote code execution."; total_entries = @($spSuspiciousChildren).Count }
-        risk = @{ score = 90; level = "Critical"; reason = "IIS/SharePoint worker processes do not normally spawn shells; a cmd.exe or powershell.exe child of w3wp.exe is a strong indicator of an active webshell or deserialization RCE (e.g. ViewState/ToolShell-style exploitation)." }
-        mitre = @(@{ technique_id = "T1505.003"; technique = "Server Software Component: Web Shell" })
-        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator checked for suspicious w3wp.exe child processes" })
-        evidence = [System.Collections.Generic.List[object]]::new()
-        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+        $Evidence = [System.Collections.Generic.List[object]]::new()
+    foreach ($proc in $spSuspiciousChildren) {
+        $Evidence.Add(@{ name = $proc.Name; pid = "$($proc.PID)"; ppid = "$($proc.PPID)"; executable_path = $proc.ExecutablePath; command_line = $proc.CommandLine })
     }
-    foreach($proc in $spSuspiciousChildren){
-        $Finding.evidence.Add(@{ name = $proc.Name; pid = "$($proc.PID)"; ppid = "$($proc.PPID)"; executable_path = $proc.ExecutablePath; command_line = $proc.CommandLine })
-    }
+    $Finding = New-ForensicatorFinding -ArtifactKey "sp-w3wp-children" -Evidence $Evidence
+
     $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\sharepoint\w3wp-children-finding.json"
     $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
 
@@ -10405,25 +8871,12 @@ if($IsSharePointServer){
         }
     }
 
-    $Finding = @{
-        finding_id   = "sp-webshell-001"
-        finding_type = "SharePoint Webshell / Dropped File Scan"
-        category     = "Web Application"
-        findingtags  = @("malware", "persistence", "live-response")
-        severity     = "Notable"
-        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-        source = @{ collector = "Get-ChildItem (LAYOUTS + IIS virtual directories)"; artifact = "SharePoint Webshell/Dropped File Candidates"; command = "Get-ChildItem -Recurse -Include *.aspx,*.ashx,*.asmx,*.dll,*.asax" }
-        summary = @{ title = "Forensicator SharePoint Webshell Scan"; description = "Scanned SharePoint's LAYOUTS folder and IIS web application content for recently modified or keyword-flagged files — the classic location for a dropped webshell (e.g. spinstall0.aspx-style artifacts)."; total_entries = @($spWebshellFindingsList).Count }
-        risk = @{ score = 85; level = "High"; reason = "A recently added or keyword-flagged .aspx/.ashx/.asmx file in the SharePoint content or LAYOUTS tree is a primary indicator of a dropped webshell following exploitation." }
-        mitre = @(@{ technique_id = "T1505.003"; technique = "Server Software Component: Web Shell" })
-        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator scanned SharePoint folders for webshells" })
-        evidence = [System.Collections.Generic.List[object]]::new()
-        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+        $Evidence = [System.Collections.Generic.List[object]]::new()
+    foreach ($item in $spWebshellFindingsList) {
+        $Evidence.Add(@{ name = $item.Name; full_path = $item.FullPath; extension = $item.Extension; size_kb = $item.SizeKB; last_write_time = $item.LastWriteTime.ToString("o"); matched_keywords = $item.MatchedKeywords })
     }
-    foreach($item in $spWebshellFindingsList){
-        $Finding.evidence.Add(@{ name = $item.Name; full_path = $item.FullPath; extension = $item.Extension; size_kb = $item.SizeKB; last_write_time = $item.LastWriteTime.ToString("o"); matched_keywords = $item.MatchedKeywords })
-    }
+    $Finding = New-ForensicatorFinding -ArtifactKey "sp-webshell" -Evidence $Evidence
+
     $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\sharepoint\webshell-finding.json"
     $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
 
@@ -10474,25 +8927,12 @@ if($IsSharePointServer){
         }
     }
 
-    $Finding = @{
-        finding_id   = "sp-webconfig-001"
-        finding_type = "SharePoint web.config ViewState/machineKey Review"
-        category     = "Web Application"
-        findingtags  = @("defense-evasion", "live-response")
-        severity     = "Notable"
-        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-        source = @{ collector = "Get-ChildItem web.config + XML parse"; artifact = "web.config machineKey/enableViewStateMac Settings"; command = "Select-Xml //machineKey, //pages on discovered web.config files" }
-        summary = @{ title = "Forensicator SharePoint web.config Review"; description = "Checked discovered web.config files for machineKey configuration and ViewState MAC validation — ASP.NET ViewState deserialization RCE (e.g. the ToolShell exploit chain) relies on a known/leaked machineKey and/or enableViewStateMac disabled."; total_entries = @($spWebConfigRows).Count }
-        risk = @{ score = 80; level = "High"; reason = "enableViewStateMac explicitly set to false disables ViewState tamper protection entirely, enabling remote code execution via crafted ViewState payloads." }
-        mitre = @(@{ technique_id = "T1190"; technique = "Exploit Public-Facing Application" })
-        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator reviewed web.config ViewState/machineKey configuration" })
-        evidence = [System.Collections.Generic.List[object]]::new()
-        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+        $Evidence = [System.Collections.Generic.List[object]]::new()
+    foreach ($row in $spWebConfigRows) {
+        $Evidence.Add(@{ path = $row.Path; has_machine_key = "$($row.HasMachineKey)"; validation = $row.Validation; enable_view_state_mac = $row.ViewStateMac })
     }
-    foreach($row in $spWebConfigRows){
-        $Finding.evidence.Add(@{ path = $row.Path; has_machine_key = "$($row.HasMachineKey)"; validation = $row.Validation; enable_view_state_mac = $row.ViewStateMac })
-    }
+    $Finding = New-ForensicatorFinding -ArtifactKey "sp-webconfig" -Evidence $Evidence
+
     $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\sharepoint\webconfig-finding.json"
     $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
 
@@ -10538,23 +8978,12 @@ if($IsSharePointServer){
         }
     }
 
-    $Finding = @{
-        finding_id   = "sp-iis-exploit-uri-001"
-        finding_type = "SharePoint Exploit URI Pattern Matches (IIS Logs)"
-        category     = "Web Application"
-        findingtags  = @("malware", "live-response")
-        severity     = "Notable"
-        host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-        source = @{ collector = "Select-String on recent IIS W3C logs"; artifact = "IIS Log Lines Matching Known SharePoint Exploit URIs"; command = "Select-String -Path C:\inetpub\logs\LogFiles\**\*.log -Pattern <configured URI patterns>" }
-        summary = @{ title = "Forensicator SharePoint Exploit URI Scan"; description = "Scanned the most recently modified IIS log files for requests matching known SharePoint exploitation URI patterns (e.g. ToolPane.aspx abuse, dropped spinstall-style shells)."; total_entries = @($spIisHitRows).Count }
-        risk = @{ score = 80; level = "High"; reason = "Requests to these URI patterns are strongly associated with known SharePoint RCE exploit chains and webshell deployment/retrieval." }
-        mitre = @(@{ technique_id = "T1190"; technique = "Exploit Public-Facing Application" })
-        ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-        timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator scanned IIS logs for known exploit URI patterns" })
-        evidence = [System.Collections.Generic.List[object]]::new()
-        metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
+        $Evidence = [System.Collections.Generic.List[object]]::new()
+    foreach ($row in $spIisHitRows) {
+        $Evidence.Add(@{ log_file = $row.LogFile; line = $row.Line })
     }
-    foreach($row in $spIisHitRows){ $Finding.evidence.Add(@{ log_file = $row.LogFile; line = $row.Line }) }
+    $Finding = New-ForensicatorFinding -ArtifactKey "sp-iis-exploit-uri" -Evidence $Evidence
+
     $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\sharepoint\iis-exploit-uri-finding.json"
     $Finding | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
 
@@ -10934,25 +9363,9 @@ if($isDomainJoined){
 # BUILD FINDING & HTML
 # ---------------------------------------------------------
 
-$FindingBitLocker = @{
-    finding_id   = "bitlocker-001"
-    finding_type = "BitLocker Encryption Status"
-    category     = "Defense Evasion"
-    findingtags  = @("ransomware", "data-exfiltration", "live-response")
-    severity     = "Notable"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{ collector = "Get-BitLockerVolume / manage-bde / WMI"; artifact = "BitLocker Volume Encryption Status and Recovery Keys"; command = $Cmd_BitLocker.Display }
-    summary = @{ title = "Forensicator BitLocker Status"; description = "Collected BitLocker encryption status and recovery keys from the endpoint."; total_entries = @($BitLockerResults).Count }
-    risk = @{ score = 70; level = "High"; reason = "Unencrypted volumes expose data; extracting recovery keys is critical for forensic access to encrypted drives." }
-    mitre = @(@{ technique_id = "T1486"; technique = "Data Encrypted for Impact" })
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected BitLocker status from endpoint" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 foreach ($r in $BitLockerResults) {
-    $FindingBitLocker.evidence.Add(@{
+    $Evidence.Add(@{
         mount_point       = "$($r.MountPoint)"
         volume_type       = "$($r.VolumeType)"
         volume_status     = "$($r.VolumeStatus)"
@@ -10965,6 +9378,8 @@ foreach ($r in $BitLockerResults) {
         key_material      = "$($r.KeyMaterial)"
     })
 }
+$FindingBitLocker = New-ForensicatorFinding -ArtifactKey "bitlocker" -Evidence $Evidence
+
 
 $JsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\files\bitlocker-finding.json"
 $FindingBitLocker | ConvertTo-Json -Depth 10 | Out-File $JsonOutputPath -Encoding utf8
@@ -11255,39 +9670,9 @@ if($sigmaFindings.Count -gt 0){
 # sigma JSON investigation data export
 New-Item -ItemType Directory -Force -Path "$PSScriptRoot\$env:COMPUTERNAME\investigation\sigma" | Out-Null
 
-$sigmaJsonFindings = @{
-    finding_id   = "sigma-001"
-    finding_type = "Sigma Rule Matches"
-    category     = "Detection"
-    findingtags  = @("malware", "ransomware", "credential-access", "lateral-movement", "live-response")
-    severity     = "Notable"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "Sigma Runtime Scan"
-        artifact  = "Sigma rule matches from the endpoint's event logs"
-        command   = $sigmaRuntimePath
-    }
-    summary = @{
-        title         = "Forensicator Sigma Findings"
-        description   = "Collected Sigma rule matches from the endpoint's event logs."
-        total_entries = @($sigmaFindings).Count
-    }
-    risk = @{ score = 70; level = "High"; reason = "Sigma findings can indicate potential security threats based on predefined detection rules." }
-    mitre = @(
-        @{ technique_id = "T1059";     technique = "Command and Scripting Interpreter" }
-        @{ technique_id = "T1078";     technique = "Valid Accounts" }
-        @{ technique_id = "T1055";     technique = "Process Injection" }
-        @{ technique_id = "T1547";     technique = "Boot or Logon Autostart Execution" }
-        @{ technique_id = "T1562";     technique = "Impair Defenses" }
-    )
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator collected Sigma rule matches from endpoint" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 foreach ($sigmaHit in $sigmaFindings) {
-    $sigmaJsonFindings.evidence.Add(@{
+    $Evidence.Add(@{
         time         = if ($sigmaHit.TimeCreated) { "$($sigmaHit.TimeCreated)" } else { "" }
         rule_id      = if ($sigmaHit.RuleId)      { "$($sigmaHit.RuleId)" }      else { "" }
         rule_title   = if ($sigmaHit.RuleTitle)   { "$($sigmaHit.RuleTitle)" }   else { "" }
@@ -11301,6 +9686,26 @@ foreach ($sigmaHit in $sigmaFindings) {
         command_line = if ($sigmaHit.CommandLine) { "$($sigmaHit.CommandLine)" } else { "" }
     })
 }
+
+# Severity must reflect the actual matched rule(s), not a blanket per-type value —
+# take the highest-severity rule level seen across this run's matches.
+$sigmaLevelScores = @{ critical = 95; high = 75; medium = 50; low = 25; informational = 10 }
+$sigmaScoreOverride = -1
+$sigmaTopRuleTitle = $null
+foreach ($sigmaHit in $sigmaFindings) {
+    $lvl = "$($sigmaHit.RuleLevel)".ToLower()
+    if ($sigmaLevelScores.ContainsKey($lvl) -and $sigmaLevelScores[$lvl] -gt $sigmaScoreOverride) {
+        $sigmaScoreOverride = $sigmaLevelScores[$lvl]
+        $sigmaTopRuleTitle = $sigmaHit.RuleTitle
+    }
+}
+if ($sigmaScoreOverride -ge 0) {
+    $sigmaJsonFindings = New-ForensicatorFinding -ArtifactKey "sigma" -Evidence $Evidence -ScoreOverride $sigmaScoreOverride `
+        -ReasoningOverride @("Highest-severity matched rule: '$sigmaTopRuleTitle'.", "$($sigmaFindings.Count) total Sigma rule match(es) in this collection.")
+} else {
+    $sigmaJsonFindings = New-ForensicatorFinding -ArtifactKey "sigma" -Evidence $Evidence
+}
+
 
 
 $sigmaJsonInvestigationPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\sigma\sigma-findings.json"
@@ -11331,38 +9736,10 @@ $script:hashJsonSafe = $hashJsonData -replace '</', '\/'
 # hash JSON investigation data export
 New-Item -ItemType Directory -Force -Path "$PSScriptRoot\$env:COMPUTERNAME\investigation\hash" | Out-Null
 
-$hashJsonFindings = @{
-    finding_id   = "hash-match-001"
-    finding_type = "Malicious Hash Matches"
-    category     = "Defense Evasion"
-    findingtags  = @("malware", "ransomware", "live-response")
-    severity     = "Important"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "Hash Match Scanner"
-        artifact  = "Files matched against known malicious MD5/SHA256 hash database"
-        command   = "Get-FileHash | Compare-Object (md5hashes.txt / sha256hashes.txt)"
-    }
-    summary = @{
-        title         = "Forensicator Hash Match Findings"
-        description   = "Files found on the endpoint whose hashes matched known malicious indicators."
-        total_entries = @($hashMatches).Count
-    }
-    risk = @{ score = 90; level = "Critical"; reason = "Files matching known malicious hashes indicate the presence of confirmed malware or threat tools on the endpoint." }
-    mitre = @(
-        @{ technique_id = "T1204"; technique = "User Execution" }
-        @{ technique_id = "T1027"; technique = "Obfuscated Files or Information" }
-        @{ technique_id = "T1036"; technique = "Masquerading" }
-    )
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator detected files matching known malicious hashes" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 if ($hashMatches -and $hashMatches.Count -gt 0) {
     foreach ($hashHit in $hashMatches) {
-        $hashJsonFindings.evidence.Add(@{
+        $Evidence.Add(@{
             time          = if ($hashHit.LastModified)  { "$($hashHit.LastModified)" }  else { "" }
             detected_file = if ($hashHit.DetectedFile)  { "$($hashHit.DetectedFile)" }  else { "" }
             extension     = if ($hashHit.Extension)     { "$($hashHit.Extension)" }     else { "" }
@@ -11371,6 +9748,19 @@ if ($hashMatches -and $hashMatches.Count -gt 0) {
             sha256        = if ($hashHit.SHA256)        { "$($hashHit.SHA256)" }        else { "" }
         })
     }
+}
+
+# A single confirmed-malicious hash match is already Important/Critical by
+# definition (see KB base_risk_score) — scale upward, never downward, as the
+# number of distinct malicious files grows, since that signals a broader
+# compromise rather than one isolated artifact.
+$hashMatchCount = @($hashMatches).Count
+$hashScoreOverride = if ($hashMatchCount -gt 0) { [Math]::Min(100, 88 + [Math]::Min($hashMatchCount, 4) * 3) } else { -1 }
+if ($hashScoreOverride -ge 0) {
+    $hashJsonFindings = New-ForensicatorFinding -ArtifactKey "hash-match" -Evidence $Evidence -ScoreOverride $hashScoreOverride `
+        -ReasoningOverride @("$hashMatchCount distinct file(s) matched known-malicious hashes — confirmed presence of catalogued malware or threat tools.", "Severity scales with match count: more distinct malicious files indicates a broader compromise.")
+} else {
+    $hashJsonFindings = New-ForensicatorFinding -ArtifactKey "hash-match" -Evidence $Evidence
 }
 
 $hashJsonInvestigationPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\hash\hash-match-finding.json"
@@ -11398,38 +9788,10 @@ $script:iocJsonSafe = $iocJsonData -replace '</', '\/'
 # IOC JSON investigation data export
 New-Item -ItemType Directory -Force -Path "$PSScriptRoot\$env:COMPUTERNAME\investigation\ioc" | Out-Null
 
-$iocJsonFindings = @{
-    finding_id   = "ioc-url-001"
-    finding_type = "Malicious URL / IOC Hits"
-    category     = "Command and Control"
-    findingtags  = @("malware", "data-exfiltration", "lateral-movement", "live-response")
-    severity     = "Notable"
-    host = @{ hostname = $env:COMPUTERNAME; username = $env:USERNAME }
-    source = @{
-        collector = "Browser History IOC Scanner"
-        artifact  = "Browser history URLs matched against malicious_URLs.txt & custom_iocs.txt threat intelligence feed"
-        command   = "Compare browser history against malicious_URLs.txt & custom_iocs.txt"
-    }
-    summary = @{
-        title         = "Forensicator IOC URL Findings"
-        description   = "Browser history entries matched against known malicious URLs from the threat intelligence feed."
-        total_entries = @($script:IocHits).Count
-    }
-    risk = @{ score = 85; level = "High"; reason = "Browser visits to known malicious URLs may indicate phishing, C2 communication, or malware download activity." }
-    mitre = @(
-        @{ technique_id = "T1071"; technique = "Application Layer Protocol" }
-        @{ technique_id = "T1566"; technique = "Phishing" }
-        @{ technique_id = "T1189"; technique = "Drive-by Compromise" }
-    )
-    ai_analysis = @{ status = "pending"; summary = $null; anomalies = @(); confidence = $null }
-    timeline = @(@{ timestamp = (Get-Date).ToString("o"); event = "Forensicator detected browser history matches against malicious URL feed" })
-    evidence = [System.Collections.Generic.List[object]]::new()
-    metadata = @{ collected_by = "Forensicator"; collector_version = $localVersion; collection_time = (Get-Date).ToString("o") }
-}
-
+$Evidence = [System.Collections.Generic.List[object]]::new()
 if ($script:IocHits -and $script:IocHits.Count -gt 0) {
     foreach ($iocHit in $script:IocHits) {
-        $iocJsonFindings.evidence.Add(@{
+        $Evidence.Add(@{
             time    = if ($iocHit.LastVisit) { "$($iocHit.LastVisit)" } else { "" }
             url     = if ($iocHit.URL)       { "$($iocHit.URL)" }       else { "" }
             user    = if ($iocHit.User)      { "$($iocHit.User)" }      else { "" }
@@ -11437,6 +9799,17 @@ if ($script:IocHits -and $script:IocHits.Count -gt 0) {
             profile = if ($iocHit.Profile)   { "$($iocHit.Profile)" }   else { "" }
         })
     }
+}
+
+# Scale upward (never downward) with the number of distinct malicious-URL
+# hits — repeated contact across sessions is a stronger signal than one hit.
+$iocHitCount = @($script:IocHits).Count
+$iocScoreOverride = if ($iocHitCount -gt 0) { [Math]::Min(100, 80 + [Math]::Min($iocHitCount, 5) * 3) } else { -1 }
+if ($iocScoreOverride -ge 0) {
+    $iocJsonFindings = New-ForensicatorFinding -ArtifactKey "ioc-url" -Evidence $Evidence -ScoreOverride $iocScoreOverride `
+        -ReasoningOverride @("$iocHitCount distinct malicious URL hit(s) confirmed against the threat intelligence feed.", "Severity scales with hit count: repeated contact indicates sustained C2 communication or repeated malicious redirection.")
+} else {
+    $iocJsonFindings = New-ForensicatorFinding -ArtifactKey "ioc-url" -Evidence $Evidence
 }
 
 $iocJsonInvestigationPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\ioc\ioc-url-finding.json"
@@ -11461,450 +9834,181 @@ Write-ForensicLog ""
 
 
 function Get-ForensicatorDetectionCommandsMap {
+  # Keyed by ArtifactKey (the same key New-ForensicatorFinding/the KB uses) so
+  # this map, FI_TITLE_MAP, and ForensicatorKbPanelData below all share one
+  # naming scheme — no more separate "doc key" vocabulary or alias layer to
+  # keep in sync by hand.
   return [ordered]@{
 
     # Users & Accounts
-    'LOCAL_USER_ACCOUNTS' = $Cmd_LocalUserAccounts.Display
-    'ACTIVE_LOGON_SESSIONS' = $Cmd_logonsession.Display
-    'ADMIN_GROUP_MEMBERS' = $Cmd_Administrators.Display
-    'IMPORTANT_USERS_GROUPS' = $Cmd_LocalGroup.Display
-    'HISTORICAL_USER_PRESENCE' = $Cmd_UserProfiles.Display
+    'local-users' = $Cmd_LocalUserAccounts.Display
+    'active-logon' = $Cmd_logonsession.Display
+    'admin-group' = $Cmd_Administrators.Display
+    'local-groups' = $Cmd_LocalGroup.Display
+    'user-profiles' = $Cmd_UserProfiles.Display
 
     # System Information
-    'OPERATING_SYSTEM_INFORMATION' = $Cmd_OSinfo.Display
-    'DRIVES_STORAGE'   = $Cmd_LogicalDrives.Display
-    'ENVIRONMENT_VARIABLES' = $Cmd_interestingenv.Display
-    'HOTFIXES' = $Cmd_Hotfixes.Display
-    'INSTALLED_SOFTWARE' = $Cmd_InstalledApps.Display
-    'WINDOWS_DEFENDER_STATUS' = $Cmd_WinDefender.Display
+    'os-info' = $Cmd_OSinfo.Display
+    'logical-drives'   = $Cmd_LogicalDrives.Display
+    'env-vars' = $Cmd_interestingenv.Display
+    'hotfixes' = $Cmd_Hotfixes.Display
+    'installed-apps' = $Cmd_InstalledApps.Display
+    'win-defender' = $Cmd_WinDefender.Display
 
     # Processes
-    'PROCESSES' = $Cmd_Processes.Display
-    'STARTUP_PROGRAMS' = $Cmd_StartupProgs.Display
+    'processes' = $Cmd_Processes.Display
+    'startup-progs' = $Cmd_StartupProgs.Display
 
     # Network
-    'TCP_CONNECTIONS' = $Cmd_NetTCPConnect.Display
-    'LISTENING_PORTS'   = $Cmd_ListeningPorts.Display
-    'DNS_CACHE' = $Cmd_DnsCache.Display
-    'IP_CONFIGURATION' = $Cmd_IPConfiguration.Display
-    'NET_IP_ADDRESS' = $Cmd_NetIPAddress.Display
-    'NETWORK_CONNECTION_PROFILE' = $Cmd_NetConnectProfile.Display
-    'NET_INTERFACES' = $Cmd_NetAdapter.Display
-    'NET_NEIGBOUR' = $Cmd_NetNeighbor.Display
-    'WIFI_PASSWORDS' = $Cmd_WlanPasswords.Display
-    'NETWORK_SHARES' = $Cmd_SMBShares.Display
-    'NETWORK_ADAPTERS' = $Cmd_NetworkAdapter.Display
-    'FIREWALL_RULES' = $Cmd_FirewallRule.Display
-    'OUTBOUND_SMB_SESSIONS' = $Cmd_OutboundSmbSessions.Display
-    'ALL_SMB_SESSIONS' = $Cmd_SMBSessions.Display
-    'NETWORK_HOPS' = $Cmd_NetHops.Display
-    'ADAPTER_HOPS' = $Cmd_AdaptHops.Display
-    'IP_HOPS' = $Cmd_IpHops.Display    
+    'tcp-connections' = $Cmd_NetTCPConnect.Display
+    'listening-ports'   = $Cmd_ListeningPorts.Display
+    'dns-cache' = $Cmd_DnsCache.Display
+    'ip-config' = $Cmd_IPConfiguration.Display
+    'net-ip-address' = $Cmd_NetIPAddress.Display
+    'net-connect-profile' = $Cmd_NetConnectProfile.Display
+    'net-interface' = $Cmd_NetAdapter.Display
+    'net-neighbor' = $Cmd_NetNeighbor.Display
+    'wifi-passwords' = $Cmd_WlanPasswords.Display
+    'smb-shares' = $Cmd_SMBShares.Display
+    'net-adapter' = $Cmd_NetworkAdapter.Display
+    'firewall-rules' = $Cmd_FirewallRule.Display
+    'outbound-smb' = $Cmd_OutboundSmbSessions.Display
+    'smb-sessions' = $Cmd_SMBSessions.Display
+    'net-hops' = $Cmd_NetHops.Display
+    'adapter-hops' = $Cmd_AdaptHops.Display
+    'ip-hops' = $Cmd_IpHops.Display
 
     # Services
-    'SERVICES' = $Cmd_Services.Display
+    'services' = $Cmd_Services.Display
 
     # Scheduled Tasks
-    'SCHEDULED_TASK' = $Cmd_ScheduledTasks.Display
+    'scheduled-tasks' = $Cmd_ScheduledTasks.Display
 
     # Event Logs
-    'GROUP_ENUMERATION' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id @(4798, 4799)'
-    'RDP_LOGINS' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id @(4624, 4778)'
-    'RDP_AUTHS' = 'Get-ForensicWinEvent -LogName ''Microsoft-Windows-TerminalServices-RemoteConnectionManager/Operational'' -Id 1149'
-    'OUTGOING_RDP_CONNECTIONS' = 'Get-ForensicWinEvent -LogName ''Microsoft-Windows-TerminalServices-RDPClient/Operational'' -Id 1102 | Select-Object $properties'
-    'CREATED_USERS' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id 4720'
-    'PASSWORD_RESETS' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id 4724'
-    'ADDED_USERS_TO_GROUPS' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id @(4732, 4728)'
-    'ENABLED_USERS' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id 4722'
-    'DISABLED_USERS' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id 4723'
-    'DELETED_USERS' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id 4726'
-    'LOCKED_OUT_USERS' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id 4740'
-    'CREDENTIAL_MANAGER_BACKUP' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id 5376'
-    'CREDENTIAL_MANAGER_RESTORE' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id 5377'
-    'LOGON_EVENTS' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id 4624'
-    'FAILED_LOGON_EVENTS' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id 4625'
-    'OBJECT_ACCESS_EVENTS' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id @(4656, 4663)'
-    'PROCESS_EXECUTION_EVENTS' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id 4688'
+    'group-enum' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id @(4798, 4799)'
+    'rdp-logins' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id @(4624, 4778)'
+    'rdp-auths' = 'Get-ForensicWinEvent -LogName ''Microsoft-Windows-TerminalServices-RemoteConnectionManager/Operational'' -Id 1149'
+    'outgoing-rdp' = 'Get-ForensicWinEvent -LogName ''Microsoft-Windows-TerminalServices-RDPClient/Operational'' -Id 1102 | Select-Object $properties'
+    'created-users' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id 4720'
+    'pass-reset' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id 4724'
+    'added-users' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id @(4732, 4728)'
+    'enabled-users' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id 4722'
+    'disabled-users' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id 4723'
+    'deleted-users' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id 4726'
+    'account-lockout' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id 4740'
+    'credman-backup' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id 5376'
+    'credman-restore' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id 5377'
+    'logon-events' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id 4624'
+    'logon-failed' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id 4625'
+    'object-access' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id @(4656, 4663)'
+    'process-exec' = 'Get-ForensicWinEvent -LogName ''Security'' -ProviderName ''Microsoft-Windows-Security-Auditing'' -Id 4688'
 
     # Files & USB
-    'USB_DEVICES' = $Cmd_USBDevices.Display
-    'IMAGE_DEVICES' = $Cmd_Imagedevice.Display
-    'UPNP_DEVICES' = $Cmd_UPNPDevices.Display
-    'UNKNOWN_DRIVES' = $Cmd_UnknownDrives.Display
-    'RECENT_FILES'    = $Cmd_NewFiles.Display
-    'LINK_FILES' = $Cmd_LinkFiles.Display
-    'EXECUTABLES_IN_UNUSUAL_LOCATIONS' = $Cmd_HiddenExecs2.Display
-    'POWERSHELL_COMMAND_HISTORY' = $Cmd_PSHistory.Display
-    'BITLOCKER_DRIVES' = $Cmd_BitLocker.Display
-
-    'REGRUN' = 'Get-RegistryHtml "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run"'
-    'REGRUNONCE' = 'Get-RegistryHtml "HKLM:\Software\Microsoft\Windows\CurrentVersion\RunOnce"'
-    'REGRUNONCEEX' = 'Get-RegistryHtml "HKLM:\Software\Microsoft\Windows\CurrentVersion\RunOnceEx"'
+    'usb-devices' = $Cmd_USBDevices.Display
+    'image-devices' = $Cmd_Imagedevice.Display
+    'upnp-devices' = $Cmd_UPNPDevices.Display
+    'unknown-drives' = $Cmd_UnknownDrives.Display
+    'new-files'    = $Cmd_NewFiles.Display
+    'link-files' = $Cmd_LinkFiles.Display
+    'downloads' = $Cmd_Downloads.Display
+    'hidden-execs-temp' = $Cmd_HiddenExecs1.Display
+    'hidden-execs-ctemp' = $Cmd_HiddenExecs2.Display
+    'hidden-execs-perflogs' = $Cmd_HiddenExecs3.Display
+    'hidden-execs-docs' = $Cmd_HiddenExecs4.Display
+    'ps-history' = $Cmd_PSHistory.Display
+    'bitlocker' = $Cmd_BitLocker.Display
 
   }
 }
 
+# Panel content (Overview + Analysis tabs) sourced directly from the
+# collector's own ArtifactKnowledgeBase — the exact same data
+# New-ForensicatorFinding already uses to build every finding. Replaces the
+# old runtime fetch to a GitHub-hosted JSON doc per artifact type: this
+# ships with the collector, works fully offline, and can never drift from
+# what the report says elsewhere about the same finding (it's the same
+# source of truth).
+function Get-ForensicatorKbPanelData {
+  $panelData = [ordered]@{}
+  foreach ($artifactKey in $Script:ArtifactKnowledgeBase.Keys) {
+    $kb = $Script:ArtifactKnowledgeBase[$artifactKey]
+
+    $mitreDescription = "$($kb.mitre_tactic): $($kb.mitre_technique)"
+    if ($kb.mitre_sub_technique) { $mitreDescription += " ($($kb.mitre_sub_technique))" }
+    if ($kb.mitre_detection_notes) { $mitreDescription += " — $($kb.mitre_detection_notes)" }
+
+    $panelData[$artifactKey] = [ordered]@{
+      title = $kb.title
+      overview = [ordered]@{
+        summary        = $kb.description
+        why_it_matters = $kb.why_this_matters
+      }
+      analysis = [ordered]@{
+        what_to_look_out_for = $kb.suspicious_behaviour
+        mitre_mapping = @(
+          [ordered]@{
+            tactic      = $kb.mitre_technique_id
+            description = $mitreDescription
+          }
+        )
+      }
+    }
+  }
+  return $panelData
+}
+
 $ForensicatorDetectionCommandsJson = Get-ForensicatorDetectionCommandsMap | ConvertTo-Json -Depth 6
+$ForensicatorKbPanelDataJson = Get-ForensicatorKbPanelData | ConvertTo-Json -Depth 6 -Compress
+
+# Local, per-instance Forensicator AI verdicts produced during THIS collection
+# run (see ForensicatorAiClient.ps1) — empty unless config.json's "ai" block
+# is enabled. Rendered into the report as ForensicatorAiVerdicts (see below).
+if ($Script:ForensicatorAiVerdicts -and $Script:ForensicatorAiVerdicts.Count -gt 0) {
+    $ForensicatorAiVerdictsJson = $Script:ForensicatorAiVerdicts | ConvertTo-Json -Depth 4 -Compress
+} else {
+    $ForensicatorAiVerdictsJson = "{}"
+}
+
+# Why findings with no local verdict don't have one this run (disabled,
+# unreachable, unknown provider, etc.) — shown in the AI Analysis tab instead
+# of the static external doc's placeholder text. $null when AI was never
+# initialised at all (e.g. config.json missing the "ai" block).
+$ForensicatorAiUnavailableReasonJson = if ($Script:ForensicatorAiUnavailableReason) {
+    $Script:ForensicatorAiUnavailableReason | ConvertTo-Json -Compress
+} else {
+    "null"
+}
 
 # ---- JAVASCRIPT (MAPPING + RENDERER) ----
 $Global:FI_Scripts = @'
 <script>
 
-// ── BASE URL ──────────────────────────────────────────────────────────────────
-const FI_BASE = "https://raw.githubusercontent.com/Raptormatics/forensicator-docs/main/detections/JSON/";
-
-const ForensicatorDocs = {
-
-  // ── USER ACCOUNTS ────────────────────────────────────────────────────────────
-  "LOCAL_USER_ACCOUNTS": {
-    "url": FI_BASE + "user-accounts.json",
-    "title": "Local User Accounts"
-  },
-  "ACTIVE_LOGON_SESSIONS": {
-    "url": FI_BASE + "user-accounts.json",
-    "title": "Active Logon Sessions"
-  },
-  "ADMIN_GROUP_MEMBERS": {
-    "url": FI_BASE + "user-accounts.json",
-    "title": "Administrator Group Members"
-  },
-  "IMPORTANT_USERS_GROUPS": {
-    "url": FI_BASE + "user-accounts.json",
-    "title": "Important User Groups"
-  },
-  "HISTORICAL_USER_PRESENCE": {
-    "url": FI_BASE + "user-accounts.json",
-    "title": "Historical User Presence"
-  },
-
-
-  // ── SYSTEM INFORMATION ───────────────────────────────────────────────────────
-  "OPERATING_SYSTEM_INFORMATION": {
-    "url": FI_BASE + "system-information.json",
-    "title": "Operating System Information"
-  },
-  "DRIVES_STORAGE": {
-    "url": FI_BASE + "system-information.json",
-    "title": "Drives & Storage"
-  },
-  "ENVIRONMENT_VARIABLES": {
-    "url": FI_BASE + "system-information.json",
-    "title": "Environment Variables"
-  },
-  "HOTFIXES": {
-    "url": FI_BASE + "system-information.json",
-    "title": "Installed Hotfixes (Patches)"
-  },
-  "INSTALLED_SOFTWARE": {
-    "url": FI_BASE + "system-information.json",
-    "title": "Installed Software"
-  },
-  "WINDOWS_DEFENDER_STATUS": {
-    "url": FI_BASE + "system-information.json",
-    "title": "Windows Defender Status"
-  },
-
-  // ── SYSTEM PROCESSES ─────────────────────────────────────────────────────────
-  "PROCESSES": {
-    "url": FI_BASE + "system-processes.json",
-    "title": "Processes"
-  },
-  "STARTUP_PROGRAMS": {
-    "url": FI_BASE + "system-processes.json",
-    "title": "Startup Programs"
-  },
-
-
-  // ── NETWORK INFORMATION ──────────────────────────────────────────────────────
-  "TCP_CONNECTIONS": {
-    "url": FI_BASE + "network-information.json",
-    "title": "TCP Connections"
-  },
-    "LISTENING_PORTS": {
-    "url": FI_BASE + "network-information.json",
-    "title": "Listening Ports"
-  },
-  "DNS_CACHE": {
-    "url": FI_BASE + "network-information.json",
-    "title": "DNS Cache"
-  },
-  "IP_CONFIGURATION": {
-    "url": FI_BASE + "network-information.json",
-    "title": "IP Configuration"
-  },
-  "NET_IP_ADDRESS": {
-    "url": FI_BASE + "network-information.json",
-    "title": "Net IP Address Information"
-  },
-  "NETWORK_CONNECTION_PROFILE": {
-    "url": FI_BASE + "network-information.json",
-    "title": "Network Connection Profiles"
-  },
-  "NET_INTERFACES": {
-    "url": FI_BASE + "network-information.json",
-    "title": "Network Interfaces"
-  },
-  "NET_NEIGBOUR": {
-    "url": FI_BASE + "network-information.json",
-    "title": "Net Neighbour Information"
-  },
-  "WIFI_PASSWORDS": {
-    "url": FI_BASE + "network-information.json",
-    "title": "WiFi Passwords"
-  },
-  "NETWORK_SHARES": {
-    "url": FI_BASE + "network-information.json",
-    "title": "Network Shares"
-  },
-  "NETWORK_ADAPTERS": {
-    "url": FI_BASE + "network-information.json",
-    "title": "Network Adapters"
-  },
-  "FIREWALL_RULES": {
-    "url": FI_BASE + "network-information.json",
-    "title": "Firewall Rules"
-  },
-  "OUTBOUND_SMB_SESSIONS": {
-    "url": FI_BASE + "network-information.json",
-    "title": "Outbound SMB Sessions"
-  },
-  "ALL_SMB_SESSIONS": {
-    "url": FI_BASE + "network-information.json",
-    "title": "All SMB Sessions"
-  },
-  "NETWORK_HOPS": {
-    "url": FI_BASE + "network-information.json",
-    "title": "Network Hops"
-  },
-  "ADAPTER_HOPS": {
-    "url": FI_BASE + "network-information.json",
-    "title": "Adapter Hops"
-  },
-  "IP_HOPS": {
-    "url": FI_BASE + "network-information.json",
-    "title": "IP Hops"
-  },
-  // ── SERVICES ───────────────────────────────────────────────────────
-
-  "SERVICES": {
-    "url": FI_BASE + "services.json",
-    "title": "Services"
-  },
-  // ── SCHEDULED TASKS ───────────────────────────────────────────────────────
-
-  "SCHEDULED_TASKS": {
-    "url": FI_BASE + "scheduled-tasks.json",
-    "title": "Scheduled Tasks"
-  },
-
-  // ── EVENT LOG ANALYSIS ───────────────────────────────────────────────────────
-  "GROUP_ENUMERATION": {
-    "url": FI_BASE + "event-log-analysis.json",
-    "title": "User and Group Enumeration (Security Log)"
-  },
-  "RDP_LOGINS": {
-    "url": FI_BASE + "event-log-analysis.json",
-    "title": "RDP Logins (Security Log)"
-  },
-  "RDP_AUTHS": {
-    "url": FI_BASE + "event-log-analysis.json",
-    "title": "RDP Authentication Events (Security Log)"
-  },
-  "OUTGOING_RDP_CONNECTIONS": {
-    "url": FI_BASE + "event-log-analysis.json",
-    "title": "Outgoing RDP Connections (Security Log)"
-  },
-  "CREATED_USERS": {
-    "url": FI_BASE + "event-log-analysis.json",
-    "title": "Created User Accounts (Security Log)"
-  },
-  "PASSWORD_RESETS": {
-    "url": FI_BASE + "event-log-analysis.json",
-    "title": "Password Reset Events (Security Log)"
-  },
-  "ADDED_USERS_TO_GROUPS": {
-    "url": FI_BASE + "event-log-analysis.json",
-    "title": "Added Users to Groups (Security Log)"
-  },
-  "ENABLED_USERS": {
-    "url": FI_BASE + "event-log-analysis.json",
-    "title": "Enabled User Accounts (Security Log)"
-  },
-  "DISABLED_USERS": {
-    "url": FI_BASE + "event-log-analysis.json",
-    "title": "Disabled User Accounts (Security Log)"
-  },
-  "DELETED_USERS": {
-    "url": FI_BASE + "event-log-analysis.json",
-    "title": "Deleted User Accounts (Security Log)"
-  },
-  "LOCKED_OUT_USERS": {
-    "url": FI_BASE + "event-log-analysis.json",
-    "title": "Locked Out User Accounts (Security Log)"
-  },
-  "CREDENTIAL_MANAGER_BACKUP": {
-    "url": FI_BASE + "event-log-analysis.json",
-    "title": "Credential Manager Backup Events (Security Log)"
-  },
-  "CREDENTIAL_MANAGER_RESTORE": {
-    "url": FI_BASE + "event-log-analysis.json",
-    "title": "Credential Manager Restore Events (Security Log)"
-  },
-  "LOGON_EVENTS": {
-    "url": FI_BASE + "event-log-analysis.json",
-    "title": "Logon Events (Security Log)"
-  },
-  "FAILED_LOGON_EVENTS": {
-    "url": FI_BASE + "event-log-analysis.json",
-    "title": "Failed Logon Events (Security Log)"
-  },
-  "OBJECT_ACCESS_EVENTS": {
-    "url": FI_BASE + "event-log-analysis.json",
-    "title": "Object Access Events (Security Log)"
-  },
-  "PROCESS_EXECUTION_EVENTS": {
-    "url": FI_BASE + "event-log-analysis.json",
-    "title": "Process Execution Events (Security Log)"
-  },
-
-  // ── FILES & USB ─────────────────────────────────────────────────────────────
-  "USB_DEVICES": {
-    "url": FI_BASE + "files-usb.json",
-    "title": "USB Devices"
-  },
-  "IMAGE_DEVICES": {
-    "url": FI_BASE + "files-usb.json",
-    "title": "Image Devices"
-  },
-  "UPNP_DEVICES": {
-    "url": FI_BASE + "files-usb.json",
-    "title": "UPnP Devices"
-  },
-  "UNKNOWN_DRIVES": {
-    "url": FI_BASE + "files-usb.json",
-    "title": "Unknown Drives"
-  },
-  "RECENT_FILES": {
-    "url": FI_BASE + "files-usb.json",
-    "title": "Recent Files (180 days)"
-  },
-  "LINK_FILES": {
-    "url": FI_BASE + "files-usb.json",
-    "title": "All Link Files Created in the last 180days"
-  },
-  "EXECUTABLES_IN_UNUSUAL_LOCATIONS": {
-    "url": FI_BASE + "files-usb.json",
-    "title": "Executables in Unusual Locations"
-  },
-  "POWERSHELL_COMMAND_HISTORY": {
-    "url": FI_BASE + "files-usb.json",
-    "title": "PowerShell Command History"
-  },
-  "BITLOCKER_DRIVES": {
-    "url": FI_BASE + "files-usb.json",
-    "title": "BitLocker Drives"
-  }
-
-
-};
-
-// ── FORENSICATOR DOC ALIASES ─────────────────────────────────────────────────
-// Maps all input keys (script variable names, event keys, etc.) to
-// canonical ForensicatorDocs keys above.
-const ForensicatorDocAliases = {
-
-  // User accounts
-  "LOCAL_USER_ACCOUNT":                   "LOCAL_USER_ACCOUNTS",
-  "ACTIVE_LOGON_SESSIONS":                "ACTIVE_LOGON_SESSIONS",
-  "ADMIN_GROUP_MEMBERS":                  "ADMIN_GROUP_MEMBERS",
-  "HISTORICAL_USER_PRESENCE":             "HISTORICAL_USER_PRESENCE",
-  "IMPORTANT_USERS_GROUPS":               "IMPORTANT_USERS_GROUPS",
-
-  // System information
-  "OPERATING_SYSTEM_INFORMATION":         "OPERATING_SYSTEM_INFORMATION",
-  "DRIVES_STORAGE":                       "DRIVES_STORAGE",
-  "ENVIRONMENT_VARIABLES":                "ENVIRONMENT_VARIABLES",
-  "HOTFIXES":                             "HOTFIXES",
-  "INSTALLED_SOFTWARE":                   "INSTALLED_SOFTWARE",
-  "WINDOWS_DEFENDER_STATUS":              "WINDOWS_DEFENDER_STATUS",
-
-  // System Processes
-  "PROCESSES":                            "PROCESSES",
-  "STARTUP_PROGRAMS":                     "STARTUP_PROGRAMS",
-
-  // Network
-  "TCP_CONNECTIONS":                      "TCP_CONNECTIONS",
-  "LISTENING_PORTS":                      "LISTENING_PORTS",
-  "DNS_CACHE":                            "DNS_CACHE",
-  "IP_CONFIGURATION":                     "IP_CONFIGURATION",
-  "NET_IP_ADDRESS":                       "NET_IP_ADDRESS",
-  "NETWORK_CONNECTION_PROFILE":           "NETWORK_CONNECTION_PROFILE",
-  "NET_INTERFACES":                       "NET_INTERFACES",
-  "NET_NEIGBOUR":                         "NET_NEIGBOUR",
-  "WIFI_PASSWORDS":                       "WIFI_PASSWORDS",
-  "NETWORK_SHARES":                       "NETWORK_SHARES",
-  "NETWORK_ADAPTERS":                     "NETWORK_ADAPTERS",
-  "FIREWALL_RULES":                       "FIREWALL_RULES",
-  "OUTBOUND_SMB_SESSIONS":                "OUTBOUND_SMB_SESSIONS",
-  "ALL_SMB_SESSIONS":                     "ALL_SMB_SESSIONS",
-  "NETWORK_HOPS":                         "NETWORK_HOPS",
-  "ADAPTER_HOPS":                         "ADAPTER_HOPS",
-  "IP_HOPS":                              "IP_HOPS",
-
-  // Services
-  "SERVICES":                             "SERVICES",
-
-  // Scheduled Tasks
-  "SCHEDULED_TASKS":                      "SCHEDULED_TASKS",
-
-  // Event log analysis
-  "GROUP_ENUMERATION":                    "GROUP_ENUMERATION",
-  "RDP_LOGINS":                           "RDP_LOGINS",
-  "RDP_AUTHS":                            "RDP_AUTHS",
-  "OUTGOING_RDP_CONNECTIONS":             "OUTGOING_RDP_CONNECTIONS",
-  "CREATED_USERS":                        "CREATED_USERS",
-  "PASSWORD_RESETS":                      "PASSWORD_RESETS",
-  "ADDED_USERS_TO_GROUPS":                "ADDED_USERS_TO_GROUPS",
-  "ENABLED_USERS":                        "ENABLED_USERS",
-  "DISABLED_USERS":                       "DISABLED_USERS",
-  "DELETED_USERS":                        "DELETED_USERS",
-  "LOCKED_OUT_USERS":                     "LOCKED_OUT_USERS",
-  "CREDENTIAL_MANAGER_BACKUP":            "CREDENTIAL_MANAGER_BACKUP",
-  "CREDENTIAL_MANAGER_RESTORE":           "CREDENTIAL_MANAGER_RESTORE",
-  "LOGON_EVENTS":                         "LOGON_EVENTS",
-  "FAILED_LOGON_EVENTS":                  "FAILED_LOGON_EVENTS",
-  "PROCESS_EXECUTION_EVENTS":             "PROCESS_EXECUTION_EVENTS",
-  "OBJECT_ACCESS_EVENTS":                 "OBJECT_ACCESS_EVENTS",
-  "PROCESS_EXECUTION_EVENTS":             "PROCESS_EXECUTION_EVENTS",
-
-
-  // Files & USB
-  "USB_DEVICES":                          "USB_DEVICES",
-  "IMAGE_DEVICES":                        "IMAGE_DEVICES",
-  "UPNP_DEVICES":                         "UPNP_DEVICES",
-  "UNKNOWN_DRIVES":                       "UNKNOWN_DRIVES",
-  "RECENT_FILES":                         "RECENT_FILES",
-  "LINK_FILES":                           "LINK_FILES",
-  "EXECUTABLES_IN_UNUSUAL_LOCATIONS":     "EXECUTABLES_IN_UNUSUAL_LOCATIONS",
-  "POWERSHELL_COMMAND_HISTORY":           "POWERSHELL_COMMAND_HISTORY",
-  "BITLOCKER_DRIVES":                     "BITLOCKER_DRIVES",
-
-
-};
+// Overview + Analysis tab content — sourced directly from the collector's
+// own ArtifactKnowledgeBase (ForensicatorArtifactKnowledgeBase.ps1), keyed
+// by ArtifactKey. This ships with the collector and works fully offline —
+// no runtime fetch to an external doc host, and it can never drift from
+// what the rest of the report already says about the same finding.
+const ForensicatorKbPanelData = __FI_KB_PANEL_DATA__;
 
 const ForensicatorDetectionCommands = __FI_DETECTION_COMMANDS__;
 
-// Cache (performance boost)
-const fiCache = {};
+// Local, per-instance Forensicator AI verdicts for THIS collection run —
+// keyed by ArtifactKey (finding_id prefix, e.g. "dns-cache"). Empty object
+// when config.json's "ai" block is disabled (the default) or a given
+// finding's verdict call failed/was skipped.
+const ForensicatorAiVerdicts = __FI_AI_VERDICTS__;
 
-function resolveDocConfig(key) {
-  const canonicalKey = ForensicatorDocAliases[key] || key;
-  return ForensicatorDocs[canonicalKey] || null;
+// Why findings with no local verdict don't have one this run (disabled,
+// unreachable, unknown provider, empty response, etc.) — null when
+// Forensicator AI was never initialised at all this run.
+const ForensicatorAiUnavailableReason = __FI_AI_UNAVAILABLE_REASON__;
+
+function resolveKbPanelData(artifactKey) {
+  return (typeof ForensicatorKbPanelData !== "undefined" && ForensicatorKbPanelData[artifactKey]) || null;
 }
 
-function resolveDetectionCommand(key) {
-  const canonicalKey = ForensicatorDocAliases[key] || key;
-  return ForensicatorDetectionCommands[key] || ForensicatorDetectionCommands[canonicalKey] || null;
+function resolveDetectionCommand(artifactKey) {
+  return ForensicatorDetectionCommands[artifactKey] || null;
 }
 
 function escapeHtml(value) {
@@ -12055,11 +10159,16 @@ function renderMitreBlock(title, values) {
   </div>`;
 }
 
-function buildTabs(section, key) {
-  const normalized = normalizeSection(section);
-  const detectionCommand = resolveDetectionCommand(key);
+function buildTabs(artifactKey) {
+  const normalized = normalizeSection(artifactKey ? resolveKbPanelData(artifactKey) : null);
+  const detectionCommand = artifactKey ? resolveDetectionCommand(artifactKey) : null;
   if (hasContent(detectionCommand)) {
     normalized.analysis.detection = detectionCommand;
+  }
+  // Real per-instance AI verdict from THIS run if one was produced,
+  // otherwise the specific reason none was (disabled, unreachable, etc.).
+  if (artifactKey) {
+    normalized.ai_analysis.forensicator_ai = resolveAiPanelText(artifactKey);
   }
   const tabs = [];
 
@@ -12145,40 +10254,17 @@ function showPanelMessage(title, html) {
   renderPanelState(title, [], html);
 }
 
-async function openPanelFromJSON(url, title, key) {
+// Everything this panel needs (KB content, detection command, AI verdict)
+// is already embedded in the page — no fetch, no loading state, no network
+// failure path. Synchronous by design.
+function openInfoPanel(title, artifactKey) {
   const panel = document.getElementById("fi-panel");
   panel.classList.add("open");
   document.getElementById("fi-backdrop").classList.add("open");
-  renderPanelState(title, [], "Loading...");
 
-  try {
-    let data;
-
-    if (fiCache[url]) {
-      data = fiCache[url];
-    } else {
-      const res = await fetch(url);
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
-      data = await res.json();
-      fiCache[url] = data;
-    }
-
-    const section = data.find(i => i.title === title);
-
-    if (!section) {
-      renderPanelState(title, [], "No documentation found.");
-      return;
-    }
-
-    const panelState = buildTabs(section, key);
-    renderPanelState(panelState.normalized.title, panelState.tabs, "No documentation found.");
-
-  } catch (err) {
-    console.error("Failed to load documentation:", err);
-    renderPanelState(title, [], "Failed to load documentation.<br>Ensure the JSON source is reachable from this machine.");
-  }
+  const panelState = buildTabs(artifactKey);
+  const displayTitle = panelState.normalized.title !== "Detection Details" ? panelState.normalized.title : title;
+  renderPanelState(displayTitle, panelState.tabs, "No documentation found.");
 }
 
 function closePanel() {
@@ -12212,16 +10298,15 @@ document.addEventListener("click", function(e) {
   const el = e.target.closest(".fd-info-trigger");
   if (!el) return;
 
-  const key = el.dataset.detection;
-  const config = resolveDocConfig(key);
+  const artifactKey = el.dataset.artifactKey || null;
 
-  if (!config) {
-    showPanelMessage("Detection Details", `No documentation mapping configured for <code>${escapeHtml(key)}</code>.`);
-    console.warn("No mapping for:", key);
+  if (!artifactKey) {
+    showPanelMessage("Detection Details", "No documentation mapping configured for this panel.");
+    console.warn("No artifact key for panel:", el.dataset.panelTitle);
     return;
   }
 
-  openPanelFromJSON(config.url, config.title, key);
+  openInfoPanel(el.dataset.panelTitle || "Detection Details", artifactKey);
 });
 
 function initializeForensicatorExportTables() {
@@ -12278,102 +10363,168 @@ if (document.readyState === "loading") {
 }());
 
 // ── FI AUTO-ICON INJECTION ─────────────────────────────────────────────────────
-// Maps substrings of .panel-title text to ForensicatorDocs canonical keys.
 // Icons are injected automatically — no HTML data-attributes needed.
-// Values are canonical ForensicatorDocs keys (or aliases that resolve to them)
+// Maps substrings of .panel-title text to ArtifactKeys — the single key
+// used throughout: into ForensicatorKbPanelData (Overview/Analysis content),
+// ForensicatorDetectionCommands (the literal collection command), and
+// ForensicatorAiVerdicts (this run's local AI verdict, when enabled).
 const FI_TITLE_MAP = [
   // Users & accounts
-  ['Local User Account',         'LOCAL_USER_ACCOUNTS'],
-  ['Active Logon Sessions',      'ACTIVE_LOGON_SESSIONS'],
-  ['Admin Group Members',        'ADMIN_GROUP_MEMBERS'],
-  ['Important Users & Groups',   'IMPORTANT_USERS_GROUPS'],
-  ['Historical User Presence',   'HISTORICAL_USER_PRESENCE'],
+  ['Local User Account',            'local-users'],
+  ['Admin Group Members',           'admin-group'],
+  ['Active Logon Sessions',         'active-logon'],
+  ['Important Users & Groups',      'local-groups'],
+  ['Historical User Presence',      'user-profiles'],
 
   // System info
-  ['OS Details',                 'OPERATING_SYSTEM_INFORMATION'],
-  ['Drives & Storage',           'DRIVES_STORAGE'],
-  ['Environment Variables',      'ENVIRONMENT_VARIABLES'],
-  ['Hotfix',                     'HOTFIXES'],
-  ['Installed Software',         'INSTALLED_SOFTWARE'],
-  ['Windows Defender Status',    'WINDOWS_DEFENDER_STATUS'],
+  ['OS Details',                    'os-info'],
+  ['Drives & Storage',              'logical-drives'],
+  ['Environment Variables',         'env-vars'],
+  ['Hotfix',                        'hotfixes'],
+  ['Installed Software',            'installed-apps'],
+  ['Windows Defender Status',       'win-defender'],
 
   // Processes
-  ['Process List',               'PROCESSES'],
-  ['Startup Programs',           'STARTUP_PROGRAMS'],
+  ['Process List',                  'processes'],
+  ['Startup Programs',              'startup-progs'],
 
   // Network
-  ['TCP Connection',             'TCP_CONNECTIONS'],
-  ['Listening Ports',            'LISTENING_PORTS'],
-  ['DNS Cache',                  'DNS_CACHE'],
-  ['IP Configuration',           'IP_CONFIGURATION'],
-  ['Net IP Address',             'NET_IP_ADDRESS'],
-  ['Network Connection Profile', 'NETWORK_CONNECTION_PROFILE'],
-  ['Network Interface',          'NET_INTERFACES'],
-  ['Net Neigbour',               'NET_NEIGBOUR'],
-  ['WIFI Passwords',             'WIFI_PASSWORDS'],
-  ['Network Share',              'NETWORK_SHARES'],
-  ['Network Adapters',           'NETWORK_ADAPTERS'],
-  ['Firewall Rules',             'FIREWALL_RULES'],
-  ['Outbound SMB Sessions',      'OUTBOUND_SMB_SESSIONS'],
-  ['All SMB Sessions',           'ALL_SMB_SESSIONS'],
-  ['Network Hops',               'NETWORK_HOPS'],
-  ['Adapter Hops',               'ADAPTER_HOPS'],
-  ['IP Hops',                    'IP_HOPS'],
+  ['TCP Connections',               'tcp-connections'],
+  ['Listening Ports',               'listening-ports'],
+  ['DNS Cache',                     'dns-cache'],
+  ['IP Configuration',              'ip-config'],
+  ['Net IP Address',                'net-ip-address'],
+  ['Net Connection Profiles',       'net-connect-profile'],
+  ['Net Interfaces',                'net-interface'],
+  ['Net Neigbour',                  'net-neighbor'],
+  ['WIFI Passwords',                'wifi-passwords'],
+  ['Network Shares',                'smb-shares'],
+  ['Network Adapters',              'net-adapter'],
+  ['Firewall Rules',                'firewall-rules'],
+  ['Outbound SMB Sessions',         'outbound-smb'],
+  ['All SMB Sessions',              'smb-sessions'],
+  ['Network Hops',                  'net-hops'],
+  ['Adapter Hops',                  'adapter-hops'],
+  ['IP Hops',                       'ip-hops'],
 
-  // Services
-  ['Service List',               'SERVICES'],
-
-  // Scheduled Tasks
-  ['Task List',                  'SCHEDULED_TASKS'],
+  // Services / tasks
+  ['Service List',                  'services'],
+  ['Task List',                     'scheduled-tasks'],
 
   // Event log analysis
-  ['Group Enumeration',          'GROUP_ENUMERATION'],
-  ['RDP Logins',                 'RDP_LOGINS'],
-  ['RDP Auths',  'RDP_AUTHS'],
-  ['Outgoing RDP Connections',   'OUTGOING_RDP_CONNECTIONS'],
-  ['Created Users',              'CREATED_USERS'],
-  ['Password Resets',             'PASSWORD_RESETS'],
-  ['Added users to Group',        'ADDED_USERS_TO_GROUPS'],
-  ['Enabled Users',               'ENABLED_USERS'],
-  ['Disabled Users',              'DISABLED_USERS'],
-  ['Deleted Users',               'DELETED_USERS'],
-  ['Locked Out Users',            'LOCKED_OUT_USERS'],
-  ['Credential Manager Backup',   'CREDENTIAL_MANAGER_BACKUP'],
-  ['Logon Events',                'LOGON_EVENTS'],
-  ['Failed Logon Events',         'FAILED_LOGON_EVENTS'],
-  ['Object Access Events',        'OBJECT_ACCESS_EVENTS'],
-  ['Process Execution Events',    'PROCESS_EXECUTION_EVENTS'],
+  ['Group Enumeration',             'group-enum'],
+  ['RDP Logins',                    'rdp-logins'],
+  ['RDP Auths',                     'rdp-auths'],
+  ['Outgoing RDP Connections',      'outgoing-rdp'],
+  ['Created Users',                 'created-users'],
+  ['Password Resets',               'pass-reset'],
+  ['Added users to Group',          'added-users'],
+  ['Enabled Users',                 'enabled-users'],
+  ['Disabled Users',                'disabled-users'],
+  ['Deleted Users',                 'deleted-users'],
+  ['Locked Out Users',              'account-lockout'],
+  ['Credential Manager Backup',     'credman-backup'],
+  ['Credential Manager Restore',    'credman-restore'],
+  ['Failed Logon Events',           'logon-failed'],
+  ['Logon Events',                  'logon-events'],
+  ['Object Access Events',          'object-access'],
+  ['Process Execution Events',      'process-exec'],
+
+  // Browser
+  ['Visited URLs',                  'browser-history'],
 
   // Devices & files
-  ['USB Devices',                 'USB_DEVICES'],
-  ['Image Devices',               'IMAGE_DEVICES'],
-  ['UPnP Devices',                'UPNP_DEVICES'],
-  ['Unknown Drives',              'UNKNOWN_DRIVES'],
-  ['Recent Files',                'RECENT_FILES'],
-  ['Link Files',                  'LINK_FILES'],
-  ['Executables in',             'EXECUTABLES_IN_UNUSUAL_LOCATIONS'],
-  ['PowerShell History',         'POWERSHELL_COMMAND_HISTORY'],
-  ['BitLocker',                  'BITLOCKER_DRIVES']
+  ['USB Devices',                   'usb-devices'],
+  ['Image Devices',                 'image-devices'],
+  ['UPNP Devices',                  'upnp-devices'],
+  ['Unknown Drives',                'unknown-drives'],
+  ['Recent Files',                  'new-files'],
+  ['Link Files',                    'link-files'],
+  ['Executables in Downloads',      'downloads'],
+  ['User Temp Folders',             'hidden-execs-temp'],
+  ['System Temp Folders',           'hidden-execs-ctemp'],
+  ['Executables in Perflogs',       'hidden-execs-perflogs'],
+  ['User Document Folder',          'hidden-execs-docs'],
+  ['PowerShell History',            'ps-history'],
+  ['BitLocker Key',                 'bitlocker'],
 
+  // Detection engine
+  ['Detection Engine',              'sigma'],
+  ['Hash Match Results',            'hash-match'],
+  ['IOC URL Results',               'ioc-url'],
+
+  // Active Directory
+  ['KRBTGT Account',                'ad-krbtgt'],
+  ['LDAP / SMB Signing',            'ad-ldap-smb-signing'],
+  ['NTDS Database Metadata',        'ad-ntds'],
+  ['SYSVOL Script Analysis',        'ad-sysvol'],
+  ['Privileged Group Membership',   'ad-priv-groups'],
+  ['Service Principal Names',       'ad-spn'],
+  ['Kerberos Delegation',           'ad-delegation'],
+  ['DCSync Rights',                 'ad-dcsync'],
+  ['Privileged & Kerberos Events',  'ad-priv-events'],
+  ['Directory Object Changes',      'ad-object-changes'],
+  ['WMI Permanent Event Subscriptions', 'ad-wmi-subs'],
+  ['Known AD Attack Tooling',       'ad-suspicious-proc'],
+
+  // MSSQL
+  ['SQL Server Services',           'mssql-services'],
+  ['Dangerous Configuration Options', 'mssql-config'],
+  ['sysadmin Role Members',         'mssql-sysadmin'],
+  ['sa Account Status',             'mssql-logins'],
+  ['Linked Servers',                'mssql-linked'],
+  ['TRUSTWORTHY Databases',         'mssql-trustworthy'],
+  ['Agent Jobs (Risky Steps)',      'mssql-agent-jobs'],
+  ['SQL Logins',                    'mssql-logins'],
+  ['Login Failures (Event 18456)',  'mssql-login-failures'],
+
+  // SharePoint
+  ['Service & App Pool Accounts',   'sp-accounts'],
+  ['Suspicious IIS Worker Process Children', 'sp-w3wp-children'],
+  ['Webshell / Dropped File Scan',  'sp-webshell'],
+  ['web.config ViewState',          'sp-webconfig'],
+  ['IIS Log Exploit URI Matches',   'sp-iis-exploit-uri']
 ];
+
+function resolveAiVerdict(key) {
+  return (typeof ForensicatorAiVerdicts !== "undefined" && ForensicatorAiVerdicts[key]) || null;
+}
+
+// Text for the AI Analysis tab: the real per-instance verdict if one was
+// produced this run, otherwise the specific reason none was (disabled,
+// unreachable, unknown provider, empty response), otherwise a generic
+// fallback (e.g. config.json has no "ai" block at all this run).
+function resolveAiPanelText(key) {
+  var verdict = resolveAiVerdict(key);
+  if (verdict) return verdict;
+  if (typeof ForensicatorAiUnavailableReason !== "undefined" && ForensicatorAiUnavailableReason) {
+    return ForensicatorAiUnavailableReason;
+  }
+  return "Forensicator AI did not produce a verdict for this finding during this run.";
+}
 
 function injectFiIcons() {
   document.querySelectorAll('.panel-title').forEach(function(el) {
     if (el.querySelector('.fd-info-trigger')) return;
-    var text = el.textContent || '';
-    var matchedKey = null;
+    var rawText = el.textContent || '';
+    var text = rawText.toLowerCase();
+
+    var artifactKey = null;
     for (var i = 0; i < FI_TITLE_MAP.length; i++) {
-      if (text.toLowerCase().indexOf(FI_TITLE_MAP[i][0].toLowerCase()) !== -1) {
-        matchedKey = FI_TITLE_MAP[i][1];
+      if (text.indexOf(FI_TITLE_MAP[i][0].toLowerCase()) !== -1) {
+        artifactKey = FI_TITLE_MAP[i][1];
         break;
       }
     }
-    if (!matchedKey) return;
+
+    if (!artifactKey) return;
+
     var icon = document.createElement('span');
     icon.className = 'fd-info-trigger';
-    icon.dataset.detection = matchedKey;
-    icon.title = 'View investigation guidance';
-    icon.textContent = 'ⓘ';
+    icon.dataset.artifactKey = artifactKey;
+    icon.dataset.panelTitle = rawText.trim();
+    icon.title = 'View investigation guidance + Forensicator AI verdict';
+    icon.textContent = '🤖';
     el.appendChild(icon);
   });
 }
@@ -12387,7 +10538,10 @@ if (document.readyState === 'loading') {
 </script>
 '@
 
+$Global:FI_Scripts = $Global:FI_Scripts.Replace('__FI_KB_PANEL_DATA__', $ForensicatorKbPanelDataJson)
 $Global:FI_Scripts = $Global:FI_Scripts.Replace('__FI_DETECTION_COMMANDS__', $ForensicatorDetectionCommandsJson)
+$Global:FI_Scripts = $Global:FI_Scripts.Replace('__FI_AI_VERDICTS__', $ForensicatorAiVerdictsJson)
+$Global:FI_Scripts = $Global:FI_Scripts.Replace('__FI_AI_UNAVAILABLE_REASON__', $ForensicatorAiUnavailableReasonJson)
 
 # ---- HELPER FUNCTION (ICON) ----
 function New-FIIcon {
@@ -12407,6 +10561,252 @@ Write-ForensicLog "[*] Creating and Formatting the HTML files" -Level INFO -Sect
 
 
 $ArtifactRootPath = "$PSScriptRoot\$env:COMPUTERNAME"
+
+###########################################################################################################
+#region ############################# INVESTIGATION SUMMARY  ##############################################
+###########################################################################################################
+#
+# A cross-finding case rollup, built AFTER every finding this run has been
+# written to investigation/**/*.json. Every number, timestamp, and list on
+# this page is computed directly from that data (Get-ForensicatorCaseSummary,
+# ForensicatorFindingBuilder.ps1) — the only AI-generated content is the two
+# narrative paragraphs (Get-ForensicatorCaseSummaryNarrative), which are fed
+# the already-computed facts rather than generating them independently.
+
+Write-ForensicLog "[*] Building Investigation Summary" -Level INFO -Section "CASE_SUMMARY"
+
+function Get-ForensicatorCaseSeverityColor {
+    param([string]$Level)
+    switch ($Level) {
+        "Critical" { return "#ef4444" }
+        "High"     { return "#f97316" }
+        "Medium"   { return "#eab308" }
+        "Low"      { return "#22c55e" }
+        default    { return "#3b82f6" }
+    }
+}
+
+# Known collection gaps this function can see directly from script state —
+# combined inside Get-ForensicatorCaseSummary with per-finding gaps (e.g.
+# checks that returned zero evidence) it can see from the finding JSON.
+$CaseSummaryGaps = [System.Collections.Generic.List[string]]::new()
+if (-not $RAM)      { $CaseSummaryGaps.Add("RAM was not captured this run (-RAM not specified) — volatile memory artifacts (injected DLLs, in-memory-only malware, decrypted secrets) are unavailable.") }
+if (-not $PCAP)     { $CaseSummaryGaps.Add("No network traffic capture was taken this run (-PCAP not specified) — live C2 traffic, if any, was not recorded.") }
+if (-not $EVTX)     { $CaseSummaryGaps.Add("Raw EVTX files were not exported this run (-EVTX not specified) — only the parsed subset of events above is preserved for offline re-analysis.") }
+if (-not (Test-IsAdministrator)) { $CaseSummaryGaps.Add("Forensicator did not run with administrative rights this run — some artifacts may be incomplete.") }
+if ($IsMSSQLServer -and -not $sqlcmdPath) { $CaseSummaryGaps.Add("sqlcmd.exe was not found — SQL-query-based MSSQL checks (xp_cmdshell, sysadmin membership, linked servers, logins) were skipped.") }
+
+$CaseSummary = Get-ForensicatorCaseSummary -InvestigationPath "$PSScriptRoot\$env:COMPUTERNAME\investigation" -AdditionalGaps @($CaseSummaryGaps)
+$CaseSummaryNarrative = Get-ForensicatorCaseSummaryNarrative -CaseSummary $CaseSummary
+
+Write-ForensicLog "[*] Investigation Summary computed" -Level INFO -Section "CASE_SUMMARY" -Detail "Score: $($CaseSummary.OverallScore)/100 ($($CaseSummary.OverallLevel)) | Findings: $($CaseSummary.TotalFindings) | Correlated: $($CaseSummary.Correlated) | Narrative source: $($CaseSummaryNarrative.Source)"
+
+# Persisted alongside the other structured findings so Forensicator
+# Enterprise can ingest the same rollup, not just the HTML report.
+try {
+    $caseSummaryExport = [ordered]@{
+        overall_score      = $CaseSummary.OverallScore
+        overall_level      = $CaseSummary.OverallLevel
+        confidence         = $CaseSummary.Confidence
+        total_findings     = $CaseSummary.TotalFindings
+        risk_breakdown     = $CaseSummary.RiskBreakdown
+        confirmed          = $CaseSummary.Confirmed
+        high_confidence    = $CaseSummary.HighConfidence
+        correlated         = $CaseSummary.Correlated
+        gaps               = $CaseSummary.Gaps
+        timeline           = $CaseSummary.Timeline
+        attack_chain       = $CaseSummary.AttackChain
+        top_priorities     = $CaseSummary.TopPriorities
+        correlation_pairs  = $CaseSummary.CorrelationPairs
+        next_steps         = $CaseSummary.NextSteps
+        why_tier           = $CaseSummaryNarrative.WhyTier
+        narrative          = $CaseSummaryNarrative.Narrative
+        narrative_source   = $CaseSummaryNarrative.Source
+    }
+    $caseSummaryExport | ConvertTo-Json -Depth 10 | Out-File "$PSScriptRoot\$env:COMPUTERNAME\investigation\case-summary.json" -Encoding utf8
+}
+catch {
+    Write-ForensicLog "[!] Could not export case-summary.json: $($_.Exception.Message)" -Level WARN -Section "CASE_SUMMARY"
+}
+
+function Get-ForensicatorCaseSummaryHtml {
+    param($CaseSummary, $Narrative)
+
+    if (-not $CaseSummary.HasData) {
+        return @"
+<div class="view" id="view-case-summary">
+  <div class="view-header">
+    <div>
+      <div class="view-title">Investigation Summary</div>
+      <div class="view-sub">Cross-finding case rollup</div>
+    </div>
+  </div>
+  <div class="panel"><div class="cs-empty-note">No findings were collected this run to summarize.</div></div>
+</div><!-- /case-summary -->
+"@
+    }
+
+    $accentColor = Get-ForensicatorCaseSeverityColor -Level $CaseSummary.OverallLevel
+    $tierUpper = "$($CaseSummary.OverallLevel)".ToUpper()
+
+    $riskBarsHtml = if ($CaseSummary.RiskBreakdown.Count -gt 0) {
+        $maxBucketScore = ($CaseSummary.RiskBreakdown | Measure-Object -Property Score -Maximum).Maximum
+        $rows = foreach ($b in $CaseSummary.RiskBreakdown) {
+            $pct = if ($maxBucketScore -gt 0) { [Math]::Round(($b.Score / $maxBucketScore) * 100) } else { 0 }
+            $color = Get-ForensicatorCaseSeverityColor -Level $b.Level
+            $label = (Get-Culture).TextInfo.ToTitleCase($b.Bucket)
+            "<div class='bar-row'><div class='bar-label'>$(Encode-Cell $label)</div><div class='bar-track'><div class='bar-fill' style='width:${pct}%;background:$color'></div></div><div class='bar-val'>$(Encode-Cell $b.Level)</div></div>"
+        }
+        $rows -join "`n"
+    } else {
+        "<div class='cs-empty-note'>No findings scored high enough to break down by category.</div>"
+    }
+
+    $statusHtml = @"
+<div class='kv-list-row'><div class='kv-list-k'>Confirmed findings</div><div class='kv-list-v'>$($CaseSummary.Confirmed)</div></div>
+<div class='kv-list-row'><div class='kv-list-k'>High confidence</div><div class='kv-list-v'>$($CaseSummary.HighConfidence)</div></div>
+<div class='kv-list-row'><div class='kv-list-k'>Correlated</div><div class='kv-list-v'>$($CaseSummary.Correlated)</div></div>
+<div class='kv-list-row'><div class='kv-list-k'>Investigation gaps</div><div class='kv-list-v'>$($CaseSummary.Gaps.Count)</div></div>
+"@
+
+    $timelineHtml = if ($CaseSummary.Timeline.Count -gt 0) {
+        $rows = foreach ($e in $CaseSummary.Timeline) {
+            $eventBand = Get-ForensicatorSeverityForScore -Score $e.Score
+            $color = Get-ForensicatorCaseSeverityColor -Level $eventBand.level
+            "<div class='cs-tl-row'><div class='cs-tl-time'>$($e.Time.ToString('HH:mm'))</div><div class='cs-tl-dot' style='background:$color'></div><div class='cs-tl-body'><div class='cs-tl-tactic' style='color:$color'>$(Encode-Cell $e.Tactic)</div><div class='cs-tl-title'>$(Encode-Cell $e.Title)</div></div></div>"
+        }
+        $rows -join "`n"
+    } else {
+        "<div class='cs-empty-note'>No two findings shared a resolvable event timestamp this run — nothing to sequence.</div>"
+    }
+
+    $chainHtml = if ($CaseSummary.AttackChain.Count -gt 0) {
+        $nodes = for ($i = 0; $i -lt $CaseSummary.AttackChain.Count; $i++) {
+            "<div class='cs-chain-node'>$(Encode-Cell $CaseSummary.AttackChain[$i])</div>"
+            if ($i -lt $CaseSummary.AttackChain.Count - 1) { "<div class='cs-chain-arrow'>&rarr;</div>" }
+        }
+        $nodes -join "`n"
+    } else {
+        "<div class='cs-empty-note'>Not enough sequenced findings to establish an attack chain.</div>"
+    }
+
+    $prioritiesHtml = if ($CaseSummary.TopPriorities.Count -gt 0) {
+        $rows = foreach ($p in $CaseSummary.TopPriorities) {
+            $color = Get-ForensicatorCaseSeverityColor -Level $p.Level
+            "<div class='cs-priority-row'><div class='cs-priority-dot' style='background:$color'></div><div class='cs-priority-title'>$(Encode-Cell $p.Title)</div><div class='cs-priority-score' style='color:$color'>$($p.Score)</div></div>"
+        }
+        $rows -join "`n"
+    } else {
+        "<div class='cs-empty-note'>Nothing scored high enough to prioritize.</div>"
+    }
+
+    $correlationHtml = if ($CaseSummary.CorrelationPairs.Count -gt 0) {
+        $rows = foreach ($p in $CaseSummary.CorrelationPairs) {
+            "<div class='cs-correlation-row'><div><div class='cs-correlation-title'>$(Encode-Cell $p.A) &harr; $(Encode-Cell $p.B)</div><div class='cs-correlation-shared'>shared: $(Encode-Cell $p.Shared)</div></div></div>"
+        }
+        $rows -join "`n"
+    } else {
+        "<div class='cs-empty-note'>No findings this run shared a common indicator (user, IP, hash, or file).</div>"
+    }
+
+    $gapsHtml = if ($CaseSummary.Gaps.Count -gt 0) {
+        "<ul class='cs-gaps-list'>" + (($CaseSummary.Gaps | ForEach-Object { "<li>$(Encode-Cell $_)</li>" }) -join "`n") + "</ul>"
+    } else {
+        "<div class='cs-empty-note'>No specific collection gaps identified this run.</div>"
+    }
+
+    $stepsHtml = if ($CaseSummary.NextSteps.Count -gt 0) {
+        "<ol class='cs-steps-list'>" + (($CaseSummary.NextSteps | ForEach-Object { "<li>$(Encode-Cell $_)</li>" }) -join "`n") + "</ol>"
+    } else {
+        "<div class='cs-empty-note'>No specific next steps surfaced from the top findings — review manually.</div>"
+    }
+
+    $narrativeBadge = if ($Narrative.Source -eq "ai") { "<span class='cs-ai-badge'>AI-drafted</span>" } else { "<span class='cs-template-badge'>Computed</span>" }
+
+    return @"
+<div class="view" id="view-case-summary">
+
+  <div class="view-header">
+    <div>
+      <div class="view-title">Investigation Summary</div>
+      <div class="view-sub">Score, breakdown, timeline, priorities, and correlation below are computed directly from this run's $($CaseSummary.TotalFindings) finding(s) — only the two narrative paragraphs are AI-drafted (see badge).</div>
+    </div>
+  </div>
+
+  <div class="cs-header-box" style="--cs-accent:$accentColor">
+    <div class="cs-header-title">Investigation Summary</div>
+    <div class="cs-header-grid">
+      <div class="cs-score-block">
+        <div class="cs-score-num">$($CaseSummary.OverallScore)<span class="cs-score-max">/100</span></div>
+        <div class="cs-score-label">Overall Risk</div>
+      </div>
+      <div class="cs-tier-block">
+        <div class="cs-tier-badge" style="background:$accentColor">$tierUpper</div>
+        <div class="cs-confidence-label">Confidence: $($CaseSummary.Confidence)%</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">&#10067; Why ${tierUpper}? $narrativeBadge</div></div>
+    <div class="cs-prose">$(Encode-Cell $Narrative.WhyTier)</div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">&#128214; What Probably Happened $narrativeBadge</div></div>
+    <div class="cs-prose">$(Encode-Cell $Narrative.Narrative)</div>
+  </div>
+
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">&#128202; Risk Breakdown</div></div>
+      <div class="bar-chart">$riskBarsHtml</div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">&#128269; Investigation Status</div></div>
+      <div class="kv-list">$statusHtml</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">&#128337; Investigation Timeline <span class="cs-template-badge">Computed</span></div></div>
+    <div class="cs-timeline">$timelineHtml</div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">&#9939; Attack Chain <span class="cs-template-badge">Computed</span></div></div>
+    <div class="cs-chain">$chainHtml</div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">&#127919; Top Investigation Priorities</div></div>
+    <div class="cs-priority-list">$prioritiesHtml</div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">&#128279; Evidence Correlation</div></div>
+    <div class="cs-correlation-list">$correlationHtml</div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">&#9888; What We Don't Know</div></div>
+    $gapsHtml
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">&#9989; Recommended Next Steps</div></div>
+    $stepsHtml
+  </div>
+
+</div><!-- /case-summary -->
+"@
+}
+
+$CaseSummaryViewHtml = Get-ForensicatorCaseSummaryHtml -CaseSummary $CaseSummary -Narrative $CaseSummaryNarrative
+
+Write-ForensicLog "[!] Done" -Level SUCCESS -Section "CASE_SUMMARY"
+
+#endregion
 
 function New-ExtrasArtifactRow {
   param(
@@ -13343,6 +11743,75 @@ table.std {
   border-color: var(--blue);
 }
 
+/* ── CASE SUMMARY (Investigation Summary) ─────────────────────────────── */
+.cs-header-box {
+  background: linear-gradient(135deg, var(--surface2), var(--surface3));
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  padding: 22px 28px;
+  margin-bottom: 20px;
+}
+.cs-header-title {
+  font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--text3); margin-bottom: 16px;
+}
+.cs-header-grid { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px; }
+.cs-score-num { font-family: var(--mono); font-size: 42px; font-weight: 700; color: var(--cs-accent, var(--blue)); line-height: 1; }
+.cs-score-max { font-size: 20px; color: var(--text3); font-weight: 500; }
+.cs-score-label { font-size: 12px; color: var(--text2); margin-top: 6px; text-transform: uppercase; letter-spacing: .06em; }
+.cs-tier-block { text-align: right; }
+.cs-tier-badge {
+  display: inline-block; font-family: var(--mono); font-size: 22px; font-weight: 700;
+  padding: 6px 18px; border-radius: 6px; letter-spacing: .05em;
+  background: var(--cs-accent, var(--blue)); color: #fff;
+}
+.cs-confidence-label { font-size: 12px; color: var(--text2); margin-top: 8px; }
+.cs-ai-badge {
+  font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  background: rgba(59,130,246,.15); color: var(--blue); border: 1px solid rgba(59,130,246,.3);
+  padding: 2px 7px; border-radius: 10px; margin-left: 8px; vertical-align: middle;
+}
+.cs-template-badge {
+  font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  background: var(--surface3); color: var(--text3); border: 1px solid var(--border2);
+  padding: 2px 7px; border-radius: 10px; margin-left: 8px; vertical-align: middle;
+}
+.cs-prose { padding: 14px 18px; font-size: 13px; line-height: 1.75; color: var(--text2); }
+.cs-timeline { padding: 6px 18px 16px; }
+.cs-tl-row { display: flex; align-items: flex-start; gap: 14px; padding: 9px 0; border-bottom: 1px solid var(--surface2); }
+.cs-tl-row:last-child { border-bottom: none; }
+.cs-tl-time { font-family: var(--mono); font-size: 12px; color: var(--text2); width: 52px; flex-shrink: 0; padding-top: 1px; }
+.cs-tl-dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; background: var(--cs-dot, var(--blue)); }
+.cs-tl-body { flex: 1; }
+.cs-tl-tactic { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--cs-dot, var(--blue)); }
+.cs-tl-title { font-size: 13px; color: var(--text); margin-top: 2px; }
+.cs-chain { padding: 18px; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.cs-chain-node {
+  font-size: 12px; font-weight: 600; padding: 6px 14px; border-radius: 20px;
+  background: var(--surface3); border: 1px solid var(--border2); color: var(--text);
+}
+.cs-chain-arrow { color: var(--text3); font-size: 14px; }
+.cs-priority-list, .cs-gaps-list, .cs-steps-list, .cs-correlation-list { padding: 8px 0; }
+.cs-priority-row, .cs-correlation-row {
+  display: flex; align-items: center; gap: 12px; padding: 9px 18px; border-bottom: 1px solid var(--surface2);
+}
+.cs-priority-row:last-child, .cs-correlation-row:last-child { border-bottom: none; }
+.cs-priority-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; background: var(--cs-dot, var(--blue)); }
+.cs-priority-title { flex: 1; font-size: 13px; color: var(--text); }
+.cs-priority-score { font-family: var(--mono); font-size: 12px; color: var(--text2); }
+.cs-correlation-title { font-size: 13px; color: var(--text); }
+.cs-correlation-shared { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.cs-gaps-list li, .cs-steps-list li {
+  list-style: none; padding: 9px 18px; border-bottom: 1px solid var(--surface2);
+  font-size: 13px; color: var(--text2); line-height: 1.55; display: flex; gap: 10px;
+}
+.cs-gaps-list li:last-child, .cs-steps-list li:last-child { border-bottom: none; }
+.cs-gaps-list ul, .cs-steps-list ol { margin: 0; padding: 0; }
+.cs-steps-list { counter-reset: cs-step; }
+.cs-steps-list li::before { content: counter(cs-step); counter-increment: cs-step; font-family: var(--mono); color: var(--blue); font-weight: 700; flex-shrink: 0; }
+.cs-gaps-list li::before { content: "⚠"; color: var(--high); flex-shrink: 0; }
+.cs-empty-note { padding: 14px 18px; font-size: 12px; color: var(--text3); }
+
 </style>
 </head>
 <body>
@@ -13402,6 +11871,9 @@ var TOP_EVENT_IDS   = $($script:topEventIdsJson);
     <div class="sb-label">Navigation</div>
     <div class="sb-link active" onclick="nav('overview')">
       <i class="sb-icon">📊</i> Overview
+    </div>
+    <div class="sb-link" onclick="nav('case-summary')">
+      <i class="sb-icon">🤖</i> Investigation Summary
     </div>
   </div>
 
@@ -14933,6 +13405,8 @@ window.nav = window.nav || function(id) {
   </div>
 
 </div><!-- /extras -->
+
+$CaseSummaryViewHtml
 
 $AD_ViewHtml
 

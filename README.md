@@ -9,10 +9,11 @@ Windows (PowerShell) | Linux (Bash) | macOS (Shell)
 Built for fast, structured, and actionable forensic investigations.
 </p>
 
-
-
-<img width="1953" height="805" alt="forensicator logo" src="https://github.com/user-attachments/assets/bddffeb5-0352-4f30-9abd-55f80fbb1298" />
-
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/user-attachments/assets/22187cf0-5b12-4c44-8644-45405d393109">
+  <source media="(prefers-color-scheme: light)" srcset="https://github.com/user-attachments/assets/f30b9752-edd4-491f-b466-40d302e5c73c">
+  <img alt="Forensicator Logo" src="https://github.com/user-attachments/assets/22187cf0-5b12-4c44-8644-45405d393109" >
+</picture>
 
 ---
 
@@ -43,6 +44,7 @@ Forensicator:
 * Optional artifact encryption (AES)
 * Detection Insight - a summary of the detection, why it matters, the detection logic, what to look for, and its MITRE mapping
 * Investigation archive + structured JSON output for Forensicator Enterprise
+* Forensicator AI — optional, per-finding AI verdicts from a local (Ollama) or commercial LLM, shown in the report's tooltip
 
 👉 https://github.com/Johnng007/Live-Forensicator/tree/main/Windows
 
@@ -90,7 +92,7 @@ Forensicator:
 * Structured HTML reporting (with dashboards)
 * Optional artifact encryption (Windows, Linux, and macOS)
 * Detection Insight with Mitre Mapping
-* Forensicator AI (Coming Soon!!!)
+* Forensicator AI — optional, per-finding AI verdicts from a local (Ollama) or commercial LLM (Windows now; other platforms planned)
 
 ---
 
@@ -129,6 +131,32 @@ This is useful when:
 
 > ⚠️ Available on Windows, Linux, and macOS
 > ⚠️ Not backward compatible prior to v4.1.1
+
+---
+
+# 🤖 Forensicator AI
+
+Off by default. When enabled, each finding is sent to a local or commercial LLM as it's collected, and gets a real, plain-language verdict shown right in the report's tooltip.
+
+**Quick setup (local LLM via Ollama), currently Windows:**
+
+```bash
+# 1. Install Ollama (https://ollama.com) and pull a model
+ollama pull mistral:7b-instruct
+```
+```jsonc
+// 2. Enable it in config.json
+"ai": {
+  "enabled": true,
+  "provider": "ollama",
+  "base_url": "http://localhost:11434",
+  "model": "mistral:7b-instruct"
+}
+```
+
+Prefer a commercial API instead (OpenAI, Anthropic, Azure OpenAI, or any OpenAI-compatible endpoint)? Set `provider` accordingly and add your `api_key`.
+
+📘 Full setup guide (all providers, tuning, troubleshooting): <a href="https://opendocs.forensicator.io">opendocs.forensicator.io</a>
 
 ---
 

@@ -8,16 +8,11 @@ Bash-based Incident Response & Live Forensics Toolkit
 Live forensic artifact collection, MITRE ATT&CK-mapped detections, and structured reporting for macOS systems.
 </p>
 
-```bash
-___________                                .__               __                
-\_   _____/__________   ____   ____   _____|__| ____ _____ _/  |_  ___________ 
- |    __)/  _ \_  __ \_/ __ \ /    \ /  ___/  |/ ___\\__  \\   __\/  _ \_  __ \
- |     \(  <_> )  | \/\  ___/|   |  \\___ \|  \  \___ / __ \|  | (  <_> )  | \/
- \___  / \____/|__|    \___  >___|  /____  >__|\___  >____  /__|  \____/|__|   
-     \/                    \/     \/     \/        \/     \/                    
-
-                                                                          v4.1.6
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/user-attachments/assets/22187cf0-5b12-4c44-8644-45405d393109">
+  <source media="(prefers-color-scheme: light)" srcset="https://github.com/user-attachments/assets/f30b9752-edd4-491f-b466-40d302e5c73c">
+  <img alt="Forensicator Logo" src="https://github.com/user-attachments/assets/22187cf0-5b12-4c44-8644-45405d393109" >
+</picture>
 
 ---
 

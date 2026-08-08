@@ -8,7 +8,11 @@ PowerShell-based Incident Response & Live Forensics Toolkit
 Advanced event log analysis, detection logic, and forensic artifact collection for Windows systems.
 </p>
 
-<img width="1953" height="805" alt="forensicator logo" src="https://github.com/user-attachments/assets/bddffeb5-0352-4f30-9abd-55f80fbb1298" />
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/user-attachments/assets/22187cf0-5b12-4c44-8644-45405d393109">
+  <source media="(prefers-color-scheme: light)" srcset="https://github.com/user-attachments/assets/f30b9752-edd4-491f-b466-40d302e5c73c">
+  <img alt="Forensicator Logo" src="https://github.com/user-attachments/assets/22187cf0-5b12-4c44-8644-45405d393109" >
+</picture>
 
 ---
 
@@ -29,6 +33,7 @@ Key capabilities include:
 * Sigma rule integration
 * Malware hash matching (e.g., abuse.ch feeds)
 * Browser history extraction and IOC matching
+* Forensicator AI — optional, per-finding AI verdicts from a local or commercial LLM
 
 ---
 
@@ -65,6 +70,35 @@ Artifacts can be encrypted using AES:
 ```
 
 > ⚠️ Not backward compatible before v4.1.1
+
+---
+
+# 🤖 Forensicator AI
+
+Off by default. When enabled, each finding is sent to a local or commercial LLM as it's collected, and gets a real, plain-language verdict — shown right in the report's tooltip under **AI Analysis**, alongside the existing detection guidance.
+
+**Quick setup (local LLM via Ollama):**
+
+```powershell
+# 1. Install Ollama (https://ollama.com) and pull a model
+ollama pull mistral:7b-instruct
+
+# 2. Enable it in config.json
+```
+```jsonc
+"ai": {
+  "enabled": true,
+  "provider": "ollama",
+  "base_url": "http://localhost:11434",
+  "model": "mistral:7b-instruct"
+}
+```
+
+Run Forensicator as usual — no other flags needed. Prefer a commercial API instead (OpenAI, Anthropic, Azure OpenAI, or any OpenAI-compatible endpoint)? Set `provider` accordingly and add your `api_key`.
+
+> ⚠️ Each finding is a real LLM call — enabling this can noticeably extend total run time, especially on a cold-loaded model.
+
+📘 Full setup guide (all providers, tuning, troubleshooting): <a href="https://opendocs.forensicator.io">opendocs.forensicator.io</a>
 
 ---
 
@@ -177,6 +211,7 @@ Automatically detected and enabled only when SharePoint Server is present:
 * Detection Insight into each collected data with Mitre Mapping.
 * Structured per-check JSON output under `investigation/`, for Forensicator Enterprise upload
 * Investigation archive — a hashed, zipped copy of the investigation folder with a Readme pointing to Forensicator Enterprise for automated analysis
+* Forensicator AI — optional, per-finding AI verdicts (local Ollama or a commercial LLM), off by default (see [🤖 Forensicator AI](#-forensicator-ai))
 
 ---
 
