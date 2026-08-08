@@ -243,6 +243,34 @@ Automatically detected and enabled only when SharePoint Server is present:
 
 </details>
 
+<details>
+<summary>Terminal Output with Forensicator AI</summary>
+
+<img width="1293" height="762" alt="image" src="https://github.com/user-attachments/assets/2306f048-8a22-4203-92d5-934fb761c62b" />
+
+</details>
+
+<details>
+<summary>AI Analysis</summary>
+
+<img width="1731" height="955" alt="image" src="https://github.com/user-attachments/assets/89ab171c-f08d-4add-ad60-33f2e464c1d8" />
+<br>
+<img width="1730" height="649" alt="image" src="https://github.com/user-attachments/assets/ae56795f-9f2c-4a44-b020-76b16946bce5" />
+<br>
+<img width="1730" height="862" alt="image" src="https://github.com/user-attachments/assets/5ab5104c-3d3c-43da-8e58-fceddfca7ca0" />
+<br>
+<img width="1729" height="860" alt="image" src="https://github.com/user-attachments/assets/cc99d059-a69d-4d65-b652-199d7ab1f7be" />
+<br>
+<img width="1728" height="854" alt="image" src="https://github.com/user-attachments/assets/d9d8721f-3cf9-4196-9404-fa63bd385c51" />
+<br>
+<img width="1732" height="865" alt="image" src="https://github.com/user-attachments/assets/124dca06-757e-4839-92f1-b9136022fd7c" />
+<br>
+<img width="1734" height="854" alt="image" src="https://github.com/user-attachments/assets/d7b7e764-40e4-4783-bcc2-4a5dcfd532db" />
+<br>
+<img width="1730" height="946" alt="image" src="https://github.com/user-attachments/assets/3ca78232-66ca-42ae-adaf-32320b4e47fc" />
+
+</details>
+
 ---
 
 # 🤝 Contributing
