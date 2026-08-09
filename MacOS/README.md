@@ -16,7 +16,7 @@ Live forensic artifact collection, MITRE ATT&CK-mapped detections, and structure
 
 ---
 
-# 🤔 About
+## 🤔 About
 
 **Forensicator (macOS)** is a Bash-based incident response and live forensics tool designed to assist investigators in rapidly collecting and analyzing system artifacts on macOS.
 
@@ -31,7 +31,7 @@ Apple restricts real process-creation telemetry (comparable to Linux `auditd` or
 
 ---
 
-# ⚙️ Key Features
+## ⚙️ Key Features
 
 * Detection engine, MITRE ATT&CK-mapped (reverse shells, attack tools, brute force, SIP/Gatekeeper tampering, dylib hijacking, timestomping, PATH hijacking, deleted-binary execution, and more)
 * Best-effort Sigma rule engine sourced from real SigmaHQ community rules, evaluated against the unified log (`log show`)
@@ -51,7 +51,7 @@ Apple restricts real process-creation telemetry (comparable to Linux `auditd` or
 
 ---
 
-# 📦 Optional Dependencies
+## 📦 Optional Dependencies
 
 For additional capabilities:
 
@@ -64,7 +64,7 @@ python3         → Sigma rule engine, and the zip/investigation-archive fallbac
 
 ---
 
-# 🔨 Usage
+## 🔨 Usage
 
 ```bash
 # Clone repository
@@ -84,7 +84,7 @@ chmod +x forensicator.sh
 
 ---
 
-# 🥊 Examples
+## 🥊 Examples
 
 ```bash
 # Basic execution
@@ -126,7 +126,7 @@ chmod +x forensicator.sh
 
 ---
 
-# ✍ Notes
+## ✍ Notes
 
 * Run the script with `sudo`/as root for full visibility (many checks — TCC database, other users' SSH keys, PATH-hijack scan, package integrity — require it)
 * Grant your terminal **Full Disk Access** (System Settings → Privacy & Security → Full Disk Access) or several collectors will silently come back empty
@@ -136,9 +136,9 @@ chmod +x forensicator.sh
 
 ---
 
-# 🧠 Investigation Capabilities
+## 🧠 Investigation Capabilities
 
-## 👤 User & Account Data
+### 👤 User & Account Data
 
 * Active sessions & login history (successful and failed)
 * Local user accounts, admin/wheel group membership
@@ -147,7 +147,7 @@ chmod +x forensicator.sh
 * Credential-file tampering timeline (mtime vs. ctime — flags forged modification times)
 * Multi-user, multi-shell command history (bash/zsh/sh/fish)
 
-## 💻 System Information
+### 💻 System Information
 
 * OS version, kernel, hardware, CPU, disk/volume layout, USB devices
 * Installed applications, Homebrew package list
@@ -158,21 +158,21 @@ chmod +x forensicator.sh
 * TCC privacy database (app access to privacy-sensitive resources)
 * Quarantine events database (files downloaded from the internet)
 
-## 🌐 Network Information
+### 🌐 Network Information
 
 * Interfaces, routing table
 * Active connections & listening ports
 * Firewall rules (pf)
 * ARP cache, DNS configuration
 
-## ⚙️ Processes & Persistence
+### ⚙️ Processes & Persistence
 
 * Running processes
 * LaunchCtl services, LaunchDaemons, LaunchAgents (system and user)
 * Cron jobs
 * Loaded kernel extensions
 
-## 🔎 Security Checks
+### 🔎 Security Checks
 
 * SUID/SGID binaries
 * World-writable directories/files on `$PATH` (PATH-hijack risk)
@@ -182,18 +182,18 @@ chmod +x forensicator.sh
 * Malware hash matching against a running process list, auto-downloaded and refreshed from the abuse.ch feed
 * Browser history IOC matching against a malicious-URL feed (URLhaus)
 
-## 🎯 Detection Engine & Sigma
+### 🎯 Detection Engine & Sigma
 
 * Built-in detection engine, MITRE ATT&CK-mapped (reverse shells, attack tools, brute force, SIP/Gatekeeper disabled, dylib hijacking via `DYLD_INSERT_LIBRARIES`, non-Apple kexts, timestomping, PATH hijacking, deleted-binary execution, SSV/code-signature tampering, and more)
 * Best-effort Sigma rule engine compiled from real SigmaHQ community rules, evaluated against the unified log (`log show`) — see the caveat under Key Features
 * All detections feed the same `DETECTIONS/findings.csv` and the HTML report's "Rule Detections" tab
 
-## 📜 Logs
+### 📜 Logs
 
 * Authentication logs (SSH connections and sudo commands, via `log show` with a `/var/log/system.log` fallback)
 * Unified system log
 
-## 🚀 Extended Features
+### 🚀 Extended Features
 
 * Network tracing (PCAP)
 * RAM acquisition (osxpmem or avml)
@@ -204,7 +204,7 @@ chmod +x forensicator.sh
 
 ---
 
-# 📊 Output
+## 📊 Output
 
 Forensicator generates:
 
@@ -215,7 +215,7 @@ Forensicator generates:
 
 ---
 
-# ✨ Changelog
+## ✨ Changelog
 
 ```bash
 v4.1.6
@@ -235,37 +235,55 @@ v0.1 (23/01/2023)
 
 ---
 
-# 📸 Screenshots
+## 📸 Screenshots
 
-## HTML Output
-<img src="https://i.imgur.com/2VlqwDL.png" alt="Forensicator" />
+<details>
+<summary>HTML Dashboard</summary>
 
----
+<img width="1392" height="913" alt="image" src="https://github.com/user-attachments/assets/60ab5fbb-0a84-4070-a5f1-901773e01096" />
+<br>
+<img width="1383" height="908" alt="image" src="https://github.com/user-attachments/assets/c916c86f-10d2-4b24-8601-6cbd440baad3" />
+<br>
+<img width="1387" height="920" alt="image" src="https://github.com/user-attachments/assets/6cd350a4-830e-4513-922c-fc7140d13e71" />
+<br>
+<img width="1390" height="914" alt="image" src="https://github.com/user-attachments/assets/be3f2d07-1573-4e36-85b5-9b2191c9cfb6" />
+<br>
+<img width="1382" height="913" alt="image" src="https://github.com/user-attachments/assets/2d39317f-44de-45c6-9d6a-8d328f6ae4b8" />
 
-# 🤝 Contributing
 
-Pull requests are welcome.
-For major changes, please open an issue first to discuss your proposal.
-
----
-
-# 📄 License
-
-MIT License
-https://mit.com/licenses/mit/
-
----
-
-# ☕ Support
-
-<a href="https://ko-fi.com/forensicator">
-  <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" height="50" width="210" />
-</a>
+</details>
 
 ---
 
-# 🔗 Connect
+## 🤝 Contributing
 
-<a href="https://www.linkedin.com/in/ebuka-john-onyejegbu">
-  LinkedIn
-</a>
+Contributions are welcome.
+
+* Open an issue to discuss major changes
+* Submit pull requests with clear descriptions
+* Focus on accuracy, clarity, and usability
+
+---
+
+## 📄 License
+
+Live-Forensicator is open-source software licensed under the **Apache License 2.0**.
+
+Copyright © 2026 Raptormatics.
+
+You are free to use, reproduce, modify, and distribute Live-Forensicator in accordance with the terms of the Apache License 2.0.
+
+See the [`LICENSE`](LICENSE) file for the full license text.
+
+### Third-Party Components
+
+Live-Forensicator may include or interact with third-party tools, libraries, scripts, or components that are distributed under their own licenses. Those licenses remain applicable to their respective components.
+
+Users are responsible for complying with the applicable licenses and terms of any third-party components they use with Live-Forensicator.
+
+
+---
+
+## ☕ Documentation
+
+<a href="https://opendocs.forensicator.io"> OpenDocs</a>

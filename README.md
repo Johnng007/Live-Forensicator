@@ -17,7 +17,7 @@ Built for fast, structured, and actionable forensic investigations.
 
 ---
 
-# 🤔 About
+## 🤔 About
 
 **Forensicator** is a cross-platform incident response and live forensics toolkit.
 
@@ -32,9 +32,9 @@ Forensicator:
 
 ---
 
-# ⚙️ Platform Support
+## ⚙️ Platform Support
 
-## 🖳 Windows (PowerShell)
+### 🖳 Windows (PowerShell)
 
 * Advanced Event Log analysis
 * Detection of suspicious activity via known Event IDs
@@ -50,7 +50,7 @@ Forensicator:
 
 ---
 
-## 🍎 macOS (Shell)
+### 🍎 macOS (Shell)
 
 * Detection engine covering reverse shells, SIP/Gatekeeper/kext tampering, PATH hijacking, deleted-binary execution, credential timestomping, and more
 * Best-effort Sigma rule engine sourced from real SigmaHQ community rules, evaluated against the unified log
@@ -66,7 +66,7 @@ Forensicator:
 
 ---
 
-## 🐧 Linux (Bash)
+### 🐧 Linux (Bash)
 
 * Cross-distro compatible Bash scripts, no non-native dependencies
 * Detection engine covering reverse shells, timestomping, PATH hijacking, deleted-binary execution, package integrity, and more
@@ -82,7 +82,7 @@ Forensicator:
 
 ---
 
-# 🔍 Key Features
+## 🔍 Key Features
 
 * Cross-platform forensic artifact collection
 * Detection of suspicious activity and anomalies on every platform
@@ -96,7 +96,7 @@ Forensicator:
 
 ---
 
-# 📊 Output
+## 📊 Output
 
 Forensicator generates:
 
@@ -110,7 +110,7 @@ This enables fast transition from **data collection → investigation → decisi
 
 ---
 
-# ⚠️ Important Notes
+## ⚠️ Important Notes
 
 * Run scripts with elevated/privileged permissions for best results
 * Activity may trigger IDS/IPS alerts — this is expected behavior
@@ -119,7 +119,7 @@ This enables fast transition from **data collection → investigation → decisi
 
 ---
 
-# 🔐 Artifact Integrity & Encryption
+## 🔐 Artifact Integrity & Encryption
 
 Forensicator supports optional encryption of collected artifacts using AES.
 
@@ -134,7 +134,7 @@ This is useful when:
 
 ---
 
-# 🤖 Forensicator AI
+## 🤖 Forensicator AI
 
 Off by default. When enabled, each finding is sent to a local or commercial LLM as it's collected, and gets a real, plain-language verdict shown right in the report's tooltip.
 
@@ -160,7 +160,7 @@ Prefer a commercial API instead (OpenAI, Anthropic, Azure OpenAI, or any OpenAI-
 
 ---
 
-# 🧠 Detection Capabilities
+## 🧠 Detection Capabilities
 
 Forensicator identifies suspicious activity through:
 
@@ -171,7 +171,7 @@ Forensicator identifies suspicious activity through:
 
 ---
 
-# 📸 Screenshots
+## 📸 Screenshots
 
 <details>
 <summary>Terminal Output</summary>
@@ -229,7 +229,7 @@ Forensicator identifies suspicious activity through:
 
 ---
 
-# ✨ Changelog
+## ✨ Changelog
 
 Full changelog:
 👉 https://opendocs.forensicator.io/changelog/
@@ -254,7 +254,7 @@ Windows: v4.1.7 (July 2026)
 
 ---
 
-# 🤝 Contributing
+## 🤝 Contributing
 
 Contributions are welcome.
 
@@ -264,17 +264,26 @@ Contributions are welcome.
 
 ---
 
-# 📄 License
+## 📄 License
 
-MIT License
-https://mit.com/licenses/mit/
+Live-Forensicator is open-source software licensed under the **Apache License 2.0**.
+
+Copyright © 2026 Raptormatics.
+
+You are free to use, reproduce, modify, and distribute Live-Forensicator in accordance with the terms of the Apache License 2.0.
+
+See the [`LICENSE`](LICENSE) file for the full license text.
+
+### Third-Party Components
+
+Live-Forensicator may include or interact with third-party tools, libraries, scripts, or components that are distributed under their own licenses. Those licenses remain applicable to their respective components.
+
+Users are responsible for complying with the applicable licenses and terms of any third-party components they use with Live-Forensicator.
+
 
 ---
 
-# ☕ Full Usage & WalkThrough
+## ☕ Documentation
 
-<a href="https://opendocs.forensicator.io">
-  <img width="239" height="31" alt="image" src="https://github.com/user-attachments/assets/f4cb261c-65c8-4592-a42e-6b9ba54dc990" />
-
-</a>
+<a href="https://opendocs.forensicator.io"> OpenDocs</a>
 

@@ -16,7 +16,7 @@ Lightweight, cross-distro forensic collection and timeline analysis for Linux sy
 
 ---
 
-# 🤔 About
+## 🤔 About
 
 **Forensicator (Linux)** is a Bash-based incident response and live forensics tool designed to assist investigators in rapidly collecting and analyzing system artifacts across Linux environments.
 
@@ -36,7 +36,7 @@ This version focuses on:
 
 ---
 
-# ⚙️ Key Features
+## ⚙️ Key Features
 
 * Cross-distro compatible Bash scripts
 * 25-rule MITRE ATT&CK-mapped detection engine (reverse shells, timestomping, PATH hijacking, deleted-binary execution, package integrity, and more)
@@ -58,7 +58,7 @@ This version focuses on:
 
 ---
 
-# 📦 Optional Dependencies
+## 📦 Optional Dependencies
 
 For additional capabilities:
 
@@ -73,7 +73,7 @@ debsums     → Package integrity verification on Debian/Ubuntu (rpm -Va is used
 
 ---
 
-# 🔨 Usage
+## 🔨 Usage
 
 ```bash
 # Clone repository
@@ -91,7 +91,7 @@ chmod +x Forensicator.sh
 
 ---
 
-# 🥊 Examples
+## 🥊 Examples
 
 ```bash
 # Basic execution
@@ -145,7 +145,7 @@ chmod +x Forensicator.sh
 
 ---
 
-# ⚠️ Important Notes
+## ⚠️ Important Notes
 
 * Run as root for full visibility
 * Execution may trigger IDS/IPS alerts
@@ -156,9 +156,9 @@ chmod +x Forensicator.sh
 
 ---
 
-# 🧠 Investigation Capabilities
+## 🧠 Investigation Capabilities
 
-## 👤 User & Account Data
+### 👤 User & Account Data
 
 * Active sessions & login history (successful and failed)
 * Users with login shells
@@ -167,7 +167,7 @@ chmod +x Forensicator.sh
 * Credential-file tampering timeline (mtime vs. ctime on passwd/shadow/sudoers/authorized_keys — flags forged modification times)
 * Multi-user, multi-shell command history (bash/zsh/sh/fish)
 
-## 💻 System Information
+### 💻 System Information
 
 * Kernel, CPU, and OS details
 * Block devices & USB controllers
@@ -175,7 +175,7 @@ chmod +x Forensicator.sh
 * LUKS disk-encryption status (encrypted volumes + unlocked dm-crypt mappings)
 * Kernel taint status (out-of-tree/unsigned module detection)
 
-## 🌐 Network Information
+### 🌐 Network Information
 
 * Routing table
 * Active connections & listening ports
@@ -183,7 +183,7 @@ chmod +x Forensicator.sh
 * ARP cache & DNS configuration
 * Hosts configuration
 
-## ⚙️ Processes & Persistence
+### ⚙️ Processes & Persistence
 
 * Running processes
 * Services & timers
@@ -192,7 +192,7 @@ chmod +x Forensicator.sh
 * Init scripts
 * Recently modified executables in config-driven search paths (single-pass, pruned — never a full `/` walk)
 
-## 🔎 Security Checks
+### 🔎 Security Checks
 
 * SetUID/SGID binaries
 * File capabilities
@@ -204,20 +204,20 @@ chmod +x Forensicator.sh
 * Malware hash matching against a running process list, auto-downloaded and refreshed from the abuse.ch feed
 * Browser history IOC matching against a malicious-URL feed (URLhaus)
 
-## 🎯 Detection Engine & Sigma
+### 🎯 Detection Engine & Sigma
 
 * 25-rule built-in detection engine, MITRE ATT&CK-mapped (reverse shells, attack tools, brute force, log clearing, container escape, SSH key implants, rootkit modules, LD_PRELOAD hijacking, timestomping, PATH hijacking, deleted-binary execution, package tampering, and more)
 * Sigma rule engine compiled from real SigmaHQ community rules, evaluated against `auditd` (process creation/network/file events, if configured) and `journald` (sshd/sudo/cron/syslog-backed rules)
 * All detections feed the same `DETECTIONS/findings.csv` and the HTML report's "Rule Detections" tab
 
-## 📜 Timeline & Logs
+### 📜 Timeline & Logs
 
 * Auth logs (SSH connections: accepted/failed logins, invalid users, disconnects — checked across `/var/log/auth.log`, `/var/log/secure`, and `journalctl -t sshd`)
 * System logs (journalctl)
 * Custom log timelines
 * Web server logs
 
-## 🚀 Extended Features
+### 🚀 Extended Features
 
 * Network tracing (PCAP)
 * RAM acquisition
@@ -228,7 +228,7 @@ chmod +x Forensicator.sh
 
 ---
 
-# 📊 Output
+## 📊 Output
 
 Forensicator generates:
 
@@ -239,7 +239,7 @@ Forensicator generates:
 
 ---
 
-# ✨ Changelog
+## ✨ Changelog
 
 ```bash
 v4.1.6
@@ -257,7 +257,7 @@ v4.1.6
 
 ---
 
-# 📸 Screenshots
+## 📸 Screenshots
 
 <details><summary> Terminal</summary>
 
@@ -276,44 +276,38 @@ v4.1.6
 
 </details> 
 
+---
+
+
+## 🤝 Contributing
+
+Contributions are welcome.
+
+* Open an issue to discuss major changes
+* Submit pull requests with clear descriptions
+* Focus on accuracy, clarity, and usability
+
+---
+
+## 📄 License
+
+Live-Forensicator is open-source software licensed under the **Apache License 2.0**.
+
+Copyright © 2026 Raptormatics.
+
+You are free to use, reproduce, modify, and distribute Live-Forensicator in accordance with the terms of the Apache License 2.0.
+
+See the [`LICENSE`](LICENSE) file for the full license text.
+
+### Third-Party Components
+
+Live-Forensicator may include or interact with third-party tools, libraries, scripts, or components that are distributed under their own licenses. Those licenses remain applicable to their respective components.
+
+Users are responsible for complying with the applicable licenses and terms of any third-party components they use with Live-Forensicator.
 
 
 ---
 
-# 🧰 More Tools (Black Widow Toolbox)
+## ☕ Documentation
 
-* Anteater → Web reconnaissance
-  https://github.com/Johnng007/Anteater
-
-* Nessus Pro API → Export scan results
-  https://github.com/Johnng007/PowershellNessus
-
----
-
-# 🤝 Contributing
-
-Pull requests are welcome.
-For major changes, please open an issue first to discuss your proposal.
-
----
-
-# 📄 License
-
-MIT License
-https://mit.com/licenses/mit/
-
----
-
-# ☕ Support
-
-<a href="https://ko-fi.com/forensicator">
-  <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" height="50" width="210" />
-</a>
-
----
-
-# 🔗 Connect
-
-<a href="https://www.linkedin.com/in/ebuka-john-onyejegbu">
-  LinkedIn
-</a>
+<a href="https://opendocs.forensicator.io"> OpenDocs</a>
