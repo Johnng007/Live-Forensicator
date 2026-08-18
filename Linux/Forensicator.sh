@@ -2298,7 +2298,7 @@ HTMLHEAD
     cat >> "$_out" << 'STYLEBLOCK'
 <style>
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap');
-:root{--bg:#07090f;--surface:#0d111a;--surface2:#111827;--surface3:#161e2e;--border:#1e2d42;--border2:#243650;--blue:#3b82f6;--blue-dim:#1d4ed8;--blue-bg:rgba(59,130,246,.08);--crit:#ef4444;--high:#f97316;--med:#eab308;--low:#22c55e;--info:#3b82f6;--text:#e2e8f0;--text2:#94a3b8;--text3:#4b6278;--sb-w:220px;--topbar-h:52px;--font:'IBM Plex Sans',system-ui,sans-serif;--mono:'IBM Plex Mono',monospace;}
+:root{--bg:#07090f;--surface:#0d111a;--surface2:#111827;--surface3:#161e2e;--border:#1e2d42;--border2:#243650;--scroll-thumb:#5a748d;--blue:#3b82f6;--blue-dim:#1d4ed8;--blue-bg:rgba(59,130,246,.08);--crit:#ef4444;--high:#f97316;--med:#eab308;--low:#22c55e;--info:#3b82f6;--text:#e2e8f0;--text2:#94a3b8;--text3:#4b6278;--sb-w:220px;--topbar-h:52px;--font:'IBM Plex Sans',system-ui,sans-serif;--mono:'IBM Plex Mono',monospace;}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 html{scroll-behavior:smooth;}
 body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13px;line-height:1.5;display:flex;flex-direction:column;min-height:100vh;}
@@ -2312,7 +2312,7 @@ body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:13
 .meta-chip strong{color:var(--text);}
 .topbar-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0;}
 .version-pill{background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.3);color:var(--blue);font-size:10px;font-weight:600;padding:3px 9px;border-radius:12px;}
-#sidebar{position:fixed;top:var(--topbar-h);left:0;bottom:0;width:var(--sb-w);background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;z-index:200;padding:16px 0 40px;scrollbar-width:thin;scrollbar-color:var(--border2) transparent;}
+#sidebar{position:fixed;top:var(--topbar-h);left:0;bottom:0;width:var(--sb-w);background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;z-index:200;padding:16px 0 40px;scrollbar-width:thin;scrollbar-color:var(--scroll-thumb) var(--surface2);}
 .sb-label{font-size:10px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);padding:10px 16px 5px;}
 .sb-link{display:flex;align-items:center;gap:9px;padding:7px 16px;color:var(--text2);cursor:pointer;border-left:2px solid transparent;transition:all .12s;user-select:none;font-size:13px;}
 .sb-link:hover{color:var(--text);background:rgba(255,255,255,.03);}
@@ -2404,6 +2404,14 @@ table.std{width:100%;border-collapse:collapse;font-size:12px;}
 ::-webkit-scrollbar{width:5px;height:5px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+#sidebar::-webkit-scrollbar{width:9px;}
+#sidebar::-webkit-scrollbar-track{background:var(--surface2);}
+#sidebar::-webkit-scrollbar-thumb{background:var(--scroll-thumb);border-radius:5px;border:2px solid var(--surface2);}
+#sidebar::-webkit-scrollbar-thumb:hover{background:var(--text2);}
+#fi-panel-content::-webkit-scrollbar{width:9px;}
+#fi-panel-content::-webkit-scrollbar-track{background:var(--surface3);}
+#fi-panel-content::-webkit-scrollbar-thumb{background:var(--scroll-thumb);border-radius:5px;border:2px solid var(--surface3);}
+#fi-panel-content::-webkit-scrollbar-thumb:hover{background:var(--text2);}
 @media print{#sidebar,#topbar{display:none;}#main{margin:0;}.view{display:block!important;page-break-before:always;}.view:first-of-type{page-break-before:avoid;}}
 .pg-bar{display:flex;align-items:center;justify-content:space-between;padding:9px 16px;border-top:1px solid var(--border);background:var(--surface2);gap:12px;flex-wrap:wrap;}
 .pg-info{font-size:11px;color:var(--text2);font-family:var(--mono);white-space:nowrap;}
@@ -2424,7 +2432,7 @@ table.std{width:100%;border-collapse:collapse;font-size:12px;}
 #fi-panel-close{background:none;border:1px solid var(--border2);color:var(--text2);cursor:pointer;padding:4px 10px;border-radius:4px;font-size:11px;flex-shrink:0;transition:border-color .15s,color .15s;}
 #fi-panel-close:hover{border-color:var(--blue);color:var(--blue);}
 #fi-panel-tabs{display:flex;padding:0 16px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--surface2);}
-#fi-panel-content{flex:1;overflow-y:auto;padding:16px;}
+#fi-panel-content{flex:1;overflow-y:auto;padding:16px;scrollbar-width:thin;scrollbar-color:var(--scroll-thumb) var(--surface3);}
 </style>
 </head>
 <body>

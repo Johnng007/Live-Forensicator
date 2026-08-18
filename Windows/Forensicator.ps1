@@ -10902,6 +10902,8 @@ function HTMLFiles {
   --surface3:  #161e2e;
   --border:    #1e2d42;
   --border2:   #243650;
+  /* scrollbar thumb: >=3:1 against both track colours below */
+  --scroll-thumb: #5a748d;
 
   /* brand */
   --blue:      #3b82f6;
@@ -11025,7 +11027,7 @@ body {
   z-index: 200;
   padding: 16px 0 40px;
   scrollbar-width: thin;
-  scrollbar-color: var(--border2) transparent;
+  scrollbar-color: var(--scroll-thumb) var(--surface2);
 }
 
 .sb-section { margin-bottom: 4px; }
@@ -11499,6 +11501,32 @@ table.std {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
 
+/* The sidebar and the detection detail panel scroll independently of the
+   page, so they are the scrollbars an analyst actually has to find and grab
+   to reach the lower nav sections or the rest of a finding. Both used a 5px
+   --border2 (#243650) thumb, which is ~1.55:1 against --surface and ~1.45:1
+   against --surface2: effectively no scrollbar at all. Both now use
+   --scroll-thumb on a track one step lighter than their own background,
+   3.65:1 and 3.43:1, clearing the WCAG 1.4.11 3:1 floor for UI components.
+   The page-level scrollbar is left untouched. */
+#sidebar::-webkit-scrollbar { width: 9px; }
+#sidebar::-webkit-scrollbar-track { background: var(--surface2); }
+#sidebar::-webkit-scrollbar-thumb {
+  background: var(--scroll-thumb);
+  border-radius: 5px;
+  border: 2px solid var(--surface2);
+}
+#sidebar::-webkit-scrollbar-thumb:hover { background: var(--text2); }
+
+#fi-panel-content::-webkit-scrollbar { width: 9px; }
+#fi-panel-content::-webkit-scrollbar-track { background: var(--surface3); }
+#fi-panel-content::-webkit-scrollbar-thumb {
+  background: var(--scroll-thumb);
+  border-radius: 5px;
+  border: 2px solid var(--surface3);
+}
+#fi-panel-content::-webkit-scrollbar-thumb:hover { background: var(--text2); }
+
 /* ── NO-PRINT CONTROLS ─────────────────────────────────────────────────────── */
 @media print {
   #sidebar, #topbar { display: none; }
@@ -11642,7 +11670,7 @@ table.std {
   overflow-y: auto;
   padding: 16px;
   scrollbar-width: thin;
-  scrollbar-color: var(--border2) transparent;
+  scrollbar-color: var(--scroll-thumb) var(--surface3);
 }
 .fi-tab-panel          { display: none; }
 .fi-tab-panel.active   { display: block; }
