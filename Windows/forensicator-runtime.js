@@ -133,15 +133,16 @@ PaginatedTable.prototype.reload = function () {
 };
 
 PaginatedTable.prototype.render = function () {
-  var q    = this.query.toLowerCase();
-  var cols = this.cols;
+  var parsed  = parseFilterQuery(this.query);
+  var showAll = isEmptyFilterQuery(parsed);
+  var cols    = this.cols;
 
   this.filtered = this.allRows.filter(function (item) {
-    if (!q) return true;
+    if (showAll) return true;
     var tds = item.row.querySelectorAll('td');
-    return cols.map(function (i) {
+    return matchesFilterQuery(cols.map(function (i) {
       return tds[i] ? tds[i].innerText : '';
-    }).join(' ').toLowerCase().indexOf(q) !== -1;
+    }).join(' '), parsed);
   });
 
   var total = this.filtered.length;
@@ -225,6 +226,59 @@ function initPagination(tbodyId, filterCols, pageSize) {
 }
 
 /* ── TABLE FILTER — routes through paginator if registered ───────────────── */
+/* ── FILTER QUERY ─────────────────────────────────────────────────────────────
+   Query syntax shared by the plain and the paginated table filters:
+
+     foo            row must contain "foo"
+     foo bar        row must contain "foo" AND "bar"
+     "foo bar"      row must contain the exact phrase "foo bar"
+     -foo   !foo    row must NOT contain "foo"
+     -"foo bar"     row must NOT contain the phrase "foo bar"
+
+   Matching is still case-insensitive substring matching, so a single term
+   behaves exactly as it did before: no row that used to match is hidden now.
+*/
+function parseFilterQuery(q) {
+  var parsed = { include: [], exclude: [] };
+  if (!q) return parsed;
+  var re = /([-!])?(?:"([^"]*)"|(\S+))/g;
+  var m;
+  while ((m = re.exec(q)) !== null) {
+    var term = (m[2] !== undefined ? m[2] : (m[3] || '')).toLowerCase().trim();
+    if (!term) continue;
+    if (m[1]) parsed.exclude.push(term);
+    else      parsed.include.push(term);
+  }
+  return parsed;
+}
+
+function isEmptyFilterQuery(parsed) {
+  return parsed.include.length === 0 && parsed.exclude.length === 0;
+}
+
+function matchesFilterQuery(text, parsed) {
+  var t = String(text == null ? '' : text).toLowerCase();
+  var i;
+  for (i = 0; i < parsed.exclude.length; i++) {
+    if (t.indexOf(parsed.exclude[i]) !== -1) return false;
+  }
+  for (i = 0; i < parsed.include.length; i++) {
+    if (t.indexOf(parsed.include[i]) === -1) return false;
+  }
+  return true;
+}
+
+var FILTER_SYNTAX_HINT =
+  'foo bar = contains both   |   "foo bar" = exact phrase   |   -foo or !foo = exclude';
+
+/* Documents the syntax on every filter box without touching the report HTML. */
+function initFilterHints(root) {
+  var inputs = (root || document).querySelectorAll('.search-wrap input');
+  Array.prototype.forEach.call(inputs, function (input) {
+    if (!input.title) input.title = FILTER_SYNTAX_HINT;
+  });
+}
+
 function filterTable(tbodyId, q, cols) {
   if (_paginators[tbodyId]) {
     _paginators[tbodyId].filter(q);
@@ -232,12 +286,14 @@ function filterTable(tbodyId, q, cols) {
   }
   var tbody = document.getElementById(tbodyId);
   if (!tbody) return;
+  var parsed  = parseFilterQuery(q);
+  var showAll = isEmptyFilterQuery(parsed);
   var count = 0;
   tbody.querySelectorAll('tr').forEach(function (r) {
     var tds  = r.querySelectorAll('td');
     var text = cols.map(function (i) { return tds[i] ? tds[i].innerText : ''; })
-                   .join(' ').toLowerCase();
-    var show = !q || text.indexOf(q.toLowerCase()) !== -1;
+                   .join(' ');
+    var show = showAll || matchesFilterQuery(text, parsed);
     r.style.display = show ? '' : 'none';
     if (show) count++;
   });
@@ -872,6 +928,8 @@ document.addEventListener('DOMContentLoaded', function() {
   syncCount('hash-tbody',          'hash-count');
   syncCount('ioc-tbody',           'ioc-count');
   syncNetworkCards();
+
+  try { initFilterHints(); } catch(e) { console.error('[Forensicator] initFilterHints:', e); }
 
 });
 
