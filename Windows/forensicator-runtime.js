@@ -733,6 +733,141 @@ function buildEventLogBarCharts() {
 }
 
 /* ── BOOT ─────────────────────────────────────────────────────────────────── */
+/* ── COLUMN SORTING ───────────────────────────────────────────────────────────
+   Click a header cell to sort the table by that column, click again to reverse.
+   Works with and without the pagination engine. Detail rows (.d-detail) stay
+   attached to their parent row, placeholder rows ("Nothing found") are left
+   alone, and empty cells always sort last regardless of direction.
+
+   Header cells are wired up at load time, so no report HTML has to change.
+*/
+var _sortState = {};
+
+function sortCellText(row, colIndex) {
+  var tds = row.querySelectorAll('td');
+  return tds[colIndex] ? tds[colIndex].innerText.trim() : '';
+}
+
+function sortNumericValue(s) {
+  var t = s.replace(/\s/g, '');
+  if (!/^[+-]?\d+(\.\d+)?$/.test(t)) return null;
+  var n = parseFloat(t);
+  return isNaN(n) ? null : n;
+}
+
+function sortDateValue(s) {
+  /* every time column in the report is written as an ISO 8601 timestamp */
+  if (!/^\d{4}-\d{2}-\d{2}/.test(s)) return null;
+  var t = Date.parse(s);
+  return isNaN(t) ? null : t;
+}
+
+function compareSortValues(a, b) {
+  var na = sortNumericValue(a), nb = sortNumericValue(b);
+  if (na !== null && nb !== null) return na - nb;
+
+  var da = sortDateValue(a), db = sortDateValue(b);
+  if (da !== null && db !== null) return da - db;
+
+  /* numeric:true keeps file2 before file10 in otherwise alphabetical order */
+  return a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true });
+}
+
+function makeRowComparator(colIndex, dir) {
+  return function (rowA, rowB) {
+    var a = sortCellText(rowA, colIndex);
+    var b = sortCellText(rowB, colIndex);
+    if (a === '' && b === '') return 0;
+    if (a === '') return 1;
+    if (b === '') return -1;
+    return dir * compareSortValues(a, b);
+  };
+}
+
+/* Same pairing rules as PaginatedTable._readRows, for un-paginated tables. */
+function readRowItems(tbody) {
+  var items = [];
+  var rows = Array.prototype.filter.call(tbody.children, function (node) {
+    return node.tagName && node.tagName.toLowerCase() === 'tr';
+  });
+  for (var i = 0; i < rows.length; i++) {
+    var row = rows[i];
+    if (row.classList.contains('d-detail')) continue;
+    if (isPlaceholderRow(row)) continue;
+
+    var item = { row: row, detail: null };
+    if (row.classList.contains('d-row') && rows[i + 1] && rows[i + 1].classList.contains('d-detail')) {
+      item.detail = rows[i + 1];
+      i++;
+    }
+    items.push(item);
+  }
+  return items;
+}
+
+function markSortedHeader(th, dir) {
+  if (!th) return;
+  var thead = th.closest ? th.closest('thead') : null;
+  if (thead) {
+    thead.querySelectorAll('th .sort-mark').forEach(function (mark) {
+      mark.textContent = '';
+    });
+  }
+  var mark = th.querySelector('.sort-mark');
+  if (!mark) {
+    mark = document.createElement('span');
+    mark.className = 'sort-mark';
+    mark.style.marginLeft = '4px';
+    mark.style.opacity    = '0.85';
+    th.appendChild(mark);
+  }
+  mark.textContent = dir === 1 ? '▲' : '▼';
+}
+
+function sortTableBy(tbodyId, colIndex, th) {
+  var tbody = document.getElementById(tbodyId);
+  if (!tbody) return;
+
+  var state = _sortState[tbodyId];
+  var dir   = (state && state.col === colIndex) ? -state.dir : 1;
+  _sortState[tbodyId] = { col: colIndex, dir: dir };
+
+  var cmp   = makeRowComparator(colIndex, dir);
+  var pag   = _paginators[tbodyId];
+  var items = pag ? pag.allRows : readRowItems(tbody);
+
+  items.sort(function (x, y) { return cmp(x.row, y.row); });
+  items.forEach(function (item) {
+    tbody.appendChild(item.row);
+    if (item.detail) tbody.appendChild(item.detail);
+  });
+
+  /* re-render so the new order is paged from the top, filter still applied */
+  if (pag) { pag.page = 1; pag.render(); }
+
+  markSortedHeader(th, dir);
+}
+
+function initColumnSorting(root) {
+  var tables = (root || document).querySelectorAll('table');
+  Array.prototype.forEach.call(tables, function (table) {
+    var tbody = table.querySelector('tbody');
+    if (!tbody || !tbody.id) return;
+
+    var ths = table.querySelectorAll('thead th');
+    Array.prototype.forEach.call(ths, function (th, idx) {
+      if (th.getAttribute('data-sort-bound')) return;
+      th.setAttribute('data-sort-bound', '1');
+      th.style.cursor     = 'pointer';
+      th.style.userSelect = 'none';
+      if (!th.title) th.title = 'Sort by ' + th.innerText.trim();
+      th.addEventListener('click', function () {
+        sortTableBy(tbody.id, idx, th);
+      });
+    });
+  });
+}
+
 document.addEventListener('DOMContentLoaded', function() {
   try { normalizeEventLogPanels(); } catch(e) { console.error('[Forensicator] normalizeEventLogPanels:', e); }
   try { buildEventLogBarCharts(); } catch(e) { console.error('[Forensicator] buildEventLogBarCharts:', e); }
@@ -872,6 +1007,9 @@ document.addEventListener('DOMContentLoaded', function() {
   syncCount('hash-tbody',          'hash-count');
   syncCount('ioc-tbody',           'ioc-count');
   syncNetworkCards();
+
+  /* after initPagination, so paginated tables sort through their paginator */
+  try { initColumnSorting(); } catch(e) { console.error('[Forensicator] initColumnSorting:', e); }
 
 });
 
