@@ -10560,7 +10560,11 @@ function New-FIIcon {
 Write-ForensicLog "[*] Creating and Formatting the HTML files" -Level INFO -Section "CORE"
 
 
-$ArtifactRootPath = "$PSScriptRoot\$env:COMPUTERNAME"
+# Artifacts are written to <host>\artifacts\<Folder> (RAM, PCAP, EVTX,
+# GroupPolicy, HashMatches, IISLogs, TomCatLogs, LOG4J, BROWSING), so the Extras
+# browser has to root itself there. Without the artifacts segment every row
+# reports "Missing / 0 files" even when the folder holds the collected evidence.
+$ArtifactRootPath = "$PSScriptRoot\$env:COMPUTERNAME\artifacts"
 
 ###########################################################################################################
 #region ############################# INVESTIGATION SUMMARY  ##############################################
