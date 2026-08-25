@@ -65,7 +65,7 @@ For additional capabilities:
 ```bash
 avml        → RAM acquisition (https://github.com/microsoft/avml)
 sqlite3     → Browser history extraction
-python3     → Sigma rule engine
+python3     → Sigma rule engine, Forensicator AI
 debsums     → Package integrity verification on Debian/Ubuntu (rpm -Va is used on RHEL/Fedora, no extra install needed)
 ```
 
@@ -153,6 +153,35 @@ chmod +x Forensicator.sh
 * Artifacts are stored locally in the working directory
 * IOC lists, hash/URL feed sources, Sigma engine settings, and package-integrity timeouts are all configurable via `config.json`
 * Operator-maintained hash/IOC lists (`Forensicator-Share/custom_hashes.txt`, `Forensicator-Share/custom_iocs.txt`) are never overwritten by the auto-download feed refresh
+
+---
+
+## 🤖 Forensicator AI
+
+Off by default. When enabled, each finding is sent to a local or commercial LLM as it's collected, and gets a real, plain-language verdict written into that finding's `ai_analysis` field.
+
+**Quick setup (local LLM via Ollama):**
+
+```bash
+# 1. Install Ollama (https://ollama.com) and pull a model
+ollama pull mistral:7b-instruct
+
+# 2. Enable it in config.json
+```
+```jsonc
+"ai": {
+  "enabled": true,
+  "provider": "ollama",
+  "base_url": "http://localhost:11434",
+  "model": "mistral:7b-instruct"
+}
+```
+
+Run Forensicator as usual — no other flags needed. Prefer a commercial API instead (OpenAI, Anthropic, Azure OpenAI, or any OpenAI-compatible endpoint)? Set `provider` accordingly and add your `api_key`.
+
+Requires `python3` (no other dependency — HTTP calls go through Python's own standard library, not `curl`).
+
+> ⚠️ Each finding is a real LLM call — enabling this can noticeably extend total run time, especially on a cold-loaded model.
 
 ---
 

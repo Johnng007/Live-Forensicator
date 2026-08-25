@@ -1,0 +1,41 @@
+{
+  "devices": [
+    {
+      "_comment": "One entry per device. password_env names an environment variable to read the password from at runtime — never put a plaintext password in this file. port/timeout_seconds/fast_cli/global_delay_factor are optional (defaults shown here). If you see a Netmiko 'Pattern not detected' error, the device is slower to respond than expected (common for a device reached over the public internet rather than a LAN) — raise BOTH timeout_seconds (e.g. 60) and global_delay_factor (e.g. 2) for that device; timeout_seconds alone only covers the initial connection and each command's read timeout, not Netmiko's internal pattern-detection delays that global_delay_factor scales.",
+      "host": "192.0.2.1",
+      "device_type": "cisco_ios",
+      "username": "netops-readonly",
+      "password_env": "FORENSICATOR_NET_PASSWORD",
+      "port": 22,
+      "timeout_seconds": 30,
+      "fast_cli": false,
+      "global_delay_factor": 2.0,
+      "tags": ["core", "example"]
+    }
+  ],
+
+  "detection_rules": {
+    "_comment": "Toggle individual rules on/off without editing rules.json. A rule id absent from this map defaults to enabled.",
+    "insecure-mgmt-plane": true,
+    "weak-snmp-community": true,
+    "unauthorized-local-accounts": true,
+    "missing-aaa": true
+  },
+
+  "expected_local_users": {
+    "_comment": "Baseline allow-list for the unauthorized-local-accounts rule. Any 'username <x>' line in running-config not in this list is flagged per device (device_overrides can extend/replace the global list for one host).",
+    "global": ["netops-readonly", "admin"],
+    "device_overrides": {}
+  },
+
+  "ai": {
+    "_comment": "Forensicator AI is OFF by default. Set enabled=true and point base_url/model at a local LLM (e.g. Ollama) or a commercial API to get a per-finding verdict written into each finding's ai_analysis field, shown in reports/index.html and printed to the console as each finding is analyzed. Same provider/config shape as the Windows/Linux/macOS collectors: provider: ollama | openai | openai_compatible | azure_openai | anthropic. api_key is only needed for openai/openai_compatible/azure_openai/anthropic. max_evidence_rows caps how much of a large finding's evidence (e.g. a full running-config) is actually sent to the LLM per call.",
+    "enabled": false,
+    "provider": "ollama",
+    "base_url": "http://localhost:11434",
+    "api_key": "",
+    "model": "mistral:7b-instruct",
+    "timeout_seconds": 60,
+    "max_evidence_rows": 15
+  }
+}

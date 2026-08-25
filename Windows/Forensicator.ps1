@@ -156,13 +156,13 @@ Write-Host "[•] Website    : https://forensicator.io"                  -Foregr
 Write-Host ""
 
 Write-Host "[*] Initializing evidence collection..." -ForegroundColor Yellow
-Start-Sleep -Milliseconds 300
+[System.Threading.Thread]::Sleep(300)
 
 Write-Host "[✓] Loading modules..." -ForegroundColor Green
-Start-Sleep -Milliseconds 150
+[System.Threading.Thread]::Sleep(150)
 
 Write-Host "[✓] Enumerating operating system..." -ForegroundColor Green
-Start-Sleep -Milliseconds 150
+[System.Threading.Thread]::Sleep(150)
 
 # ── Forensicator AI status check ─────────────────────────────────────────────
 # Runs before the transcript starts (so it's visible either way) and before
@@ -461,7 +461,7 @@ else {
 #endregion 
 
 Write-Host "[✓] Initializing logging..." -ForegroundColor Green
-Start-Sleep -Milliseconds 150
+[System.Threading.Thread]::Sleep(150)
 
 #############################################################################################################
 #region   LOGGING INITIALISATION
@@ -5168,7 +5168,7 @@ Start-NetEventSession -Name $session | Out-Null
 
 
 Write-ForensicLog "[*] Capturing for $netshduration seconds..." -Level INFO -Section "NETWORKTRACE"
-Start-Sleep -Seconds $netshduration
+[System.Threading.Thread]::Sleep([int]($netshduration * 1000))
 
 
 Stop-NetEventSession -Name $session
@@ -5198,7 +5198,7 @@ if($PCAP){
                --file-name $pcapPath 2>&1 | Out-Null
 
         Write-ForensicLog "[*] Capturing for $netshduration seconds..." -Level INFO -Section "NETWORKTRACE"
-        Start-Sleep -Seconds $netshduration
+        [System.Threading.Thread]::Sleep([int]($netshduration * 1000))
 
         pktmon stop | Out-Null
 
@@ -5211,7 +5211,7 @@ if($PCAP){
   Write-ForensicLog "[*] Running....." -Level INFO -Section "NETWORKTRACE"
    $netshduration   = $configData.net_capture_duration
   netsh trace start capture=yes Ethernet.Type=IPv4 tracefile=$PSScriptRoot\$env:COMPUTERNAME\artifacts\PCAP\$env:computername.et1 | Out-Null
-  Start-Sleep -s $netshduration
+  [System.Threading.Thread]::Sleep([int]($netshduration * 1000))
   $job = Start-Job { netsh trace stop } | Out-Null
   Wait-Job $job
   Receive-Job $job
@@ -7450,7 +7450,11 @@ if($IsDomainController){
     $krbtgtAgeDays = if($krbtgtPwdLastSet){ [Math]::Round(((Get-Date) - $krbtgtPwdLastSet).TotalDays, 1) } else { $null }
     $krbtgtRisk    = if($null -eq $krbtgtAgeDays){ "Unknown" } elseif($krbtgtAgeDays -gt 180){ "High — password older than 180 days" } else { "Low" }
 
-    $krbtgtScoreOverride = $(if($krbtgtRisk -like "High*"){85}elseif($krbtgtRisk -eq "Unknown"){40}else{15})
+    # Capped at 55 (Medium), not 85 (Critical) — per policy, an aged KRBTGT
+    # password is not a confirmed IOC match or a high-severity Sigma match,
+    # so it can't be allowed to read Critical/High regardless of how
+    # legitimately concerning it is on its own.
+    $krbtgtScoreOverride = $(if($krbtgtRisk -like "High*"){55}elseif($krbtgtRisk -eq "Unknown"){40}else{15})
     $Evidence = [System.Collections.Generic.List[object]]::new()
     $Evidence.Add(@{
         password_last_set = $(if($krbtgtPwdLastSet){ $krbtgtPwdLastSet.ToString("o") } else { "Unknown" })
@@ -9689,7 +9693,10 @@ foreach ($sigmaHit in $sigmaFindings) {
 
 # Severity must reflect the actual matched rule(s), not a blanket per-type value —
 # take the highest-severity rule level seen across this run's matches.
-$sigmaLevelScores = @{ critical = 95; high = 75; medium = 50; low = 25; informational = 10 }
+# critical/high both cap at 79 (top of the High band, never Critical) — per
+# policy, only a confirmed IOC match (hash-match/ioc-url) may read Critical;
+# a Sigma match, however the rule author labeled it, tops out at High.
+$sigmaLevelScores = @{ critical = 79; high = 72; medium = 50; low = 25; informational = 10 }
 $sigmaScoreOverride = -1
 $sigmaTopRuleTitle = $null
 foreach ($sigmaHit in $sigmaFindings) {

@@ -210,6 +210,48 @@ yellow "[!] reliable for analysis."
 yellow "====================================================="
 echo ""
 
+# ── Forensicator AI status check ─────────────────────────────────────────────
+# A real reachability probe (not just "enabled in config.json"), printed
+# once up front so the operator knows before collection starts whether
+# findings will get an AI verdict this run. Never blocks/fails the
+# acquisition — any outcome here is purely informational. FAI_ENABLED is
+# cached here (not re-derived per finding) so write_finding_json()'s
+# per-finding AI call is a single cheap comparison, with zero overhead
+# when AI is off. Mirrors the Windows collector's own startup probe.
+FAI_ENABLED="false"
+FAI_BANNER_SHOWN=0
+FAI_FINDING_COUNTER=0
+if command -v python3 >/dev/null 2>&1; then
+    fai_probe_result=$(python3 "./Forensicator-Share/forensicator_ai_client.py" probe 2>/dev/null)
+    case "$fai_probe_result" in
+        DISABLED)
+            echo -e "\e[90m[•] Forensicator AI : Disabled — set ai.enabled=true in config.json for AI verdicts on findings\e[0m"
+            ;;
+        ONLINE*)
+            FAI_ENABLED="true"
+            green "[✓] Forensicator AI : ${fai_probe_result#ONLINE } responded — findings will include AI verdicts this run."
+            ;;
+        UNREACHABLE*)
+            # Deliberately leave FAI_ENABLED false here — a divergence from
+            # the Windows collector, which attempts a full-timeout call per
+            # finding regardless of probe outcome. On an unattended run
+            # with ~90 checks and a default 60s timeout, that's up to 90
+            # minutes lost to a config that just failed the same reachability
+            # test seconds ago. If the endpoint comes back mid-run there's
+            # no way to know, but that's an acceptable tradeoff against a
+            # near-hour of dead time on a run that's already unattended.
+            yellow "[!] Forensicator AI : Enabled but unreachable — ${fai_probe_result#UNREACHABLE }"
+            yellow "[!] Forensicator AI : Findings will NOT include AI verdicts this run."
+            ;;
+        *)
+            echo -e "\e[90m[•] Forensicator AI : Status check produced no result — continuing without it.\e[0m"
+            ;;
+    esac
+else
+    echo -e "\e[90m[•] Forensicator AI : python3 not found — AI verdicts unavailable this run\e[0m"
+fi
+echo ""
+
 # Recording start time
 startdate=$(date)
 
@@ -1079,6 +1121,32 @@ write_finding_json() {
   }
 }
 FINDINGJSON
+
+    # Forensicator AI (optional, opt-in via config.json's "ai" block — see
+    # Forensicator-Share/forensicator_ai_client.py, a port of the Windows
+    # collector's ForensicatorAiClient.ps1). Never allowed to fail or even
+    # slow down collection when disabled: FAI_ENABLED is read once at
+    # startup, so this is a single cheap string comparison per finding
+    # when AI is off, with zero process spawned.
+    if [[ "$FAI_ENABLED" == "true" ]]; then
+        if [[ "$FAI_BANNER_SHOWN" != "1" ]]; then
+            FAI_BANNER_SHOWN=1
+            echo ""
+            yellow "[*] Starting AI Analysis — each check's findings are sent to the configured LLM as they're collected."
+            yellow "[*] This runs inline with acquisition and can noticeably extend total run time, especially on a cold-loaded model."
+        fi
+        FAI_FINDING_COUNTER=$((FAI_FINDING_COUNTER + 1))
+        echo "  [AI ${FAI_FINDING_COUNTER}] Analyzing '${title}'..."
+        local ai_result ai_ms
+        ai_result=$(python3 "./Forensicator-Share/forensicator_ai_client.py" process "$out_file" 2>/dev/null)
+        ai_ms="${ai_result##*ms=}"
+        [[ "$ai_ms" == "$ai_result" || -z "$ai_ms" ]] && ai_ms="?"
+        if [[ "$ai_result" == RESULT\ status=complete* ]]; then
+            green "  [AI ${FAI_FINDING_COUNTER}] Verdict received (${ai_ms}ms)"
+        else
+            yellow "  [AI ${FAI_FINDING_COUNTER}] No verdict (${ai_ms}ms)"
+        fi
+    fi
 }
 
 # Generate all per-check finding JSON files

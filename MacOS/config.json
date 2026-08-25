@@ -212,5 +212,15 @@
     ".wannacry",
     ".xcrypt",
     ".zeppelin"
-  ]
+  ],
+  "ai": {
+    "_comment": "Forensicator AI is OFF by default. Set enabled=true and point base_url/model at a local LLM (e.g. Ollama) or a commercial API to get a per-finding verdict written into each finding's ai_analysis field. provider: ollama | openai | openai_compatible | azure_openai | anthropic. api_key is only needed for openai/openai_compatible/azure_openai/anthropic.",
+    "enabled": false,
+    "provider": "ollama",
+    "base_url": "http://localhost:11434",
+    "api_key": "",
+    "model": "mistral:7b-instruct",
+    "timeout_seconds": 60,
+    "max_evidence_rows": 15
+  }
 }

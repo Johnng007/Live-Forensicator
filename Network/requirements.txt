@@ -1,0 +1,9 @@
+# Live Forensicator - Network Devices module
+# Deliberately minimal: this is the smallest set of third-party packages
+# that actually does something we can't reasonably reimplement ourselves
+# (SSH/vendor-driver handling, CLI-output parsing templates). Reporting
+# and config parsing intentionally use only the Python standard library
+# (plain JSON, plain string HTML) to match the zero-extra-dependency
+
+netmiko>=4.3.0
+ntc-templates>=6.0.0

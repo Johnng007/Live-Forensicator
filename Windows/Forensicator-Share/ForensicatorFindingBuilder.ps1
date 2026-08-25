@@ -752,8 +752,27 @@ function Get-ForensicatorCaseSummary {
         }
     }
 
+    # Policy: only a confirmed IOC match (hash-match/ioc-url) may read
+    # Critical, and only a high-severity Sigma match may read High —
+    # every other finding type's base_risk_score is capped at Medium (<=59)
+    # for exactly this reason. The breadth bonus below rewards an intrusion
+    # that touches multiple ATT&CK tactics, but it must never be what tips
+    # the OVERALL reading into a higher band than the single worst finding
+    # already earned — otherwise stacking enough routine Medium-tier
+    # findings across different tactics could read as High/Critical with no
+    # actual high-signal finding driving it, which is exactly what this
+    # policy forbids. So the bonus can move the score within maxScore's own
+    # band, never past its ceiling.
     $activeBucketCount = @($bucketMax.Values | Where-Object { $_ -ge 35 }).Count
-    $overallScore = [Math]::Min(100, $maxScore + [Math]::Max(0, $activeBucketCount - 1) * 3)
+    $breadthBonus = [Math]::Max(0, $activeBucketCount - 1) * 3
+    $maxScoreBand = Get-ForensicatorSeverityForScore -Score $maxScore
+    $bandCeiling = switch ($maxScoreBand.level) {
+        "Critical" { 100 }
+        "High"     { 79 }
+        "Medium"   { 59 }
+        default    { 34 }
+    }
+    $overallScore = [Math]::Min($bandCeiling, $maxScore + $breadthBonus)
     $overallBand = Get-ForensicatorSeverityForScore -Score $overallScore
 
     $riskBreakdownRaw = foreach ($b in $Script:ForensicatorRiskBuckets) {

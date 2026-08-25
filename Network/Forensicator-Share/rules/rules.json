@@ -1,0 +1,28 @@
+{
+  "_comment": "Declarative/tunable parts of each detection rule — keyword lists, required patterns, which artifact each rule reads, which device_types it applies to. The structural evaluation logic itself lives in engine.py as a small named function per rule (these checks are inherently block/baseline-structured, not flat field comparisons — see engine.py's module docstring). Enable/disable per rule via config.json's detection_rules block, not here. insecure-mgmt-plane/weak-snmp-community/missing-aaa deliberately exclude juniper_junos and vyos — those patterns match Cisco/Arista IOS-style config syntax specifically (transport input, snmp-server community, aaa authentication login), none of which exist in Junos/VyOS's set-style config syntax. unauthorized-local-accounts DOES cover vyos/juniper_junos too — engine.py dispatches to a vendor-specific extractor per device_type (Cisco's 'username <name>' lines vs. VyOS/Junos's 'set system login user <name>' lines), so this one rule is genuinely correct across both syntax families rather than excluded.",
+  "rules": [
+    {
+      "id": "insecure-mgmt-plane",
+      "applies_to": ["cisco_ios", "cisco_ios_xe", "cisco_nxos", "arista_eos"],
+      "artifact_key": "running-config",
+      "telnet_patterns": ["transport input telnet", "transport input all"]
+    },
+    {
+      "id": "weak-snmp-community",
+      "applies_to": ["cisco_ios", "cisco_ios_xe", "cisco_nxos", "arista_eos"],
+      "artifact_key": "running-config",
+      "weak_communities": ["public", "private"]
+    },
+    {
+      "id": "unauthorized-local-accounts",
+      "applies_to": ["cisco_ios", "cisco_ios_xe", "cisco_nxos", "arista_eos", "vyos", "juniper_junos"],
+      "artifact_key": "running-config"
+    },
+    {
+      "id": "missing-aaa",
+      "applies_to": ["cisco_ios", "cisco_ios_xe", "cisco_nxos", "arista_eos"],
+      "artifact_key": "running-config",
+      "required_patterns": ["aaa authentication login"]
+    }
+  ]
+}
