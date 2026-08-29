@@ -4309,6 +4309,72 @@ $script:BrowserFragmentRows = New-Object System.Text.StringBuilder
 $script:IocHits             = [System.Collections.Generic.List[PSCustomObject]]::new()
 $script:AllBrowserRecords   = [System.Collections.Generic.List[PSCustomObject]]::new()
 
+# Browser DOWNLOAD history — a separate table from Executables in Downloads
+# (that one scans the Downloads folder on disk; this is the browser's own
+# download-event records: source URL, initiating tab, and whether the file
+# was actually opened). Malicious hits feed into the SAME $script:IocHits
+# list as browsing history so they surface in the report's combined IOC
+# Matches badge without any extra wiring.
+$script:DownloadFragmentRows = New-Object System.Text.StringBuilder
+$script:AllDownloadRecords   = [System.Collections.Generic.List[PSCustomObject]]::new()
+
+# ---------------------------------------------------------
+# THREAT-INTEL FEED FETCH — shared by the malicious-URL list (below) and
+# the hash-match list (HASHLOOKUP section, further down).
+# ---------------------------------------------------------
+function Save-MergedThreatIntelFeed {
+    param(
+        [array]$Sources,
+        [string]$OutputPath,
+        [string]$Section,
+        [int]$TimeoutSec = 30
+    )
+    # config.json documents *_source (hash_source/url_source) as an
+    # array — @() here normalizes a single string, a real array, or a
+    # missing/null value into one, so callers never need to care which
+    # shape they got. Downloads EVERY configured source and merges them
+    # into ONE file at $OutputPath, rather than only ever fetching the
+    # first entry. Each source's own host gets the pre-flight
+    # reachability check — never a hardcoded one — so this can't
+    # silently drift out of sync with config.json the way the old
+    # single-host check did (it was checking bazaar.abuse.ch while
+    # actually fetching from urlhaus.abuse.ch).
+    $urls = @($Sources | Where-Object { $_ })
+    if($urls.Count -eq 0){ return $false }
+
+    $downloadedAny = $false
+    $merged = New-Object System.Text.StringBuilder
+    foreach($url in $urls){
+        try{
+            $uriHost = ([System.Uri]$url).Host
+
+            # Quick TCP reachability check without Test-NetConnection overhead
+            $tcp = [System.Net.Sockets.TcpClient]::new()
+            $connected = $tcp.ConnectAsync($uriHost, 443).Wait(3000)
+            $tcp.Dispose()
+
+            if(-not $connected){
+                Write-ForensicLog "[!] $uriHost unreachable — skipping this feed" -Level WARN -Section $Section
+                continue
+            }
+
+            Write-ForensicLog "[*] Downloading from $uriHost..." -Level INFO -Section $Section
+            $resp = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec $TimeoutSec -ErrorAction Stop
+            [void]$merged.AppendLine("# --- Source: $url ---")
+            [void]$merged.AppendLine($resp.Content)
+            $downloadedAny = $true
+        }
+        catch{
+            Write-ForensicLog "[!] Download failed for $url — $($_.Exception.Message)" -Level ERROR -Section $Section
+        }
+    }
+
+    if($downloadedAny){
+        $merged.ToString() | Out-File $OutputPath -Encoding utf8
+    }
+    return $downloadedAny
+}
+
 # ---------------------------------------------------------
 # MALICIOUS URL LIST — used for flagging bad URLs in history
 # ---------------------------------------------------------
@@ -4323,28 +4389,15 @@ $configFile = "$PSScriptRoot\config.json"
 
 
 
-if($null -ne $configData){
-    $urlSource = $configData.url_source
+$urlSources = @()
+if($null -ne $configData -and $null -ne $configData.url_source){
+    $urlSources = @($configData.url_source)
 }
 
 if(-not (Test-Path $maliciousUrlsFilePath)){
     Write-ForensicLog "[*] malicious_URLs.txt not found — attempting download..." -Level INFO -Section "BROWSER_HISTORY"
-    try{
-        # Quick TCP reachability check without Test-NetConnection overhead
-        $tcp = [System.Net.Sockets.TcpClient]::new()
-        $connected = $tcp.ConnectAsync("bazaar.abuse.ch", 443).Wait(3000)
-        $tcp.Dispose()
-
-        if($connected){
-            Write-ForensicLog "[*] Downloading from abuse.ch..." -Level INFO -Section "BROWSER_HISTORY"
-            Invoke-WebRequest -Uri $urlSource -OutFile $maliciousUrlsFilePath -UseBasicParsing -TimeoutSec 30
-        }
-        else{
-            Write-ForensicLog "[!] bazaar.abuse.ch unreachable — malicious URL checking disabled" -Level ERROR -Section "BROWSER_HISTORY"
-        }
-    }
-    catch{
-        Write-ForensicLog "[!] Download failed — malicious URL checking disabled" -Level ERROR -Section "BROWSER_HISTORY"
+    if(-not (Save-MergedThreatIntelFeed -Sources $urlSources -OutputPath $maliciousUrlsFilePath -Section "BROWSER_HISTORY")){
+        Write-ForensicLog "[!] All malicious-URL feed source(s) unreachable or failed — malicious URL checking disabled" -Level ERROR -Section "BROWSER_HISTORY"
     }
 }
 
@@ -4366,7 +4419,7 @@ if(Test-Path $maliciousUrlsFilePath){
             [void]$maliciousDomainSet.Add($_.Trim().ToLower())
         }
 
-    Write-ForensicLog "[*] Loaded $($maliciousDomainSet.Count) malicious URL(s)" -Level INFO -Section "BROWSER_HISTORY" -Detail "Source: $($maliciousDomainSet.Count) entries from $urlSource"
+    Write-ForensicLog "[*] Loaded $($maliciousDomainSet.Count) malicious URL(s)" -Level INFO -Section "BROWSER_HISTORY" -Detail "Source: $($maliciousDomainSet.Count) entries from $($urlSources -join ', ')"
 }
 
 # ---------------------------------------------------------
@@ -4600,6 +4653,176 @@ function Process-ChromiumBrowser {
 }
 
 # ---------------------------------------------------------
+# CHROMIUM DOWNLOAD HISTORY
+# The downloads/downloads_url_chains tables live in the SAME History
+# SQLite file as urls/visits — a different table, not a different file
+# or a different lock to fight for. downloads_url_chains records every
+# redirect hop; the highest chain_index per download id is the URL the
+# file was actually served from.
+#
+# Firefox downloads are handled separately by Process-FirefoxDownloads
+# below (a materially different schema — JSON blobs in places.sqlite's
+# moz_annos table rather than Chromium's normalized downloads table).
+# ---------------------------------------------------------
+function Get-ChromeDangerLabel {
+    param([string]$DangerType)
+    # Chrome's own Safe Browsing verdict at download time — a signal
+    # independent of this collector's own IOC blocklist. Only the
+    # long-stable low-numbered values are labeled with confidence;
+    # everything else still means "Chrome itself flagged this,"
+    # just without claiming to know exactly which newer category.
+    switch ($DangerType) {
+        "0" { return "Not flagged" }
+        "1" { return "Dangerous file" }
+        "2" { return "Dangerous URL" }
+        "3" { return "Dangerous content" }
+        "4" { return "Maybe dangerous (unscanned)" }
+        "5" { return "Uncommon content" }
+        "7" { return "Dangerous host" }
+        "8" { return "Potentially unwanted" }
+        ""  { return "Unknown" }
+        default { return "Flagged by browser (type $DangerType)" }
+    }
+}
+
+function Save-DownloadOutput {
+    param([array]$Records, [string]$Browser, [string]$UserName, [string]$ProfileSuffix="")
+
+    if ($Records.Count -eq 0) { return }
+
+    foreach ($r in $Records) {
+        $iocCell = if ($r.IsMalicious) {
+            "<span style='color:#ef4444;font-weight:600;'>&#9888; IOC</span>"
+        } else {
+            "<span style='color:#7f8c8d;font-weight:600;'>Clean</span>"
+        }
+        $rowClass = if ($r.IsMalicious) { " class='ioc-row'" } else { "" }
+        [void]$script:DownloadFragmentRows.Append("<tr$rowClass>")
+        [void]$script:DownloadFragmentRows.Append("<td>$(Escape-Html $r.User)</td>")
+        [void]$script:DownloadFragmentRows.Append("<td>$($r.Browser)</td>")
+        [void]$script:DownloadFragmentRows.Append("<td class='url-cell'>$(Escape-Html $r.URL)</td>")
+        [void]$script:DownloadFragmentRows.Append("<td class='url-cell'>$(Escape-Html $r.TargetPath)</td>")
+        [void]$script:DownloadFragmentRows.Append("<td>$($r.StartTime)</td>")
+        [void]$script:DownloadFragmentRows.Append("<td>$(if($r.Opened){'Yes'}else{'No'})</td>")
+        [void]$script:DownloadFragmentRows.Append("<td>$(Escape-Html $r.DangerLabel)</td>")
+        [void]$script:DownloadFragmentRows.Append("<td>$iocCell</td>")
+        [void]$script:DownloadFragmentRows.Append("</tr>")
+    }
+
+    # Same $script:IocHits list browsing-history IOC hits feed into — the
+    # existing IOC_DATA JS array (built later from this list) reads
+    # .LastVisit/.URL/.User/.Browser/.Profile, all present here too, so a
+    # malicious download surfaces in the report's combined IOC Matches
+    # badge with zero changes to that existing code.
+    $Records | Where-Object { $_.IsMalicious } | ForEach-Object {
+        $script:IocHits.Add($_)
+    }
+
+    foreach ($r in $Records) {
+        $script:AllDownloadRecords.Add([PSCustomObject]@{
+            user           = $r.User
+            browser        = $r.Browser
+            profile        = $r.Profile
+            url            = $r.URL
+            tab_url        = $r.TabUrl
+            target_path    = $r.TargetPath
+            start_time     = $r.StartTime
+            end_time       = $r.EndTime
+            opened         = $r.Opened
+            received_bytes = $r.ReceivedBytes
+            total_bytes    = $r.TotalBytes
+            mime_type      = $r.MimeType
+            danger_type    = $r.DangerLabel
+            is_malicious   = $r.IsMalicious
+        })
+    }
+}
+
+function Process-ChromiumDownloads {
+    param(
+        [string]$UserPath,
+        [string]$BrowserName,
+        [string]$UserDataRelPath
+    )
+
+    $userDataPath = "$UserPath\$UserDataRelPath"
+    if(-not (Test-Path $userDataPath)){ return }
+
+    $userName    = Split-Path $UserPath -Leaf
+    $profileDirs = Get-ChildItem $userDataPath -Directory |
+                   Where-Object { $_.Name -match '^(Default|Profile \d+)$' }
+
+    foreach($profileDir in $profileDirs){
+        $dbPath = "$($profileDir.FullName)\History"
+        if(-not (Test-Path $dbPath)){ continue }
+
+        $query = "SELECT d.target_path, d.tab_url, d.start_time, d.end_time, d.danger_type, d.opened, d.received_bytes, d.total_bytes, d.mime_type, c.url " +
+                 "FROM downloads d LEFT JOIN downloads_url_chains c ON d.id = c.id " +
+                 "WHERE c.chain_index = (SELECT MAX(chain_index) FROM downloads_url_chains WHERE id = d.id) " +
+                 "ORDER BY d.start_time DESC"
+        $result = Invoke-SQLiteQuery $dbPath $query
+        $sep    = $result.Separator
+
+        $records = foreach($row in $result.Rows){
+            if([string]::IsNullOrWhiteSpace($row)){ continue }
+
+            # Positional split — unlike the 2-column history query above,
+            # this has too many columns for the "last token wins" hack to
+            # work, but 0x1F never legitimately appears in a path/URL/
+            # timestamp, so splitting straight on it is safe here.
+            $parts = $row -split [regex]::Escape($sep)
+            if($parts.Count -lt 10){ continue }
+
+            $targetPath    = $parts[0].Trim()
+            $tabUrl        = $parts[1].Trim()
+            $startRaw      = $parts[2].Trim()
+            $endRaw        = $parts[3].Trim()
+            $dangerType    = $parts[4].Trim()
+            $openedRaw     = $parts[5].Trim()
+            $receivedBytes = $parts[6].Trim()
+            $totalBytes    = $parts[7].Trim()
+            $mimeType      = $parts[8].Trim()
+            $url           = $parts[9].Trim()
+
+            $startTime = "N/A"
+            [long]$ts  = 0
+            if([long]::TryParse($startRaw, [ref]$ts)){ $startTime = Convert-ChromeTime $ts }
+
+            $endTime = "N/A"
+            [long]$te  = 0
+            if([long]::TryParse($endRaw, [ref]$te)){ $endTime = Convert-ChromeTime $te }
+
+            # Chrome's own Safe Browsing verdict counts as a malicious hit
+            # too, independent of this collector's own blocklist — 1/2/3
+            # are the actively-dangerous verdicts, 7/8 are host/PUA flags.
+            $chromeFlagged = $dangerType -in @("1","2","3","7","8")
+
+            [PSCustomObject]@{
+                User          = $userName
+                Browser       = $BrowserName
+                Profile       = $profileDir.Name
+                URL           = $url
+                TabUrl        = $tabUrl
+                TargetPath    = $targetPath
+                LastVisit     = $startTime
+                StartTime     = $startTime
+                EndTime       = $endTime
+                Opened        = ($openedRaw -eq "1")
+                ReceivedBytes = $receivedBytes
+                TotalBytes    = $totalBytes
+                MimeType      = $mimeType
+                DangerType    = $dangerType
+                DangerLabel   = Get-ChromeDangerLabel $dangerType
+                IsMalicious   = $chromeFlagged -or (Test-MaliciousUrl $url) -or (Test-MaliciousUrl $tabUrl)
+            }
+        }
+
+        $profileSuffix = if($profileDir.Name -ne "Default"){ $profileDir.Name } else { "" }
+        Save-DownloadOutput $records $BrowserName $userName $profileSuffix
+    }
+}
+
+# ---------------------------------------------------------
 # FIREFOX
 # Dynamically discovers all release/default profiles
 # ---------------------------------------------------------
@@ -4645,6 +4868,123 @@ function Process-FirefoxHistory {
         }
 
         Save-HistoryOutput $records "Firefox" $userName $profile.Name
+    }
+}
+
+# ---------------------------------------------------------
+# FIREFOX DOWNLOAD HISTORY
+# Firefox keeps no separate downloads database — download metadata lives
+# as annotations (moz_annos) on the same moz_places rows browsing history
+# comes from, joined via moz_anno_attributes. Two annotations per
+# download: one holding the destination file:// URI, one holding a JSON
+# blob (state/endTime/fileSize/deleted). Sources disagree on the exact
+# destination-annotation name ("downloads/destinationFileURI" vs.
+# "downloads/destFileURI") — joining on LIKE 'downloads/dest%' matches
+# either rather than gambling on one. Not tracked anywhere in this
+# schema (unlike Chrome's explicit "opened" column): whether the user
+# actually opened the file after downloading — left as N/A rather than
+# guessed.
+# ---------------------------------------------------------
+function Convert-FirefoxMetaTime {
+    # The endTime embedded INSIDE the metaData JSON blob is plain
+    # milliseconds-since-1970 (written by Firefox's own JS via
+    # Date.now()-style calls) — NOT PRTime microseconds like the
+    # surrounding moz_annos.dateAdded/moz_places.last_visit_date columns
+    # Convert-FirefoxTime handles. Different unit, easy to get wrong by
+    # reusing that function here.
+    param([long]$t)
+    if($t -le 0){ return "N/A" }
+    try{ return ([datetime]'1970-01-01').AddMilliseconds($t).ToString("yyyy-MM-dd HH:mm:ss") }
+    catch{ return "N/A" }
+}
+
+function Get-FirefoxDownloadStateLabel {
+    param([string]$State)
+    # Only the long-stable, high-confidence values are labeled by name;
+    # same hedged-confidence approach as Get-ChromeDangerLabel.
+    switch ($State) {
+        "1" { return "Finished" }
+        "2" { return "Failed" }
+        "3" { return "Canceled" }
+        "4" { return "Paused" }
+        ""  { return "Unknown" }
+        default { return "State $State" }
+    }
+}
+
+function Process-FirefoxDownloads {
+    param([string]$UserPath)
+
+    $profilesPath = "$UserPath\AppData\Roaming\Mozilla\Firefox\Profiles"
+    if(-not (Test-Path $profilesPath)){ return }
+
+    $userName = Split-Path $UserPath -Leaf
+
+    foreach($profile in Get-ChildItem $profilesPath -Directory){
+        $dbPath = "$($profile.FullName)\places.sqlite"
+        if(-not (Test-Path $dbPath)){ continue }
+
+        $query = "SELECT p.url, destAnno.content, destAnno.dateAdded, metaAnno.content " +
+                 "FROM moz_places p " +
+                 "JOIN moz_annos destAnno ON destAnno.place_id = p.id " +
+                 "JOIN moz_anno_attributes destAttr ON destAttr.id = destAnno.anno_attribute_id AND destAttr.name LIKE 'downloads/dest%' " +
+                 "JOIN moz_annos metaAnno ON metaAnno.place_id = p.id " +
+                 "JOIN moz_anno_attributes metaAttr ON metaAttr.id = metaAnno.anno_attribute_id AND metaAttr.name = 'downloads/metaData' " +
+                 "ORDER BY destAnno.dateAdded DESC"
+        $result = Invoke-SQLiteQuery $dbPath $query
+        $sep    = $result.Separator
+
+        $records = foreach($row in $result.Rows){
+            if([string]::IsNullOrWhiteSpace($row)){ continue }
+
+            $parts = $row -split [regex]::Escape($sep)
+            if($parts.Count -lt 4){ continue }
+
+            $url         = $parts[0].Trim()
+            $destUriRaw  = $parts[1].Trim()
+            $addedRaw    = $parts[2].Trim()
+            $metaRaw     = $parts[3].Trim()
+
+            # file:// URI -> local filesystem path
+            $targetPath = $destUriRaw
+            try{
+                $uri = [System.Uri]$destUriRaw
+                if($uri.IsFile){ $targetPath = [System.Uri]::UnescapeDataString($uri.LocalPath) }
+            } catch {}
+
+            $startTime = "N/A"
+            [long]$ts  = 0
+            if([long]::TryParse($addedRaw, [ref]$ts)){ $startTime = Convert-FirefoxTime $ts }
+
+            $state = ""; $endTime = "N/A"; $totalBytes = ""
+            try{
+                $meta = $metaRaw | ConvertFrom-Json -ErrorAction Stop
+                if($null -ne $meta.state){ $state = "$($meta.state)" }
+                if($meta.endTime){ $endTime = Convert-FirefoxMetaTime ([long]$meta.endTime) }
+                if($meta.fileSize){ $totalBytes = "$($meta.fileSize)" }
+            } catch {}
+
+            [PSCustomObject]@{
+                User          = $userName
+                Browser       = "Firefox"
+                Profile       = $profile.Name
+                URL           = $url
+                TabUrl        = ""
+                TargetPath    = $targetPath
+                LastVisit     = $startTime
+                StartTime     = $startTime
+                EndTime       = $endTime
+                Opened        = $false   # not tracked anywhere in this schema — see region comment
+                ReceivedBytes = $totalBytes
+                TotalBytes    = $totalBytes
+                MimeType      = ""
+                DangerType    = $state
+                DangerLabel   = Get-FirefoxDownloadStateLabel $state
+                IsMalicious   = Test-MaliciousUrl $url
+            }
+        }
+
+        Save-DownloadOutput $records "Firefox" $userName $profile.Name
     }
 }
 
@@ -4707,13 +5047,18 @@ foreach($user in $users){
         Process-ChromiumBrowser -UserPath $user `
                                 -BrowserName $browser.Name `
                                 -UserDataRelPath $browser.RelPath
+        Process-ChromiumDownloads -UserPath $user `
+                                  -BrowserName $browser.Name `
+                                  -UserDataRelPath $browser.RelPath
     }
 
-    Process-FirefoxHistory $user
-    Process-IEHistory      $user
+    Process-FirefoxHistory   $user
+    Process-FirefoxDownloads $user
+    Process-IEHistory        $user
 }
 
 Write-ForensicLog "[!] Browser history extraction complete" -Level SUCCESS -Section "BROWSER_HISTORY"
+Write-ForensicLog "[!] Browser download history extraction complete — $($script:AllDownloadRecords.Count) download(s) found across Chromium browsers and Firefox" -Level SUCCESS -Section "BROWSER_HISTORY"
 
 # Export browser history JSON finding
 $BrowserFinding = New-ForensicatorFinding -ArtifactKey "browser-history" -Evidence $script:AllBrowserRecords.ToArray()
@@ -4723,6 +5068,13 @@ $BrowserJsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\browser\
 New-Item -ItemType Directory -Force -Path "$PSScriptRoot\$env:COMPUTERNAME\investigation\browser" | Out-Null
 $BrowserFinding | ConvertTo-Json -Depth 10 | Out-File $BrowserJsonOutputPath -Encoding utf8
 #Write-ForensicLog "[!] Browser History JSON finding exported to: $BrowserJsonOutputPath" -Level SUCCESS -Section "BROWSER_HISTORY"
+
+# Export browser download history JSON finding
+$DownloadFinding = New-ForensicatorFinding -ArtifactKey "browser-downloads" -Evidence $script:AllDownloadRecords.ToArray()
+$DownloadFinding.summary.malicious_hits = @($script:AllDownloadRecords | Where-Object { $_.is_malicious }).Count
+
+$DownloadJsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\browser\browser-downloads-finding.json"
+$DownloadFinding | ConvertTo-Json -Depth 10 | Out-File $DownloadJsonOutputPath -Encoding utf8
 
 
 #endregion
@@ -5184,32 +5536,82 @@ if($PCAP){
 
   Write-ForensicLog ""
 
-    #mkdir $PSScriptRoot\$env:COMPUTERNAME\PCAP -ErrorAction SilentlyContinue | Out-Null
     $pcapPath = "$PSScriptRoot\$env:COMPUTERNAME\artifacts\PCAP\$env:COMPUTERNAME.pcapng"
-    $netshduration   = $configData.net_capture_duration
-    # Check pktmon supports direct pcapng output (build 2004+)
+    $etlPath  = "$PSScriptRoot\$env:COMPUTERNAME\artifacts\PCAP\$env:COMPUTERNAME.etl"
+    # The old mkdir here was commented out AND pointed at the wrong path
+    # (...\PCAP instead of ...\artifacts\PCAP, which $pcapPath actually
+    # uses) — so this directory was never created, pktmon start silently
+    # failed trying to write into it, and the code below logged SUCCESS
+    # anyway without checking. New-Item covers both the pktmon and
+    # netsh-fallback branches below, which share this same directory.
+    New-Item -ItemType Directory -Force -Path (Split-Path $pcapPath) | Out-Null
+    # Select-Object -First 1 guards against net_capture_duration being
+    # written as a one-element array in config.json (an easy copy-paste
+    # mistake from hash_source/url_source right above it, which ARE
+    # meant to be arrays) — without it, PowerShell's array-repetition
+    # semantics turn "$netshduration * 1000" into a huge array instead
+    # of arithmetic, and [int](...) on that throws an opaque
+    # "Cannot convert System.Object[] to System.Int32" with no hint
+    # this was a config typo.
+    $netshduration = $configData.net_capture_duration | Select-Object -First 1
+    if(-not $netshduration){ $netshduration = 120 }
+    $netshduration = [int]$netshduration
+    # 19041 (2004) is when pktmon.exe itself gained the etl2pcap
+    # subcommand this branch relies on — below that, fall back to
+    # netsh trace + an external converter binary instead.
     $build = [System.Environment]::OSVersion.Version.Build
     
 
     if($build -ge 19041){
         Write-ForensicLog "[*] Starting Network Trace via pktmon" -Level INFO -Section "NETWORKTRACE"
-        # Direct pcapng output — no conversion needed
-        pktmon start --capture --pkt-size 0 --log-mode circular `
-               --file-name $pcapPath 2>&1 | Out-Null
+        # pktmon always captures in ETL format regardless of the
+        # --file-name extension given — there is no "direct pcapng
+        # output" mode (confirmed against Microsoft's own pktmon docs).
+        # The previous code asked pktmon to write straight to a .pcapng
+        # file-name, which it rejected with ERROR_BAD_PATHNAME (exit
+        # 161). Capture to .etl, then convert with pktmon's own built-in
+        # etl2pcap subcommand — added in the same 2004/19041 update that
+        # gates this branch, so it's guaranteed present here; no
+        # external converter binary needed for this path at all (the
+        # netsh-fallback branch below still needs one, for builds where
+        # pktmon itself may not exist).
+        $startOutput = pktmon start --capture --pkt-size 0 --log-mode circular --file-name $etlPath 2>&1 | Out-String
+        $startExitCode = $LASTEXITCODE
 
-        Write-ForensicLog "[*] Capturing for $netshduration seconds..." -Level INFO -Section "NETWORKTRACE"
-        [System.Threading.Thread]::Sleep([int]($netshduration * 1000))
+        if($startExitCode -ne 0){
+            Write-ForensicLog "[!] pktmon start failed (exit $startExitCode) — capture not performed" -Level ERROR -Section "NETWORKTRACE" -Detail $startOutput.Trim()
+        }
+        else{
+            Write-ForensicLog "[*] Capturing for $netshduration seconds..." -Level INFO -Section "NETWORKTRACE"
+            [System.Threading.Thread]::Sleep([int]($netshduration * 1000))
 
-        pktmon stop | Out-Null
+            $stopOutput = pktmon stop 2>&1 | Out-String
 
-        Write-ForensicLog "[!] Capture complete — PCAP saved to $pcapPath" -Level SUCCESS -Section "NETWORKTRACE" -Detail "Captured $netshduration seconds of network traffic to $pcapPath"
+            $capturedEtl = Get-Item $etlPath -ErrorAction SilentlyContinue
+            if(-not $capturedEtl -or $capturedEtl.Length -eq 0){
+                Write-ForensicLog "[!] pktmon reported no error, but no ETL file was produced at $etlPath" -Level ERROR -Section "NETWORKTRACE" -Detail "pktmon stop output: $($stopOutput.Trim())"
+            }
+            else{
+                Write-ForensicLog "[*] Converting ETL to PCAP via pktmon etl2pcap..." -Level INFO -Section "NETWORKTRACE"
+                $convertOutput = pktmon etl2pcap $etlPath --out $pcapPath 2>&1 | Out-String
+                $convertExitCode = $LASTEXITCODE
 
+                # As before: verify the actual output file rather than
+                # trusting a clean exit code alone.
+                $capturedPcap = Get-Item $pcapPath -ErrorAction SilentlyContinue
+                if($convertExitCode -eq 0 -and $capturedPcap -and $capturedPcap.Length -gt 0){
+                    Write-ForensicLog "[!] Capture complete — PCAP saved to $pcapPath" -Level SUCCESS -Section "NETWORKTRACE" -Detail "Captured $netshduration seconds of network traffic to $pcapPath ($($capturedPcap.Length) bytes). Raw ETL retained at $etlPath — etl2pcap drops packet-drop-reason and component-ID detail that only the ETL preserves."
+                }
+                else{
+                    Write-ForensicLog "[!] pktmon etl2pcap conversion failed (exit $convertExitCode) — raw ETL retained at $etlPath for manual conversion" -Level ERROR -Section "NETWORKTRACE" -Detail $convertOutput.Trim()
+                }
+            }
+        }
     }
     else{
 
         Write-ForensicLog "[*] Starting Network Trace" -Level INFO -Section "NETWORKTRACE"
   Write-ForensicLog "[*] Running....." -Level INFO -Section "NETWORKTRACE"
-   $netshduration   = $configData.net_capture_duration
   netsh trace start capture=yes Ethernet.Type=IPv4 tracefile=$PSScriptRoot\$env:COMPUTERNAME\artifacts\PCAP\$env:computername.et1 | Out-Null
   [System.Threading.Thread]::Sleep([int]($netshduration * 1000))
   $job = Start-Job { netsh trace stop } | Out-Null
@@ -5520,10 +5922,10 @@ $execExtensions = if($null -ne $configData -and $configData.PSObject.Properties[
     @("*.exe","*.dll","*.bat","*.cmd","*.ps1","*.vbs","*.js","*.hta","*.scr","*.com")
 }
 
-$hashSource   = if($null -ne $configData -and $configData.PSObject.Properties["hash_source"]){
-    $configData.hash_source
+$hashSources = if($null -ne $configData -and $configData.PSObject.Properties["hash_source"] -and $configData.hash_source){
+    @($configData.hash_source)
 } else {
-    "https://bazaar.abuse.ch/export/txt/md5/recent/"
+    @("https://bazaar.abuse.ch/export/txt/md5/recent/")
 }
 
 $hashFilePath = "$PSScriptRoot\Forensicator-Share\md5hashes.txt"
@@ -5543,23 +5945,16 @@ if(-not $needsDownload){
 }
 
 if($needsDownload){
-    try{
-        $tcp = [System.Net.Sockets.TcpClient]::new()
-        if($tcp.ConnectAsync("bazaar.abuse.ch", 443).Wait(3000)){
-            Invoke-WebRequest -Uri $hashSource -OutFile $hashFilePath `
-                              -UseBasicParsing -TimeoutSec 60 -ErrorAction Stop
-            Write-ForensicLog "Hash file downloaded" -Level SUCCESS -Section "HASHLOOKUP"
-        }
-        $tcp.Dispose()
+    if(Save-MergedThreatIntelFeed -Sources $hashSources -OutputPath $hashFilePath -Section "HASHLOOKUP" -TimeoutSec 60){
+        Write-ForensicLog "Hash file downloaded" -Level SUCCESS -Section "HASHLOOKUP"
     }
-    catch{
-        Write-ForensicLog "Hash file download failed: $($_.Exception.Message)" `
-                          -Level ERROR -Section "HASHLOOKUP"
+    else{
+        Write-ForensicLog "Hash file download failed — all configured hash_source(s) unreachable or failed" -Level ERROR -Section "HASHLOOKUP"
     }
 }
 
 if(-not (Test-Path $hashFilePath)){
-    Write-ForensicLog "No hash file available — cannot proceed" -Level ERROR -Section "HASHLOOKUP" -Detail "Hash lookup stage requires a local hash file. Attempted to download from $hashSource but failed. Check network connectivity and try again."
+    Write-ForensicLog "No hash file available — cannot proceed" -Level ERROR -Section "HASHLOOKUP" -Detail "Hash lookup stage requires a local hash file. Attempted to download from $($hashSources -join ', ') but failed. Check network connectivity and try again."
 }
 
 # ---------------------------------------------------------
@@ -10868,15 +11263,15 @@ function New-ExtrasArtifactRow {
 }
 
 $ExtrasArtifactsFragment = @(
-  (New-ExtrasArtifactRow -Label 'RAM Capture'                 -Folder 'RAM'              -Patterns @('*.raw','*.dmp','*.vmem')),
-  (New-ExtrasArtifactRow -Label 'Network Capture'             -Folder 'PCAP'             -Patterns @('*.pcap','*.pcapng','*.etl')),
+  (New-ExtrasArtifactRow -Label 'RAM Capture'                 -Folder 'artifacts\RAM'              -Patterns @('*.raw','*.dmp','*.vmem')),
+  (New-ExtrasArtifactRow -Label 'Network Capture'             -Folder 'artifacts\PCAP'             -Patterns @('*.pcap','*.pcapng','*.etl')),
 #  (New-ExtrasArtifactRow -Label 'Forensicator Logs' -Folder 'LOGS'             -Patterns @('*.csv','*.json','*.txt')),
-  (New-ExtrasArtifactRow -Label 'Hash Matches'                -Folder 'HashMatches'      -Patterns @('*.csv','*.json','*.txt')),
-  (New-ExtrasArtifactRow -Label 'Group Policy Report'         -Folder 'GroupPolicy'      -Patterns @('*.html')),
-  (New-ExtrasArtifactRow -Label 'EVTX Logs'                   -Folder 'EVTX'             -Patterns @('*.evtx')),
-  (New-ExtrasArtifactRow -Label 'IIS Logs'                    -Folder 'IISLogs'          -Patterns @('*.log')),
-  (New-ExtrasArtifactRow -Label 'TomCat Logs'                 -Folder 'TomCatLogs'       -Patterns @('*.log')),
-  (New-ExtrasArtifactRow -Label 'Log4j Findings'              -Folder 'LOG4J'       -Patterns @('*.txt'))
+  (New-ExtrasArtifactRow -Label 'Hash Matches'                -Folder 'artifacts\HashMatches'      -Patterns @('*.csv','*.json','*.txt')),
+  (New-ExtrasArtifactRow -Label 'Group Policy Report'         -Folder 'artifacts\GroupPolicy'      -Patterns @('*.html')),
+  (New-ExtrasArtifactRow -Label 'EVTX Logs'                   -Folder 'artifacts\EVTX'             -Patterns @('*.evtx')),
+  (New-ExtrasArtifactRow -Label 'IIS Logs'                    -Folder 'artifacts\IISLogs'          -Patterns @('*.log')),
+  (New-ExtrasArtifactRow -Label 'TomCat Logs'                 -Folder 'artifacts\TomCatLogs'       -Patterns @('*.log')),
+  (New-ExtrasArtifactRow -Label 'Log4j Findings'              -Folder 'artifacts\LOG4J'       -Patterns @('*.txt'))
 
   
 ) -join "`n"
@@ -13119,7 +13514,7 @@ window.nav = window.nav || function(id) {
   <div class="view-header">
     <div>
       <div class="view-title">Browser History</div>
-      <div class="view-sub">Chrome, Firefox, Edge, IE history — IOC matches flagged in red</div>
+      <div class="view-sub">Chrome, Firefox, Edge, IE history and Chromium download history — IOC matches flagged in red</div>
     </div>
   </div>
 
@@ -13143,6 +13538,30 @@ window.nav = window.nav || function(id) {
           <tr><th>User</th><th>Browser</th><th>Profile</th><th>URL</th><th>Last Visit</th><th>IOC</th></tr>
         </thead>
         <tbody id="browser-tbody">$($script:BrowserFragmentRows)</tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <div class="panel-title">⬇️ Browser Downloads <span class="panel-count" id="browser-downloads-count">0</span></div>
+      <div class="panel-actions">
+        <button class="btn" onclick="filterBrowserDownloads('ioc')">🔴 Show IOC Only</button>
+        <button class="btn" onclick="filterBrowserDownloads('all')">Show All</button>
+      </div>
+    </div>
+    <div class="search-bar">
+      <div class="search-wrap">
+        <span class="search-ico">⌕</span>
+        <input type="text" placeholder="Search URL, saved path, browser..." oninput="filterTable('browser-downloads-tbody', this.value, [0,1,2,3])"/>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table class="std">
+        <thead>
+          <tr><th>User</th><th>Browser</th><th>Download URL</th><th>Saved To</th><th>Started</th><th>Opened</th><th>Verdict</th><th>IOC</th></tr>
+        </thead>
+        <tbody id="browser-downloads-tbody">$($script:DownloadFragmentRows)</tbody>
       </table>
     </div>
   </div>
@@ -14110,12 +14529,29 @@ window.filterBrowser = function(mode) {
   var rows = document.querySelectorAll('#browser-tbody tr');
   rows.forEach(function(r){
     if (mode==='ioc') {
-      r.style.display = r.querySelector('.flag-cell') ? '' : 'none';
+      // Rows check .ioc-row on the <tr> itself (set server-side when
+      // IsMalicious) — .flag-cell is a defined CSS class but was never
+      // actually applied to anything here, so this used to always show
+      // zero rows regardless of real IOC hits.
+      r.style.display = r.classList.contains('ioc-row') ? '' : 'none';
     } else {
       r.style.display = '';
     }
   });
   syncLiveBadge('browser-tbody', getVisibleDataRows(tbody).length);
+};
+
+window.filterBrowserDownloads = function(mode) {
+  var tbody = document.getElementById('browser-downloads-tbody');
+  var rows = document.querySelectorAll('#browser-downloads-tbody tr');
+  rows.forEach(function(r){
+    if (mode==='ioc') {
+      r.style.display = r.classList.contains('ioc-row') ? '' : 'none';
+    } else {
+      r.style.display = '';
+    }
+  });
+  syncLiveBadge('browser-downloads-tbody', getVisibleDataRows(tbody).length);
 };
 
 /* ── OVERVIEW BUILD ─────────────────────────────────────────────────────────── */
@@ -14289,6 +14725,7 @@ document.addEventListener('DOMContentLoaded', function() {
   initPagination('svc-tbody',            [0, 1, 2, 3, 4],            25);
   initPagination('tasks-tbody',          [0, 1, 2, 3],               25);
   initPagination('browser-tbody',        [0, 1, 2, 3],               25);
+  initPagination('browser-downloads-tbody', [0, 1, 2, 3],            25);
   initPagination('usb-tbody',            [0, 1, 2, 3],               25);
   initPagination('image-tbody',          [0, 1, 2, 3],               25);
   initPagination('upnp-tbody',           [0, 1, 2, 3],               25);
@@ -14318,6 +14755,7 @@ document.addEventListener('DOMContentLoaded', function() {
   syncCount('svc-tbody',           'svc-count');
   syncCount('tasks-tbody',         'tasks-count');
   syncCount('browser-tbody',       'browser-count');
+  syncCount('browser-downloads-tbody', 'browser-downloads-count');
   syncCount('usb-tbody',           'usb-count');
   syncCount('image-tbody',         'image-count');
   syncCount('upnp-tbody',          'upnp-count');

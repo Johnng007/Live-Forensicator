@@ -76,6 +76,7 @@ class NetmikoConnection:
         device_type: str,
         username: str,
         password: str,
+        secret: str = "",
         port: int = 22,
         timeout_seconds: int = 30,
         fast_cli: bool = False,
@@ -92,6 +93,12 @@ class NetmikoConnection:
             "host": host,
             "username": username,
             "password": password,
+            # Used by enable() below to escalate from user EXEC ('>') to
+            # privileged EXEC ('#') on Cisco/Arista-family devices whose
+            # login account doesn't already land at privilege 15 — see
+            # the comment in connect(). Harmless if unused: platforms
+            # with no enable-mode concept (VyOS, Junos) never read it.
+            "secret": secret,
             "port": port,
             "timeout": timeout_seconds,
             "fast_cli": fast_cli,
@@ -115,6 +122,12 @@ class NetmikoConnection:
         # individual command, not just the connection.
         self.read_timeout_seconds = timeout_seconds
         self._conn = None
+        # Set by connect() if enable() fails — non-fatal (see connect()'s
+        # comment): collection continues, but privileged-only commands on
+        # that device will likely fail one by one with a much more
+        # cryptic "% Invalid input detected" from the device itself, so
+        # the caller should surface this once up front instead.
+        self.enable_error: Optional[str] = None
 
     def connect(self) -> Optional[str]:
         """Returns None on success, or an error message after exhausting retries."""
@@ -122,6 +135,24 @@ class NetmikoConnection:
         for attempt in range(self.connect_retries + 1):
             try:
                 self._conn = ConnectHandler(**self._device_params)
+                # Escalates '>' (user EXEC) to '#' (privileged EXEC) on
+                # Cisco/Arista-family devices whose login account doesn't
+                # already land at privilege 15 — without this, commands
+                # like "show running-config" or "show archive config
+                # differences ..." fail with "% Invalid input detected"
+                # even though the command itself is correct. Safe to call
+                # unconditionally: Netmiko's enable() is a documented
+                # no-op if already in privileged mode, and platforms with
+                # no enable-mode concept (VyOS, Junos) use a NoEnableMixin
+                # that returns "" rather than erroring.
+                try:
+                    self._conn.enable()
+                except Exception as exc:
+                    self.enable_error = (
+                        f"could not enter privileged/enable mode ({exc}) — privileged-only commands on this "
+                        "device will likely fail. If this account needs enable-mode escalation, set its "
+                        "secret_env in config.json."
+                    )
                 return None
             except NetmikoAuthenticationException as exc:
                 # Retrying won't fix bad credentials — fail fast rather

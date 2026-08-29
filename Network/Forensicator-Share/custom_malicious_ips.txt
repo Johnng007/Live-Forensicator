@@ -1,0 +1,30 @@
+# ============================================================
+# Forensicator (Network Devices) - Custom Operator Malicious IP List
+# ============================================================
+# Add known-malicious IPs or CIDR ranges here, one per line.
+# Lines starting with # are ignored.
+#
+# This file is NEVER overwritten by the auto-refresh of
+# malicious_ips_cache.txt (config.json's threat_intel.malicious_ip_sources).
+# Safe to append at any time.
+#
+# Checked by the transit-known-malicious-destination rule against each
+# device's NAT/conntrack session table (config.json's threat_intel block).
+#
+# Supported entry formats:
+#   203.0.113.55        <- single IP
+#   198.51.100.0/24      <- CIDR range
+#
+# Use case examples:
+#   - C2 infrastructure identified in a prior incident on this fleet
+#   - IOCs from a threat intel feed not otherwise wired in here
+#   - A specific IP flagged in an active investigation
+#
+# Sources to check for malicious IPs:
+#   https://threatfox.abuse.ch/
+#   https://feodotracker.abuse.ch/
+#   https://otx.alienvault.com/
+#   https://isc.sans.edu/
+# ============================================================
+
+# 203.0.113.55

@@ -23,6 +23,120 @@
       "applies_to": ["cisco_ios", "cisco_ios_xe", "cisco_nxos", "arista_eos"],
       "artifact_key": "running-config",
       "required_patterns": ["aaa authentication login"]
+    },
+    {
+      "id": "logic-implant-persistence",
+      "_note": "arista_eos excluded — EOS has no EEM-equivalent event/action engine (real platform limitation, confirmed via collectors/arista_eos.py). baseline_required: presence-type rule, see engine.py module docstring.",
+      "applies_to": ["cisco_ios", "cisco_ios_xe", "cisco_nxos", "juniper_junos", "vyos"],
+      "artifact_key": "event-manager",
+      "baseline_required": true
+    },
+    {
+      "id": "boot-image-tampering",
+      "_note": "Cisco/Arista-family only — Junos/VyOS use image-based boot systems, not a 'boot system <path>' config line.",
+      "applies_to": ["cisco_ios", "cisco_ios_xe", "cisco_nxos", "arista_eos"],
+      "artifact_key": "running-config",
+      "baseline_required": true
+    },
+    {
+      "id": "image-hash-mismatch",
+      "_note": "Best-effort version-identifier check, not cryptographic hash verification — see knowledge_base.py's entry and engine.py's _eval_image_hash_mismatch(). Pure-diff rule: no finding at all when known_good_image_hashes is unpopulated.",
+      "applies_to": ["cisco_ios", "cisco_ios_xe", "cisco_nxos", "arista_eos", "juniper_junos", "vyos"],
+      "artifact_key": "version",
+      "baseline_required": true
+    },
+    {
+      "id": "unexpected-flash-files",
+      "applies_to": ["cisco_ios", "cisco_ios_xe", "cisco_nxos", "arista_eos", "juniper_junos", "vyos"],
+      "artifact_key": "flash-listing",
+      "baseline_required": true
+    },
+    {
+      "id": "logging-tampering",
+      "_note": "Cisco/Arista-family only — 'no logging'/'logging buffered <n>' is IOS-style config syntax.",
+      "applies_to": ["cisco_ios", "cisco_ios_xe", "cisco_nxos", "arista_eos"],
+      "artifact_key": "running-config",
+      "baseline_required": true
+    },
+    {
+      "id": "syslog-destination-changed",
+      "_note": "Cisco/Arista-family only — 'logging host'/'logging server' is IOS-style config syntax. Allowlist-membership rule: no finding when expected_syslog_servers is unpopulated (nothing to compare against).",
+      "applies_to": ["cisco_ios", "cisco_ios_xe", "cisco_nxos", "arista_eos"],
+      "artifact_key": "running-config",
+      "baseline_required": true
+    },
+    {
+      "id": "ntp-tampering",
+      "applies_to": ["cisco_ios", "cisco_ios_xe", "cisco_nxos", "arista_eos", "juniper_junos", "vyos"],
+      "artifact_key": "ntp-associations",
+      "baseline_required": true
+    },
+    {
+      "id": "active-session-unexpected-source",
+      "applies_to": ["cisco_ios", "cisco_ios_xe", "cisco_nxos", "arista_eos", "juniper_junos", "vyos"],
+      "artifact_key": "sessions",
+      "baseline_required": true
+    },
+    {
+      "id": "aaa-fallback-abuse",
+      "_note": "vyos excluded — no native TACACS+/RADIUS command-accounting subsystem comparable to Cisco's, confirmed real platform limitation from the original design brief.",
+      "applies_to": ["cisco_ios", "cisco_ios_xe", "cisco_nxos", "arista_eos", "juniper_junos"],
+      "artifact_key": "logging",
+      "baseline_required": false
+    },
+    {
+      "id": "brute-force-pattern",
+      "applies_to": ["cisco_ios", "cisco_ios_xe", "cisco_nxos", "arista_eos", "juniper_junos", "vyos"],
+      "artifact_key": "logging",
+      "baseline_required": false
+    },
+    {
+      "id": "unexpected-span-session",
+      "_note": "vyos excluded — no native SPAN/port-mirroring feature comparable to switch platforms (real platform limitation, confirmed via collectors/vyos.py).",
+      "applies_to": ["cisco_ios", "cisco_ios_xe", "cisco_nxos", "arista_eos", "juniper_junos"],
+      "artifact_key": "span-sessions",
+      "baseline_required": true
+    },
+    {
+      "id": "unexpected-tunnel-interface",
+      "_note": "Cisco/Arista-family only — 'interface Tunnel' is IOS-style config syntax.",
+      "applies_to": ["cisco_ios", "cisco_ios_xe", "cisco_nxos", "arista_eos"],
+      "artifact_key": "running-config",
+      "baseline_required": true
+    },
+    {
+      "id": "acl-loosened",
+      "_note": "Cisco/Arista-family only — the 'permit ip any any' keyword pattern doesn't appear in Junos/VyOS's firewall-filter syntax, so applies_to is scoped to where this check can actually match something (not excluded for platform-limitation reasons like the others above — just a regex-coverage gap).",
+      "applies_to": ["cisco_ios", "cisco_ios_xe", "cisco_nxos", "arista_eos"],
+      "artifact_key": "access-lists",
+      "baseline_required": false
+    },
+    {
+      "id": "device-outbound-c2",
+      "applies_to": ["cisco_ios", "cisco_ios_xe", "cisco_nxos", "arista_eos", "juniper_junos", "vyos"],
+      "artifact_key": "device-sockets",
+      "baseline_required": true
+    },
+    {
+      "id": "config-drift-running-vs-startup",
+      "_note": "vyos excluded — the real running-vs-saved diff command is 'compare saved', which only works inside configuration mode. This collector deliberately never enters configuration mode (read-only, operational-mode-only by design), so there's no valid read-only equivalent on VyOS.",
+      "applies_to": ["cisco_ios", "cisco_ios_xe", "cisco_nxos", "arista_eos", "juniper_junos"],
+      "artifact_key": "config-diff",
+      "baseline_required": false
+    },
+    {
+      "id": "config-section-hash-mismatch",
+      "_note": "Applies to all vendors — engine.py's section-extraction regex covers both Cisco-style (aaa/access-list/ip route) and Junos/VyOS-style (set system login/set protocols) syntax in the same pass.",
+      "applies_to": ["cisco_ios", "cisco_ios_xe", "cisco_nxos", "arista_eos", "juniper_junos", "vyos"],
+      "artifact_key": "running-config",
+      "baseline_required": true
+    },
+    {
+      "id": "transit-known-malicious-destination",
+      "_note": "Scoped to cisco_ios/cisco_ios_xe (show ip nat translations) and vyos (show conntrack table ipv4) — the only device types with a confirmed-real, read-only session/NAT table this collector can query. cisco_nxos/arista_eos/juniper_junos are typically not doing NAT/stateful conntrack in this collector's supported roles, and no verified read-only equivalent was found for them. Unlike device-outbound-c2 (the device's OWN sockets), this rule inspects the device's forwarded/transit traffic — e.g. a workstation behind the router reaching a known-bad IP — checked against config.json's threat_intel.malicious_ip_sources blocklist rather than an 'expected' baseline.",
+      "applies_to": ["cisco_ios", "cisco_ios_xe", "vyos"],
+      "artifact_key": "transit-sessions",
+      "baseline_required": true
     }
   ]
 }

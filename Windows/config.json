@@ -6,9 +6,7 @@
     "url_source": [
     "https://urlhaus.abuse.ch/downloads/text_recent/"
   ],
-    "net_capture_duration": [
-    "120"
-  ],
+    "net_capture_duration": 120,
   "executables_extensions": [
     "*.exe",
     "*.dll",

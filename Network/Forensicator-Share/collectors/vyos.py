@@ -25,6 +25,25 @@ COMMANDS: Dict[str, str] = {
     "ssh-config": "show configuration commands | match ssh",
     "clock": "show system uptime",
     "ntp-associations": "show ntp",
+    "event-manager": "show configuration commands | match \"task-scheduler\"",
+    "flash-listing": "ls -la /config/scripts/",
+    # No "span-sessions" — VyOS has no native SPAN/port-mirroring feature
+    # comparable to switch platforms (confirmed real platform limitation);
+    # the SPAN-session rule's applies_to excludes vyos entirely.
+    #
+    # VyOS's CLI is vbash (a bash shell with "show"/"set"/"configure"
+    # layered in as functions), not a restricted command tree like IOS —
+    # confirmed via a real device: plain Linux commands run directly,
+    # no shell-escape prefix needed.
+    "device-sockets": "netstat -tupn",
+    "transit-sessions": "show conntrack table ipv4",
+    # No "config-diff" — the real diff-vs-saved-config command is
+    # `compare saved`, but it only works inside configuration mode, which
+    # this collector deliberately never enters (read-only, operational
+    # mode only, by design). Confirmed separately via a real device that
+    # "show system commit-log" is not a valid command either.
+    # config-drift-running-vs-startup's applies_to excludes vyos for
+    # this reason.
 }
 
 

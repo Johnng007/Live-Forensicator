@@ -1,11 +1,12 @@
 {
   "devices": [
     {
-      "_comment": "One entry per device. password_env names an environment variable to read the password from at runtime — never put a plaintext password in this file. port/timeout_seconds/fast_cli/global_delay_factor are optional (defaults shown here). If you see a Netmiko 'Pattern not detected' error, the device is slower to respond than expected (common for a device reached over the public internet rather than a LAN) — raise BOTH timeout_seconds (e.g. 60) and global_delay_factor (e.g. 2) for that device; timeout_seconds alone only covers the initial connection and each command's read timeout, not Netmiko's internal pattern-detection delays that global_delay_factor scales.",
+      "_comment": "One entry per device. password_env names an environment variable to read the password from at runtime — never put a plaintext password in this file. secret_env is the same idea for the enable/privileged-mode secret — optional, only needed if this account doesn't already log in at privilege 15 (Cisco/Arista-family devices only; ignored on VyOS/Junos, which have no enable-mode concept). Without it, a login that lands in user EXEC ('>') will fail privileged-only commands like 'show running-config' with '% Invalid input detected' — watch for a WARN-level 'could not enter privileged/enable mode' log line at connect time if that happens. port/timeout_seconds/fast_cli/global_delay_factor are optional (defaults shown here). If you see a Netmiko 'Pattern not detected' error, the device is slower to respond than expected (common for a device reached over the public internet rather than a LAN) — raise BOTH timeout_seconds (e.g. 60) and global_delay_factor (e.g. 2) for that device; timeout_seconds alone only covers the initial connection and each command's read timeout, not Netmiko's internal pattern-detection delays that global_delay_factor scales.",
       "host": "192.0.2.1",
       "device_type": "cisco_ios",
       "username": "netops-readonly",
       "password_env": "FORENSICATOR_NET_PASSWORD",
+      "secret_env": "FORENSICATOR_NET_SECRET",
       "port": 22,
       "timeout_seconds": 30,
       "fast_cli": false,
@@ -15,17 +16,28 @@
   ],
 
   "detection_rules": {
-    "_comment": "Toggle individual rules on/off without editing rules.json. A rule id absent from this map defaults to enabled.",
+    "_comment": "Toggle individual rules on/off without editing rules.json. A rule id absent from this map defaults to enabled — every rule below is listed explicitly so this block doubles as a reference of what's available.",
     "insecure-mgmt-plane": true,
     "weak-snmp-community": true,
     "unauthorized-local-accounts": true,
-    "missing-aaa": true
-  },
-
-  "expected_local_users": {
-    "_comment": "Baseline allow-list for the unauthorized-local-accounts rule. Any 'username <x>' line in running-config not in this list is flagged per device (device_overrides can extend/replace the global list for one host).",
-    "global": ["netops-readonly", "admin"],
-    "device_overrides": {}
+    "missing-aaa": true,
+    "logic-implant-persistence": true,
+    "boot-image-tampering": true,
+    "image-hash-mismatch": true,
+    "unexpected-flash-files": true,
+    "logging-tampering": true,
+    "syslog-destination-changed": true,
+    "ntp-tampering": true,
+    "active-session-unexpected-source": true,
+    "aaa-fallback-abuse": true,
+    "brute-force-pattern": true,
+    "unexpected-span-session": true,
+    "unexpected-tunnel-interface": true,
+    "acl-loosened": true,
+    "device-outbound-c2": true,
+    "config-drift-running-vs-startup": true,
+    "config-section-hash-mismatch": true,
+    "transit-known-malicious-destination": true
   },
 
   "ai": {
@@ -37,5 +49,38 @@
     "model": "mistral:7b-instruct",
     "timeout_seconds": 60,
     "max_evidence_rows": 15
+  },
+
+  "baselines": {
+    "_comment": "Baselines for all 20 rules (rules/rules.json, each rule's baseline_required flag). All optional — an unpopulated key just means that specific rule finds nothing to compare against; see rules/engine.py's module docstring for exactly how each of the two rule families (presence-type vs. pure-diff vs. allowlist-membership) behaves when its baseline here is empty. Populate these gradually as you review real findings from your fleet, not all at once before first use.",
+    "expected_local_users": {
+      "_comment": "Baseline allow-list for the unauthorized-local-accounts rule. Any local-account line found in running-config not in this list is flagged per device (device_overrides can extend/replace the global list for one host).",
+      "global": ["netops-readonly", "admin"],
+      "device_overrides": {}
+    },
+    "expected_automation_policies": [],
+    "expected_boot_image_path": null,
+    "known_good_image_hashes": {},
+    "expected_flash_files": [],
+    "expected_min_logging_buffer": 16384,
+    "expected_syslog_servers": [],
+    "expected_ntp_servers": [],
+    "expected_management_ip_ranges": [],
+    "brute_force_failure_threshold": 5,
+    "expected_span_sessions": [],
+    "expected_tunnel_endpoints": [],
+    "expected_device_outbound_destinations": [],
+    "baseline_section_hashes": {}
+  },
+
+  "threat_intel": {
+    "_comment": "Feeds the transit-known-malicious-destination rule (checks a device's NAT/conntrack session table against known-bad IPs — see README's Detection Rules section). Same fetch-with-local-fallback pattern as the Windows collector's hash_source/url_source: at startup, each malicious_ip_sources URL is tried in order until one succeeds and the result is cached to malicious_ips_cache_file; if every URL fails (or malicious_ip_sources is empty), whatever's already in the cache file is used as-is, however stale. The default source below (Feodo Tracker's base ipblocklist.txt, NOT the 'recommended' variant, which is no longer maintained) and the FireHOL fallback are best-effort — verify they're still live for your environment; nothing here fetches on every single run, only when the cache is missing or older than malicious_ip_max_age_days.",
+    "malicious_ip_sources": [
+      "https://feodotracker.abuse.ch/downloads/ipblocklist.txt",
+      "https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level1.netset"
+    ],
+    "malicious_ip_max_age_days": 7,
+    "malicious_ips_cache_file": "Forensicator-Share/malicious_ips_cache.txt",
+    "custom_malicious_ips_file": "Forensicator-Share/custom_malicious_ips.txt"
   }
 }

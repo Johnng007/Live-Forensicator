@@ -28,6 +28,11 @@ COMMANDS: Dict[str, str] = {
     "ssh-config": "show configuration system services",
     "clock": "show system uptime",
     "ntp-associations": "show ntp associations",
+    "event-manager": "show configuration event-options",
+    "flash-listing": "file list /var/tmp",
+    "span-sessions": "show configuration forwarding-options port-mirroring",
+    "device-sockets": "show system connections",
+    "config-diff": "show configuration | compare rollback 1",
 }
 
 

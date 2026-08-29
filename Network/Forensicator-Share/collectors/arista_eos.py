@@ -26,6 +26,14 @@ COMMANDS: Dict[str, str] = {
     "ssh-config": "show management ssh",
     "clock": "show clock",
     "ntp-associations": "show ntp status",
+    # No "event-manager" entry — EOS has no EEM-equivalent event/action
+    # engine (confirmed real platform limitation, not an oversight); the
+    # logic-implant-persistence rule's applies_to excludes arista_eos
+    # entirely rather than pointing at a non-equivalent mechanism.
+    "flash-listing": "bash ls -la /mnt/flash",
+    "span-sessions": "show monitor session",
+    "device-sockets": "bash netstat -tupn",
+    "config-diff": "diff running-config flash:startup-config",
 }
 
 

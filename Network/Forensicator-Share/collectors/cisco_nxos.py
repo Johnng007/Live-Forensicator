@@ -23,6 +23,11 @@ COMMANDS: Dict[str, str] = {
     "ssh-config": "show ssh server",
     "clock": "show clock",
     "ntp-associations": "show ntp peer-status",
+    "event-manager": "show event manager policy user",
+    "flash-listing": "dir bootflash:",
+    "span-sessions": "show monitor session all",
+    "device-sockets": "show sockets connection",
+    "config-diff": "show diff rollback-patch running-config startup-config",
 }
 
 

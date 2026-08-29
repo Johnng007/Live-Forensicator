@@ -1350,6 +1350,38 @@ $Script:ArtifactKnowledgeBase = @{
         investigation_questions = @('Does the history show visits to any domain on a current threat intelligence blocklist?', 'Does browsing activity immediately precede a suspicious download or new-executable finding?')
         findingtags = @('insider-threat', 'data-exfiltration', 'malware', 'live-response')
     }
+    "browser-downloads" = @{
+        finding_type = 'Browser Download History'
+        category = 'Collection'
+        subcategory = 'Browser Artifacts'
+        title = 'Browser Download History'
+        description = 'Download events recorded by each Chromium-based browser (Chrome/Edge/Brave/Opera) — source URL, initiating tab, saved path, and whether the file was opened — across all user profiles.'
+        why_this_matters = 'A payload appearing on disk only tells you it exists; download history tells you where it came from, what page initiated the download, and — critically — whether the user actually opened it, which is often the difference between a near-miss and an active compromise.'
+        expected_normal_behaviour = 'Downloads consistent with the user''s normal work (installers, documents, attachments) from expected sources.'
+        investigator_notes = 'IsMalicious here reflects TWO independent signals: this collector''s own IOC blocklist match on either the download URL or the initiating tab URL, AND Chrome''s own Safe Browsing verdict at download time (danger_type) — a download can be flagged even if it never appears in browser history at all (e.g. a direct-link download with no prior page visit).'
+        what_is_this = 'Extracted from each browser''s own history database: the downloads/downloads_url_chains tables in Chromium''s History SQLite file (same file browsing history is read from, a different pair of tables), and moz_annos JSON-blob download annotations in Firefox''s places.sqlite. Not covered: the separate "Executables in Downloads" finding, which scans the Downloads folder on disk rather than any browser''s own records. Firefox rows do not include an Opened flag — that state isn''t tracked anywhere in its schema, unlike Chromium''s explicit column.'
+        why_it_exists = 'Chromium persists a record of every download — including ones later deleted from disk — to power its own download manager UI and Safe Browsing checks.'
+        normal_behaviour = 'Downloads consistent with the user''s normal work and personal use, opened via expected applications.'
+        suspicious_behaviour = 'A download from a page also flagged in browser history, a download Chrome itself marked dangerous/uncommon, or an executable-type download that was opened shortly after landing.'
+        common_attack_usage = 'The delivery step of nearly every drive-by-download or phishing-attachment compromise — this is frequently the single artifact that ties "visited this page" to "ran this file."'
+        mitre_technique_id = 'T1105'
+        mitre_technique = 'Ingress Tool Transfer'
+        mitre_tactic = 'command-and-control'
+        mitre_sub_technique = ''
+        mitre_detection_notes = 'Cross-reference every download URL and initiating tab URL against current threat intelligence; also check Chrome''s own danger_type verdict, which doesn''t depend on this collector''s blocklist being current.'
+        mitre_data_sources = @('File', 'Application Log', 'Network Traffic')
+        base_risk_score = 12
+        mitre_bucket = 'impact'
+        default_reasoning = @('Download history directly links a browsing session to a file landing on disk, and records whether it was opened — a stronger signal than either browser history or a disk-based executable scan alone.')
+        detection_logic = 'Extracts every download record from each Chromium profile''s History database at collection time; malicious hits are flagged via IOC blocklist match on URL/tab URL or Chrome''s own Safe Browsing danger_type.'
+        detection_threshold = 'n/a — full download history is captured; malicious-match logic is threshold-free (any blocklist hit or dangerous danger_type flags the record).'
+        false_positive_notes = 'The overwhelming majority of downloads are routine, benign files; danger_type can also flag files that are merely uncommon (e.g. a rarely-downloaded internal tool), not necessarily malicious.'
+        recommendations = @(
+            @{ priority = 'High'; action = 'For any record with Opened=true and a non-clean verdict, treat the host as potentially compromised and prioritize memory/disk analysis of that specific file.'; reason = 'A flagged download that was actually opened is a materially stronger signal than one that merely landed on disk.' }
+        )
+        investigation_questions = @('Was the flagged download actually opened, or does it just sit on disk?', 'Does the initiating tab URL match anything in browser history around the same timestamp?', 'Does the saved file still exist on disk, and does its hash match a known-bad list?')
+        findingtags = @('insider-threat', 'malware', 'live-response', 'ingress-tool-transfer')
+    }
     "group-enum" = @{
         finding_type = 'Group Membership Enumeration'
         category = 'Discovery'

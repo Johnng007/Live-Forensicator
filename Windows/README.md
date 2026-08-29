@@ -46,7 +46,7 @@ git clone https://github.com/Johnng007/Live-Forensicator.git
 # Execute
 .\Forensicator.ps1 <parameters>
 ```
-<a href="https://forensicator.io/walkthrough.html">See full Usage</a>
+<a href="https://opendocs.forensicator.io/">See full Usage</a>
 ---
 
 ## ⚠️ Important Notes

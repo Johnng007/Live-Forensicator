@@ -33,6 +33,7 @@ import case_summary as case_summary_module  # noqa: E402
 import findings  # noqa: E402
 import report  # noqa: E402
 import structured_log  # noqa: E402
+import threat_intel  # noqa: E402
 from collectors import arista_eos, cisco_ios, cisco_nxos, juniper_junos, vyos  # noqa: E402
 from collectors.base import NetmikoConnection  # noqa: E402
 from rules import engine as rule_engine  # noqa: E402
@@ -71,6 +72,8 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument("--device-type", dest="single_device_type", default="cisco_ios")
     parser.add_argument("--username", dest="single_username")
     parser.add_argument("--password-env", dest="single_password_env")
+    parser.add_argument("--secret-env", dest="single_secret_env",
+                         help="Env var holding the enable/privileged-mode secret, if this account needs escalation from user EXEC")
     parser.add_argument("--no-report", dest="no_report", action="store_true", help="Skip HTML report generation")
     parser.add_argument("--max-workers", dest="max_workers", type=int, default=4,
                          help="Max devices to collect from concurrently (default 4)")
@@ -91,6 +94,7 @@ def resolve_devices(args: argparse.Namespace, config: Dict[str, Any]) -> List[Di
             "device_type": args.single_device_type,
             "username": args.single_username,
             "password_env": args.single_password_env,
+            "secret_env": args.single_secret_env,
             "port": 22,
             "timeout_seconds": 30,
             "fast_cli": False,
@@ -105,13 +109,25 @@ def resolve_password(device: Dict[str, Any]) -> Optional[str]:
     return os.environ.get(env_var)
 
 
+def resolve_secret(device: Dict[str, Any]) -> str:
+    """Enable/privileged-mode secret, read from secret_env if configured.
+    Optional and defaults to "" — many accounts already log in at
+    privilege 15 and never need enable-mode escalation at all."""
+    env_var = device.get("secret_env")
+    if not env_var:
+        return ""
+    return os.environ.get(env_var, "")
+
+
 def _iso_now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def collect_device(case: str, device: Dict[str, Any], rules_config: Dict[str, bool],
                     expected_users_cfg: Dict[str, Any], output_root: Path, ai_cfg: Dict[str, Any],
-                    run_meta: Dict[str, Optional[str]], no_report: bool = False
+                    run_meta: Dict[str, Optional[str]], no_report: bool = False,
+                    baselines_cfg: Optional[Dict[str, Any]] = None,
+                    threat_intel_data: Optional[Dict[str, Any]] = None
                     ) -> "tuple[Dict[str, Any], List[Dict[str, Any]]]":
     """
     Collects + detects + writes everything for one device.
@@ -164,6 +180,7 @@ def collect_device(case: str, device: Dict[str, Any], rules_config: Dict[str, bo
         flog(f"Connecting ({device_type})...", level="INFO", section="Collection", device=host)
         conn = NetmikoConnection(
             host=host, device_type=device_type, username=username, password=password,
+            secret=resolve_secret(device),
             port=device.get("port", 22), timeout_seconds=device.get("timeout_seconds", 30),
             fast_cli=device.get("fast_cli", False), global_delay_factor=device.get("global_delay_factor", 1.0),
         )
@@ -173,6 +190,8 @@ def collect_device(case: str, device: Dict[str, Any], rules_config: Dict[str, bo
             flog(f"Connection failed: {connect_error}", level="ERROR", section="Collection", device=host)
             return summary, device_findings
         flog("Connected", level="SUCCESS", section="Collection", device=host)
+        if conn.enable_error:
+            flog(conn.enable_error, level="WARN", section="Collection", device=host)
 
         try:
             collection = collector_module.collect(conn)
@@ -201,6 +220,7 @@ def collect_device(case: str, device: Dict[str, Any], rules_config: Dict[str, bo
         for finding in rule_engine.evaluate_device(
             case=case, host_info=host_info, collection=collection,
             rules_config=rules_config, expected_users_cfg=expected_users_cfg,
+            baselines=baselines_cfg, threat_intel=threat_intel_data,
         ):
             flog(f"{finding['summary']['title']}", level="FINDING", section="Detection", device=host,
                  detail=f"severity={finding['severity']} score={finding['risk']['score']}")
@@ -276,7 +296,8 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     case = args.case or "UNSPECIFIED-CASE"
     rules_config = config.get("detection_rules", {})
-    expected_users_cfg = config.get("expected_local_users", {})
+    baselines_cfg = config.get("baselines", {})
+    expected_users_cfg = baselines_cfg.get("expected_local_users", {})
     output_root = Path(args.output_dir)
 
     # Forensicator AI status check — a real reachability probe (not just
@@ -293,6 +314,14 @@ def main(argv: Optional[List[str]] = None) -> int:
     else:
         flog("Enabled but unreachable — findings will NOT include AI verdicts this run", level="WARN", section="AI", detail=probe_result)
 
+    # Malicious-IP blocklist for transit-known-malicious-destination — same
+    # fetch-with-local-fallback pattern as the Windows collector's
+    # hash_source/url_source (see threat_intel.py). Loaded once up front,
+    # never blocks or fails the run either way.
+    threat_intel_data = threat_intel.load_malicious_ip_set(config, str(SHARE_DIR), flog)
+    if threat_intel_data["count"] == 0:
+        flog("No malicious-IP blocklist loaded — transit-known-malicious-destination will find nothing this run", level="INFO", section="ThreatIntel")
+
     run_meta = {"title": args.title, "operator": args.name, "location": args.location}
 
     flog(f"{len(devices)} device(s) to collect (max {args.max_workers} concurrent)", level="INFO", section="Collection")
@@ -301,7 +330,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_host = {
             executor.submit(collect_device, case, device, rules_config, expected_users_cfg, output_root,
-                             ai_cfg, run_meta, args.no_report): device["host"]
+                             ai_cfg, run_meta, args.no_report, baselines_cfg, threat_intel_data): device["host"]
             for device in devices
         }
         for future in as_completed(future_to_host):

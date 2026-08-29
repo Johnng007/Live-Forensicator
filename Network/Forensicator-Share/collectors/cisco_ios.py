@@ -25,6 +25,15 @@ COMMANDS: Dict[str, str] = {
     "ssh-config": "show ip ssh",
     "clock": "show clock",
     "ntp-associations": "show ntp associations",
+    "event-manager": "show event manager policy registered",
+    "flash-listing": "dir flash:/ all-filesystems",
+    "span-sessions": "show monitor session all",
+    "device-sockets": "show ip sockets",
+    "config-diff": "show archive config differences nvram:startup-config system:running-config",
+    # Only meaningful if this device does NAT — empty output otherwise,
+    # which the transit-known-malicious-destination rule treats as
+    # nothing-to-check, same as any other empty artifact.
+    "transit-sessions": "show ip nat translations",
 }
 
 _USERNAME_LINE_RE = re.compile(r"^username\s+(\S+)\b", re.MULTILINE)

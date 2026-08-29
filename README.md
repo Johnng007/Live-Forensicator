@@ -2,7 +2,7 @@
 
 <h3 align="center">
 Cross-platform Incident Response & Live Forensics Toolkit<br>
-Windows (PowerShell) | Linux (Bash) | macOS (Shell)
+Windows | Linux | macOS | Network Devices
 </h3>
 
 <p align="center">
