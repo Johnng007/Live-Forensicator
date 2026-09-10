@@ -20,7 +20,7 @@ Read-only, SSH-based collection and detection for routers, switches, and firewal
 
 **Forensicator (Network Devices)** connects to network infrastructure over SSH (via [Netmiko](https://github.com/ktbyers/netmiko)), collects a defined set of read-only `show` commands, and runs detection logic against the result — producing the same kind of structured per-check finding JSON as the Windows/Linux/macOS collectors, for ingestion into Forensicator Enterprise.
 
-**Vendor support:** Cisco IOS/IOS-XE, Cisco NX-OS, Arista EOS, Juniper Junos, and VyOS for collection — every vendor gets full collection and Detection Insight on every baseline artifact. Of the 20 detection rules, most are Cisco/Arista IOS-syntax-specific (NX-OS and EOS share close-enough config syntax with IOS) and don't apply to Junos/VyOS's fundamentally different `set`-style config; `unauthorized-local-accounts`, `image-hash-mismatch`, `unexpected-flash-files`, `ntp-tampering`, `active-session-unexpected-source`, `brute-force-pattern`, `device-outbound-c2`, and `config-section-hash-mismatch` DO cover all 6 device types. `config-drift-running-vs-startup` covers 5 of 6 — VyOS is excluded, since the real running-vs-saved diff command (`compare saved`) only works inside configuration mode, which this collector deliberately never enters (read-only, operational-mode-only by design). See `rules/rules.json`'s per-rule `_note` fields and each `collectors/<vendor>.py`'s docstring for exactly which rules apply where and why.
+**Vendor support:** Cisco IOS/IOS-XE, Cisco NX-OS, Arista EOS, Juniper Junos, and VyOS for collection — every vendor gets full collection and Detection Insight on every baseline artifact. Of the 21 detection rules, most are Cisco/Arista IOS-syntax-specific (NX-OS and EOS share close-enough config syntax with IOS) and don't apply to Junos/VyOS's fundamentally different `set`-style config; `unauthorized-local-accounts`, `image-hash-mismatch`, `unexpected-flash-files`, `ntp-tampering`, `active-session-unexpected-source`, `brute-force-pattern`, `device-outbound-c2`, and `config-section-hash-mismatch` DO cover all 6 device types. `config-drift-running-vs-startup` covers 5 of 6 — VyOS is excluded, since the real running-vs-saved diff command (`compare saved`) only works inside configuration mode, which this collector deliberately never enters (read-only, operational-mode-only by design). See `rules/rules.json`'s per-rule `_note` fields and each `collectors/<vendor>.py`'s docstring for exactly which rules apply where and why.
 
 **Safe by default:** every collected command is read-only. No configuration changes are made to any device.
 
@@ -98,7 +98,7 @@ Each device's `reports/index.html` covers only that device's own findings
 
 ---
 
-## 🧠 Detection Rules (20 rules)
+## 🧠 Detection Rules (21 rules)
 
 | Rule | What it catches | MITRE |
 |---|---|---|
@@ -122,6 +122,7 @@ Each device's `reports/index.html` covers only that device's own findings
 | `device-outbound-c2` | The device itself has a connection to a destination outside the baseline | T1071 |
 | `config-drift-running-vs-startup` | Running config differs from saved/startup config | T1562 |
 | `config-section-hash-mismatch` | AAA/ACL/routing config lines hash differently than the baseline | T1562 |
+| `transit-known-malicious-destination` | A device's NAT/conntrack session table shows a forwarded connection (not the device's own traffic) to an IP on a loaded threat-intel blocklist | T1071 |
 
 Toggle any rule on/off via `config.json`'s `detection_rules` block. Per-vendor coverage varies — several rules are Cisco/Arista-IOS-syntax-specific and don't apply to Junos/VyOS's `set`-style config (see `rules/rules.json`'s `_note` field on each rule and `rules/engine.py`'s module docstring for exactly why).
 

@@ -9,6 +9,7 @@ Windows | Linux | macOS | Network Devices
 Built for fast, structured, and actionable forensic investigations.
 </p>
 
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://github.com/user-attachments/assets/22187cf0-5b12-4c44-8644-45405d393109">
   <source media="(prefers-color-scheme: light)" srcset="https://github.com/user-attachments/assets/f30b9752-edd4-491f-b466-40d302e5c73c">
@@ -82,17 +83,34 @@ Forensicator:
 
 ---
 
+### 🌐 Network Devices (Python)
+
+* SSH-based collection via [Netmiko](https://github.com/ktbyers/netmiko) — Cisco IOS/IOS-XE, Cisco NX-OS, Arista EOS, Juniper Junos, and VyOS
+* 21 detection rules covering unauthorized local accounts, insecure management plane (Telnet/weak SNMP/missing AAA), logic-implant persistence (EEM applets, task schedulers), boot-image and config-section tampering, NTP/syslog tampering, brute-force login patterns, unexpected SPAN sessions and tunnel interfaces, loosened ACLs, and device-to-C2 and transit-traffic-to-known-malicious-IP detection
+* Detection Insight on every finding — plain-language explanation, MITRE ATT&CK mapping, and recommendations, same knowledge-base pattern as the Windows collector
+* Config-driven baselines — device inventory, per-rule toggles, and every rule's expected-value baseline are set in `config.json`, no code changes needed to tune a deployment
+* Per-device error isolation and concurrent multi-device collection — one unreachable device never aborts the rest of the run
+* Self-contained HTML report per device.
+* Optional AES-256-CBC artifact encryption and optional Forensicator AI per-finding verdicts (Ollama/OpenAI/Azure OpenAI/Anthropic).
+* Read-only by design — every collected command is non-mutating; no configuration changes are ever made to a device
+
+👉 https://github.com/Johnng007/Live-Forensicator/tree/main/Network
+
+> ⚠️ Note: Talks to network infrastructure over SSH rather than running on the host being investigated — needs a reachable device. See the [Network README](./Network/README.md) for exact per-vendor command/rule coverage.
+
+---
+
 ## 🔍 Key Features
 
-* Cross-platform forensic artifact collection
+* Cross-platform forensic artifact collection — Windows, Linux, macOS, and (over SSH) network infrastructure
 * Detection of suspicious activity and anomalies on every platform
 * Event Log analysis (Windows)
-* Sigma rule integration on all three platforms — coverage and data source vary by OS; see each platform's section below and its own README
-* Malware hash and IOC matching, with auto-updating threat-intel feeds
+* Sigma rule integration on the three host platforms — coverage and data source vary by OS; see each platform's section below and its own README. Network Devices uses its own declarative rule engine instead (Sigma's process/event-log model doesn't apply to network-device config auditing) — see its README's Detection Rules section
+* Malware hash and IOC matching, with auto-updating threat-intel feeds (host platforms); IP/CIDR threat-intel blocklist matching against device session tables (Network Devices)
 * Structured HTML reporting (with dashboards)
-* Optional artifact encryption (Windows, Linux, and macOS)
+* Optional artifact encryption (Windows, Linux, macOS, and Network Devices)
 * Detection Insight with Mitre Mapping
-* Forensicator AI — optional, per-finding AI verdicts from a local (Ollama) or commercial LLM (Windows now; other platforms planned)
+* Forensicator AI — optional, per-finding AI verdicts from a local (Ollama) or commercial LLM (Windows and Network Devices now; Linux/macOS planned)
 
 ---
 
@@ -129,7 +147,7 @@ This is useful when:
 * Chain-of-custody concerns exist
 * Legal integrity of artifacts must be preserved
 
-> ⚠️ Available on Windows, Linux, and macOS
+> ⚠️ Available on Windows, Linux, macOS, and Network Devices
 > ⚠️ Not backward compatible prior to v4.1.1
 
 ---
@@ -138,7 +156,7 @@ This is useful when:
 
 Off by default. When enabled, each finding is sent to a local or commercial LLM as it's collected, and gets a real, plain-language verdict shown right in the report's tooltip.
 
-**Quick setup (local LLM via Ollama), currently Windows:**
+**Quick setup (local LLM via Ollama), currently Windows and Network Devices:**
 
 ```bash
 # 1. Install Ollama (https://ollama.com) and pull a model
@@ -168,6 +186,7 @@ Forensicator identifies suspicious activity through:
 * Sigma-based detections
 * Malicious hash matching
 * IOC-based URL analysis (browser history)
+* Network-device configuration auditing (21 rules) — unauthorized accounts, insecure management plane, persistence mechanisms, config tampering/drift, and known-malicious-IP matching against device session tables
 
 ---
 
@@ -256,11 +275,13 @@ Windows: v4.1.7 (July 2026)
 
 ## 🤝 Contributing
 
-Contributions are welcome.
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for repo layout, how to add a detection rule on each platform, and testing/PR guidelines. The short version:
 
 * Open an issue to discuss major changes
 * Submit pull requests with clear descriptions
 * Focus on accuracy, clarity, and usability
+
+Participation is governed by our [Code of Conduct](CODE_OF_CONDUCT.md). Found a security vulnerability? Please report it privately — see [SECURITY.md](SECURITY.md) rather than opening a public issue.
 
 ---
 
@@ -268,7 +289,7 @@ Contributions are welcome.
 
 Live-Forensicator is open-source software licensed under the **Apache License 2.0**.
 
-Copyright © 2026 Raptormatics.
+Copyright © 2026 [Raptormatics LLC](https://raptormatics.com).
 
 You are free to use, reproduce, modify, and distribute Live-Forensicator in accordance with the terms of the Apache License 2.0.
 
