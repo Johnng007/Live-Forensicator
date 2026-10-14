@@ -7975,12 +7975,20 @@ if($IsDomainController){
         $adConfig = $configData.ad
     }
 
-    $suspiciousKeywords = @('invoke-mimikatz','invoke-expression','downloadstring','downloadfile','iex(',
-        '-enc ','-encodedcommand','frombase64string','empire','covenant','sliver',
-        'invoke-dcsync','invoke-kerberoast','rubeus','mimikatz','net user','net localgroup')
+    # No hardcoded fallback here on purpose — a literal list of attacker
+    # tool/technique names baked into this script's own bytes is exactly
+    # the kind of content Windows Defender's AMSI script-content scan
+    # flags on sight, independent of anything in config.json. Keyword
+    # matching only runs once you populate ad.sysvol_suspicious_keywords
+    # yourself; until then, this check is skipped cleanly (file collection
+    # and extension scanning still happen, there's just no keyword hit).
+    $suspiciousKeywords = @()
     if($null -ne $adConfig -and $null -ne $adConfig.sysvol_suspicious_keywords){
         $configuredKeywords = ConvertTo-ConfigStringArray $adConfig.sysvol_suspicious_keywords
         if($configuredKeywords.Count -gt 0){ $suspiciousKeywords = $configuredKeywords }
+    }
+    if($suspiciousKeywords.Count -eq 0){
+        Write-ForensicLog "[i] No ad.sysvol_suspicious_keywords configured in config.json — SYSVOL files are still collected and listed, but none will be flagged by keyword" -Level INFO -Section "AD"
     }
 
     $sysvolExtensions = @('*.bat','*.ps1','*.vbs','*.exe','*.dll','*.cmd','*.js')
@@ -8557,10 +8565,16 @@ if($IsDomainController){
     # ---------------------------------------------------------------------
     Write-ForensicLog "[*] Cross-checking running processes for known AD attack tooling" -Level INFO -Section "AD"
 
-    $knownBadToolNames = @('mimikatz','nanodump','procdump','rclone','winscp','adfind','pingcastle','sharphound','bloodhound','certify','rubeus','kekeo','dsamain')
+    # No hardcoded fallback here either — same reasoning as the SYSVOL
+    # keyword list above. Populate ad.known_attack_tool_names in
+    # config.json to enable this cross-check.
+    $knownBadToolNames = @()
     if($null -ne $adConfig -and $null -ne $adConfig.known_attack_tool_names){
         $configuredToolNames = ConvertTo-ConfigStringArray $adConfig.known_attack_tool_names
         if($configuredToolNames.Count -gt 0){ $knownBadToolNames = $configuredToolNames }
+    }
+    if($knownBadToolNames.Count -eq 0){
+        Write-ForensicLog "[i] No ad.known_attack_tool_names configured in config.json — process cross-check running with 0 tool names to match" -Level INFO -Section "AD"
     }
 
     $suspiciousDCProcesses = @($ProcessFragment | Where-Object {
