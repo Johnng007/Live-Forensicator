@@ -173,7 +173,7 @@ ollama pull mistral:7b-instruct
 
 Prefer a commercial API instead (OpenAI, Anthropic, Azure OpenAI, or any OpenAI-compatible endpoint)? Set `provider` accordingly and add your `api_key`.
 
-📘 Full setup guide (all providers, tuning, troubleshooting): <a href="https://docs.forensicator.io">opendocs.forensicator.io</a>
+📘 Full setup guide (all providers, tuning, troubleshooting): <a href="https://docs.forensicator.io">docs.forensicator.io</a>
 
 ---
 
@@ -250,7 +250,7 @@ On top of collection, Forensicator identifies suspicious activity on the spot th
 ## ✨ Changelog
 
 Full changelog:
-👉 https://opendocs.forensicator.io/changelog/
+👉 https://docs.forensicator.io/changelog/
 
 ```bash
 Windows: v4.3.0 (October 2026)
@@ -293,5 +293,5 @@ Users are responsible for complying with the applicable licenses and terms of an
 
 ## ☕ Documentation
 
-<a href="https://docs.forensicator.io"> OpenDocs</a>
+<a href="https://docs.forensicator.io"> Documentation</a>
 
