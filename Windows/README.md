@@ -200,6 +200,17 @@ Automatically detected and enabled only when SharePoint Server is present:
 * Suspicious executables (AppData, Temp, Downloads)
 * BitLocker key extraction
 
+### 🗃️ Windows Artifact Analysis (opt-in, `-WINARTIFACTS`)
+
+Raw artifact files for upload to Forensicator Core/Enterprise's Windows Artifact Analysis feature — this collects the files themselves, not a summary:
+
+* Registry hives — `SYSTEM`, `SOFTWARE`, `SECURITY`, `Amcache.hve`, and every user profile's `NTUSER.DAT`/`UsrClass.dat` (Shimcache, Amcache, UserAssist, BAM/DAM, Autoruns, Shellbags)
+* Prefetch — every `.pf` file in `C:\Windows\Prefetch`
+* LNK files — every `.lnk` found under `C:\Users`
+* Jump Lists — every `.automaticDestinations-ms`/`.customDestinations-ms` per profile
+
+`SYSTEM`/`SOFTWARE`/`SECURITY`/`Amcache.hve` and NTUSER.DAT/UsrClass.dat are held open by Windows while running, so this uses a Volume Shadow Copy snapshot to read them (created and removed automatically — standard, auditable IR technique, same as KAPE/Velociraptor use). If VSS isn't available, it falls back to `reg.exe save` for whichever hives are currently loaded and logs exactly what had to be skipped (`Amcache.hve` and any profile that isn't logged on can only be reached via VSS).
+
 ### 🚀 Extended Features
 
 * RAM acquisition

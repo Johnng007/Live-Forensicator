@@ -16,6 +16,7 @@ param(
   [String]$RANSOMWARE,
   [String]$WEBLOGS,
   [String]$PCAP,
+  [String]$WINARTIFACTS,
   [String]$HASHCHECK,
   [String]$ENCRYPTED,
   [switch]$UPDATE,
@@ -440,6 +441,8 @@ if ($USAGE) {
   Write-Host -ForegroundColor Cyan "[!] requires the etl2pcapng file in share folder"
   Write-Host -ForegroundColor DarkCyan '[*] -RAM RAM                 Extract RAM Dump'
   Write-Host -ForegroundColor Cyan "[!] requires the winpmem file in share folder"
+  Write-Host -ForegroundColor DarkCyan '[*] -WINARTIFACTS WINARTIFACTS   Collect raw Shimcache/Amcache/Prefetch/UserAssist/BAM/Autoruns/LNK/Jump List artifacts for Forensicator Core/Enterprise'
+  Write-Host -ForegroundColor Cyan "[!] uses a Volume Shadow Copy snapshot to read locked registry hives"
   Write-Host -ForegroundColor DarkCyan '[*] -LOG4J LOG4J             Checks for vulnerable log4j files'
   Write-Host -ForegroundColor DarkCyan '[*] -ENCRYPTED ENCRYPTED     Encrypts Artifacts after collecting them'
   Write-Host -ForegroundColor DarkCyan '[*] -HASHCHECK HASHCHECK     Check executable hashes for latest malware'
@@ -5076,6 +5079,286 @@ $DownloadFinding.summary.malicious_hits = @($script:AllDownloadRecords | Where-O
 $DownloadJsonOutputPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\browser\browser-downloads-finding.json"
 $DownloadFinding | ConvertTo-Json -Depth 10 | Out-File $DownloadJsonOutputPath -Encoding utf8
 
+
+#endregion
+
+
+
+
+###########################################################################################################
+#region  WINDOWS ARTIFACTS (WinArtifacts) — Shimcache/Amcache, Prefetch, UserAssist/BAM, Autoruns, LNK/Jump Lists/Shellbags
+###########################################################################################################
+# Collects the RAW files Forensicator-Core's "Windows Artifact Analysis" feature parses server-side
+# (regipy for registry hives, pyscca for Prefetch, LnkParse3 for LNK/Jump Lists) for later upload via
+# /windows-artifacts/upload — this section does not parse or interpret any of it itself. Opt-in via
+# -WINARTIFACTS, same reasoning as -RAM/-PCAP being opt-in (VSS overhead, potentially large files).
+#
+# SYSTEM/SOFTWARE/SECURITY/Amcache.hve and every profile's NTUSER.DAT/UsrClass.dat are held open by
+# the OS while Windows runs, so a plain Copy-Item on them fails with a sharing violation. This uses a
+# Volume Shadow Copy (VSS) snapshot — the standard DFIR technique for this (KAPE, Velociraptor, etc.
+# all use it) — rather than `reg.exe save`, because `reg.exe save` only reaches hives already loaded
+# into the live registry tree (HKLM\SYSTEM/SOFTWARE/SECURITY, and a *logged-on* user's NTUSER.DAT
+# under HKEY_USERS\<SID>) and can't reach Amcache.hve at all (it's never loaded as a registry root —
+# just a file the OS holds open) or an *offline* profile's hive files. VSS reaches all of it uniformly
+# with one mechanism. If VSS creation fails (service disabled, non-NTFS, restricted environment), this
+# falls back to `reg.exe save` for whatever IS loaded and logs exactly what got skipped — it never
+# throws or aborts the rest of the run, matching this script's error-tolerance everywhere else.
+#
+# Uses Get-CimInstance/Invoke-CimMethod (not the legacy Get-WmiObject, which was removed in
+# PowerShell 7/Core) so this works on both Windows PowerShell 5.1 and PowerShell 7+.
+#
+# Note for the operator: creating a VSS snapshot is a legitimate, auditable action — it also happens
+# to be a technique attackers/ransomware abuse, so some SOCs' detection rules alert on it. Expected and
+# fine for authorized IR collection; this section logs it plainly rather than trying to hide it.
+
+function New-ForensicVssSnapshot {
+    param([string]$Volume = "$env:SystemDrive\")
+
+    try {
+        $result = Invoke-CimMethod -ClassName Win32_ShadowCopy -MethodName Create -Arguments @{ Volume = $Volume; Context = "ClientAccessible" } -ErrorAction Stop
+        if ($result.ReturnValue -ne 0) {
+            Write-ForensicLog "[!] VSS snapshot creation returned code $($result.ReturnValue)" -Level WARN -Section "WINARTIFACTS"
+            return $null
+        }
+
+        $shadow = Get-CimInstance Win32_ShadowCopy -Filter "ID='$($result.ShadowID)'" -ErrorAction Stop
+        if (-not $shadow -or -not $shadow.DeviceObject) {
+            Write-ForensicLog "[!] VSS snapshot created but its device object could not be resolved" -Level WARN -Section "WINARTIFACTS"
+            return $null
+        }
+
+        Write-ForensicLog "[*] Created VSS snapshot at $($shadow.DeviceObject) — standard, auditable IR collection activity; expect it in EDR/SIEM telemetry" -Level INFO -Section "WINARTIFACTS"
+        return $shadow
+    }
+    catch {
+        Write-ForensicLog "[!] VSS snapshot creation failed — falling back to reg.exe save for loaded hives only" -Level WARN -Section "WINARTIFACTS" -Detail $_.Exception.Message
+        return $null
+    }
+}
+
+function Remove-ForensicVssSnapshot {
+    param($Shadow)
+    if (-not $Shadow) { return }
+    try {
+        Remove-CimInstance -InputObject $Shadow -ErrorAction Stop
+        Write-ForensicLog "[*] Removed VSS snapshot" -Level INFO -Section "WINARTIFACTS"
+    }
+    catch {
+        Write-ForensicLog "[!] Failed to remove VSS snapshot — it may need manual cleanup (vssadmin delete shadows)" -Level WARN -Section "WINARTIFACTS" -Detail $_.Exception.Message
+    }
+}
+
+function Copy-ForensicFile {
+    # Every raw-file copy in this section goes through here so one
+    # missing/locked/permission-denied file just logs a WARN and the
+    # rest of the section keeps going, instead of aborting — matches
+    # this script's existing per-item error tolerance (e.g. the RAM
+    # and Browser History regions above).
+    param(
+        [string]$SourcePath,
+        [string]$DestinationPath,
+        [string]$Label
+    )
+    try {
+        if (-not (Test-Path -LiteralPath $SourcePath)) {
+            Write-ForensicLog "[!] $Label not found at $SourcePath — skipping" -Level WARN -Section "WINARTIFACTS"
+            return $false
+        }
+        $destDir = Split-Path -Parent $DestinationPath
+        if ($destDir -and -not (Test-Path -LiteralPath $destDir)) {
+            New-Item -ItemType Directory -Force -Path $destDir -ErrorAction SilentlyContinue | Out-Null
+        }
+        Copy-Item -LiteralPath $SourcePath -Destination $DestinationPath -Force -ErrorAction Stop
+        Write-ForensicLog "[+] Collected $Label" -Level SUCCESS -Section "WINARTIFACTS" -Detail $DestinationPath
+        return $true
+    }
+    catch {
+        Write-ForensicLog "[!] Failed to collect $Label from $SourcePath" -Level WARN -Section "WINARTIFACTS" -Detail $_.Exception.Message
+        return $false
+    }
+}
+
+function Save-ForensicHive {
+    # reg.exe save fallback for when VSS isn't available — only reaches
+    # hives already loaded into the live registry tree.
+    param([string]$KeyPath, [string]$DestinationPath, [string]$Label)
+    try {
+        $destDir = Split-Path -Parent $DestinationPath
+        if ($destDir -and -not (Test-Path -LiteralPath $destDir)) {
+            New-Item -ItemType Directory -Force -Path $destDir -ErrorAction SilentlyContinue | Out-Null
+        }
+        if (Test-Path -LiteralPath $DestinationPath) { Remove-Item -LiteralPath $DestinationPath -Force -ErrorAction SilentlyContinue }
+
+        $proc = Start-Process -FilePath "$env:SystemRoot\System32\reg.exe" -ArgumentList @('save', $KeyPath, $DestinationPath, '/y') -Wait -PassThru -NoNewWindow -ErrorAction Stop
+
+        if ($proc.ExitCode -eq 0 -and (Test-Path -LiteralPath $DestinationPath)) {
+            Write-ForensicLog "[+] Collected $Label (reg save)" -Level SUCCESS -Section "WINARTIFACTS" -Detail $DestinationPath
+        }
+        else {
+            Write-ForensicLog "[!] reg save returned exit code $($proc.ExitCode) for $Label" -Level WARN -Section "WINARTIFACTS"
+        }
+    }
+    catch {
+        Write-ForensicLog "[!] Failed to save $Label via reg.exe" -Level WARN -Section "WINARTIFACTS" -Detail $_.Exception.Message
+    }
+}
+
+if($WINARTIFACTS){
+
+    Write-ForensicLog ""
+    Write-ForensicLog "[*] Collecting Windows Artifact Analysis artifacts (Shimcache/Amcache, Prefetch, UserAssist/BAM, Autoruns, LNK/Jump Lists/Shellbags)..." -Level INFO -Section "WINARTIFACTS"
+
+    $WinArtifactsRoot = "$PSScriptRoot\$env:COMPUTERNAME\artifacts\WindowsArtifacts"
+    $RegistryOut     = "$WinArtifactsRoot\Registry"
+    $PrefetchOut     = "$WinArtifactsRoot\Prefetch"
+    $LnkOut          = "$WinArtifactsRoot\LNK"
+    $JumpListAutoOut = "$WinArtifactsRoot\JumpLists\Automatic"
+    $JumpListCustOut = "$WinArtifactsRoot\JumpLists\Custom"
+
+    foreach($dir in @($RegistryOut, $PrefetchOut, $LnkOut, $JumpListAutoOut, $JumpListCustOut)){
+        New-Item -ItemType Directory -Force -Path $dir -ErrorAction SilentlyContinue | Out-Null
+    }
+
+    # ---------------------------------------------------------
+    # LOCKED REGISTRY HIVES
+    # ---------------------------------------------------------
+    $vssShadow = New-ForensicVssSnapshot -Volume "$env:SystemDrive\"
+
+    if($vssShadow){
+
+        $shadowRoot = $vssShadow.DeviceObject.TrimEnd('\')
+
+        Copy-ForensicFile -SourcePath "$shadowRoot\Windows\System32\config\SYSTEM"         -DestinationPath "$RegistryOut\SYSTEM"       -Label "SYSTEM hive"       | Out-Null
+        Copy-ForensicFile -SourcePath "$shadowRoot\Windows\System32\config\SOFTWARE"       -DestinationPath "$RegistryOut\SOFTWARE"     -Label "SOFTWARE hive"     | Out-Null
+        Copy-ForensicFile -SourcePath "$shadowRoot\Windows\System32\config\SECURITY"       -DestinationPath "$RegistryOut\SECURITY"     -Label "SECURITY hive"     | Out-Null
+        Copy-ForensicFile -SourcePath "$shadowRoot\Windows\appcompat\Programs\Amcache.hve" -DestinationPath "$RegistryOut\Amcache.hve"  -Label "Amcache.hve"       | Out-Null
+
+        foreach($userPath in $users){
+            $username       = Split-Path $userPath -Leaf
+            $shadowUserPath = $userPath -replace ('^' + [regex]::Escape($env:SystemDrive)), $shadowRoot
+
+            Copy-ForensicFile -SourcePath "$shadowUserPath\NTUSER.DAT" `
+                               -DestinationPath "$RegistryOut\$username\NTUSER.DAT" `
+                               -Label "NTUSER.DAT ($username)" | Out-Null
+
+            Copy-ForensicFile -SourcePath "$shadowUserPath\AppData\Local\Microsoft\Windows\UsrClass.dat" `
+                               -DestinationPath "$RegistryOut\$username\UsrClass.dat" `
+                               -Label "UsrClass.dat ($username)" | Out-Null
+        }
+
+        Remove-ForensicVssSnapshot -Shadow $vssShadow
+    }
+    else{
+        Write-ForensicLog "[!] No VSS snapshot available — Amcache.hve and any offline user profile's hives will NOT be collected" -Level WARN -Section "WINARTIFACTS"
+
+        Save-ForensicHive -KeyPath 'HKLM\SYSTEM'   -DestinationPath "$RegistryOut\SYSTEM"   -Label "SYSTEM hive"
+        Save-ForensicHive -KeyPath 'HKLM\SOFTWARE' -DestinationPath "$RegistryOut\SOFTWARE" -Label "SOFTWARE hive"
+        Save-ForensicHive -KeyPath 'HKLM\SECURITY' -DestinationPath "$RegistryOut\SECURITY" -Label "SECURITY hive"
+
+        $loadedSids = @()
+        try {
+            $loadedSids = @(Get-ChildItem Registry::HKEY_USERS -ErrorAction Stop | ForEach-Object { $_.PSChildName })
+        }
+        catch {
+            Write-ForensicLog "[!] Could not enumerate HKEY_USERS — no logged-on profile hives will be collected via reg.exe save" -Level WARN -Section "WINARTIFACTS" -Detail $_.Exception.Message
+        }
+
+        # Named $userProfile, not $profile — $profile is a PowerShell
+        # automatic variable (the current session's profile script path);
+        # shadowing it here would be confusing even though scoped to this loop.
+        foreach($userProfile in $userprofiles){
+            if($loadedSids -contains $userProfile.SID){
+                Save-ForensicHive -KeyPath "HKU\$($userProfile.SID)" -DestinationPath "$RegistryOut\$($userProfile.Username)\NTUSER.DAT" -Label "NTUSER.DAT ($($userProfile.Username))"
+            }
+            else{
+                Write-ForensicLog "[!] Profile $($userProfile.Username) is not currently loaded — NTUSER.DAT/UsrClass.dat skipped (requires VSS)" -Level WARN -Section "WINARTIFACTS"
+            }
+        }
+
+        Write-ForensicLog "[!] Amcache.hve skipped — not reachable via reg.exe save without VSS" -Level WARN -Section "WINARTIFACTS"
+    }
+
+    # ---------------------------------------------------------
+    # PREFETCH — not locked, plain copy
+    # ---------------------------------------------------------
+    try {
+        $pfFiles = @(Get-ChildItem -Path "$env:SystemRoot\Prefetch" -Filter *.pf -ErrorAction SilentlyContinue)
+        $pfCollected = 0
+        foreach($pf in $pfFiles){
+            if(Copy-ForensicFile -SourcePath $pf.FullName -DestinationPath "$PrefetchOut\$($pf.Name)" -Label "Prefetch file $($pf.Name)"){
+                $pfCollected++
+            }
+        }
+        Write-ForensicLog "[+] Collected $pfCollected of $($pfFiles.Count) Prefetch file(s)" -Level SUCCESS -Section "WINARTIFACTS"
+    }
+    catch {
+        Write-ForensicLog "[!] Prefetch collection failed" -Level WARN -Section "WINARTIFACTS" -Detail $_.Exception.Message
+    }
+
+    # ---------------------------------------------------------
+    # LNK FILES — reuses the file list already enumerated above for
+    # the existing "link files" report finding ($lnkFiles), rather
+    # than scanning C:\Users a second time. Preserves a per-user
+    # subfolder + relative path so files sharing a name across
+    # different users/profiles don't collide.
+    # ---------------------------------------------------------
+    try {
+        $lnkCount = 0
+        foreach($file in $lnkFiles){
+            if($file.FullName -match '^[A-Za-z]:\\Users\\([^\\]+)\\(.+)$'){
+                $username    = $Matches[1]
+                $relPath     = $Matches[2]
+                $destination = "$LnkOut\$username\$relPath"
+                if(Copy-ForensicFile -SourcePath $file.FullName -DestinationPath $destination -Label "LNK file $($file.Name)"){
+                    $lnkCount++
+                }
+            }
+        }
+        Write-ForensicLog "[+] Collected $lnkCount LNK file(s)" -Level SUCCESS -Section "WINARTIFACTS"
+    }
+    catch {
+        Write-ForensicLog "[!] LNK collection failed" -Level WARN -Section "WINARTIFACTS" -Detail $_.Exception.Message
+    }
+
+    # ---------------------------------------------------------
+    # JUMP LISTS — automaticDestinations-ms / customDestinations-ms
+    # ---------------------------------------------------------
+    try {
+        $jumpListCount = 0
+        foreach($userPath in $users){
+            $username = Split-Path $userPath -Leaf
+
+            $autoDir = Join-Path $userPath 'AppData\Roaming\Microsoft\Windows\Recent\AutomaticDestinations'
+            if(Test-Path -LiteralPath $autoDir){
+                foreach($jl in @(Get-ChildItem -Path $autoDir -Filter '*.automaticDestinations-ms' -ErrorAction SilentlyContinue)){
+                    if(Copy-ForensicFile -SourcePath $jl.FullName -DestinationPath "$JumpListAutoOut\$username\$($jl.Name)" -Label "Jump List (automatic) $($jl.Name)"){
+                        $jumpListCount++
+                    }
+                }
+            }
+
+            $customDir = Join-Path $userPath 'AppData\Roaming\Microsoft\Windows\Recent\CustomDestinations'
+            if(Test-Path -LiteralPath $customDir){
+                foreach($jl in @(Get-ChildItem -Path $customDir -Filter '*.customDestinations-ms' -ErrorAction SilentlyContinue)){
+                    if(Copy-ForensicFile -SourcePath $jl.FullName -DestinationPath "$JumpListCustOut\$username\$($jl.Name)" -Label "Jump List (custom) $($jl.Name)"){
+                        $jumpListCount++
+                    }
+                }
+            }
+        }
+        Write-ForensicLog "[+] Collected $jumpListCount Jump List file(s)" -Level SUCCESS -Section "WINARTIFACTS"
+    }
+    catch {
+        Write-ForensicLog "[!] Jump List collection failed" -Level WARN -Section "WINARTIFACTS" -Detail $_.Exception.Message
+    }
+
+    Write-ForensicLog "[!] Done" -Level SUCCESS -Section "WINARTIFACTS" -Detail "Windows Artifact Analysis collection complete"
+}
+else{
+    Write-ForensicLog "[!] Windows Artifact Analysis collection not selected...moving on" -Level INFO -Section "WINARTIFACTS"
+}
+
+Write-ForensicLog ""
 
 #endregion
 
@@ -11271,7 +11554,8 @@ $ExtrasArtifactsFragment = @(
   (New-ExtrasArtifactRow -Label 'EVTX Logs'                   -Folder 'artifacts\EVTX'             -Patterns @('*.evtx')),
   (New-ExtrasArtifactRow -Label 'IIS Logs'                    -Folder 'artifacts\IISLogs'          -Patterns @('*.log')),
   (New-ExtrasArtifactRow -Label 'TomCat Logs'                 -Folder 'artifacts\TomCatLogs'       -Patterns @('*.log')),
-  (New-ExtrasArtifactRow -Label 'Log4j Findings'              -Folder 'artifacts\LOG4J'       -Patterns @('*.txt'))
+  (New-ExtrasArtifactRow -Label 'Log4j Findings'              -Folder 'artifacts\LOG4J'       -Patterns @('*.txt')),
+  (New-ExtrasArtifactRow -Label 'Windows Artifact Analysis'   -Folder 'artifacts\WindowsArtifacts' -Patterns @('*.pf','*.lnk','*.hve','SYSTEM','SOFTWARE','SECURITY','NTUSER.DAT','UsrClass.dat','*.automaticDestinations-ms','*.customDestinations-ms'))
 
   
 ) -join "`n"
