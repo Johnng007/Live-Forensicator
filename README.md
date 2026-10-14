@@ -44,6 +44,7 @@ Forensicator:
 * Browser history analysis with IOC matching
 * Optional artifact encryption (AES)
 * Detection Insight - a summary of the detection, why it matters, the detection logic, what to look for, and its MITRE mapping
+* Windows Artifact Analysis collection (opt-in) — raw Shimcache/Amcache/Prefetch/UserAssist/BAM/Autoruns/LNK/Jump List/Shellbag artifacts for Forensicator Core/Enterprise, including a Volume Shadow Copy snapshot to reach locked registry hives
 * Investigation archive + structured JSON output for Forensicator Enterprise
 * Forensicator AI — optional, per-finding AI verdicts from a local (Ollama) or commercial LLM, shown in the report's tooltip
 
@@ -254,6 +255,9 @@ Full changelog:
 👉 https://opendocs.forensicator.io/changelog/
 
 ```bash
+Windows: v4.3.0 (October 2026)
+- NEW: Windows Artifact Analysis collection (-WINARTIFACTS, opt-in) — collects the raw Shimcache/Amcache (SYSTEM hive, Amcache.hve), Prefetch (.pf), UserAssist/BAM (NTUSER.DAT), Registry Autoruns (SYSTEM/SOFTWARE), and LNK/Jump List/Shellbag (.lnk, .automaticDestinations-ms/.customDestinations-ms, UsrClass.dat) artifacts Forensicator Core/Enterprise's Windows Artifact Analysis feature parses server-side. Locked hives are read via a Volume Shadow Copy snapshot (created and removed automatically), falling back to reg.exe save for whatever's loaded if VSS isn't available.
+
 Windows: v4.2.0 (August 2026)
 - NEW: Forensicator AI — optional, per-finding AI verdicts from a local (Ollama) or commercial LLM (OpenAI, Anthropic, Azure OpenAI, or any OpenAI-compatible endpoint), shown right in the report's tooltip. Off by default.
 - NEW: Investigation Summary — a cross-finding case rollup with an overall risk score, reconstructed timeline, attack chain, evidence correlation, and recommended next steps, computed from every finding in the run.

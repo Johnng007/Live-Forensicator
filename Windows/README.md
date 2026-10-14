@@ -33,6 +33,7 @@ Key capabilities include:
 * Sigma rule integration
 * Malware hash matching (e.g., abuse.ch feeds)
 * Browser history extraction and IOC matching
+* Windows Artifact Analysis collection — raw Shimcache/Amcache/Prefetch/UserAssist/BAM/Autoruns/LNK/Jump List/Shellbag artifacts for Forensicator Core/Enterprise
 * Forensicator AI — optional, per-finding AI verdicts from a local or commercial LLM
 
 ---
