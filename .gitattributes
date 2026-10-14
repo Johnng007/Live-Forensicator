@@ -1,0 +1,20 @@
+# Default: treat detected text files as text, normalize to LF — correct for
+# the Linux/MacOS/Network collectors (shell scripts need a clean shebang
+# line to execute at all; a CRLF-terminated "#!/bin/bash" fails to run).
+* text=auto eol=lf
+
+# Windows collector is PowerShell-authored and uses CRLF natively.
+Windows/** text=auto eol=crlf
+
+# Binary files — never touch line endings, regardless of location.
+*.exe binary
+*.dylib binary
+Linux/Forensicator-Share/avml binary
+Linux/Forensicator-Share/sqlite3 binary
+MacOS/Forensicator-Share/avml binary
+MacOS/Forensicator-Share/osxpmem binary
+
+# The osxpmem.app bundle is a signed macOS kext package — any byte-level
+# change (including EOL normalization) can invalidate its code signature.
+# Leave every file inside it completely untouched, text or not.
+MacOS/Forensicator-Share/osxpmem.app/** -text -diff
