@@ -1,11 +1,11 @@
-<h1 align="center">🛡️ Forensicator (Windows) 🛡️</h1>
+<h1 align="center">🛡️ Forensicator Artifact Collector (Windows) 🛡️</h1>
 
 <h3 align="center">
-PowerShell-based Incident Response & Live Forensics Toolkit
+PowerShell-based Forensic Artifact Collector
 </h3>
 
 <p align="center">
-Advanced event log analysis, detection logic, and forensic artifact collection for Windows systems.
+Collects forensic artifacts from Windows systems for Forensicator Core/Enterprise analysis, with built-in event log triage along the way.
 </p>
 
 <picture>
@@ -18,22 +18,20 @@ Advanced event log analysis, detection logic, and forensic artifact collection f
 
 ## 🤔 About
 
-**Forensicator (Windows)** is a PowerShell-based incident response and live forensics tool designed to assist investigators in rapidly collecting artifacts and analyzing systems for malicious activities.
+**Forensicator (Windows)** is a PowerShell-based forensic artifact collector — it rapidly gathers the evidence an investigator needs from a live Windows host and packages it for Forensicator Core/Enterprise, with built-in on-host triage along the way.
 
 It enables:
 
-* Rapid triage of compromised systems
-* Detection of suspicious behavior via Event Logs
-* Identification of anomalies and indicators of compromise
+* Rapid artifact collection from compromised/live systems
 * Generation of structured, investigation-ready output
+* Built-in triage — detection of suspicious behavior via Event Logs, and identification of anomalies and indicators of compromise
 
 Key capabilities include:
 
-* Event Log analysis (targeted Event IDs)
-* Sigma rule integration
-* Malware hash matching (e.g., abuse.ch feeds)
-* Browser history extraction and IOC matching
 * Windows Artifact Analysis collection — raw Shimcache/Amcache/Prefetch/UserAssist/BAM/Autoruns/LNK/Jump List/Shellbag artifacts for Forensicator Core/Enterprise
+* Event Log collection (targeted Event IDs)
+* Browser history extraction and IOC matching
+* Built-in triage: Sigma rule integration and malware hash matching (e.g., abuse.ch feeds)
 * Forensicator AI — optional, per-finding AI verdicts from a local or commercial LLM
 
 ---
@@ -103,9 +101,9 @@ Run Forensicator as usual — no other flags needed. Prefer a commercial API ins
 
 ---
 
-## 🧠 Detection Capabilities
+## 🧠 Built-in Triage
 
-Forensicator detects suspicious activity through:
+On top of collection, Forensicator detects suspicious activity on the spot through:
 
 * Event Log correlation
 * Sigma-based detections

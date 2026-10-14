@@ -1,12 +1,12 @@
-<h1 align="center">🛡️ Forensicator 🛡️</h1>
+<h1 align="center">🛡️ Forensicator Artifact Collector 🛡️</h1>
 
 <h3 align="center">
-Cross-platform Incident Response & Live Forensics Toolkit<br>
+Cross-platform Forensic Artifact Collector<br>
 Windows | Linux | macOS | Network Devices
 </h3>
 
 <p align="center">
-Built for fast, structured, and actionable forensic investigations.
+Collects forensic artifacts from live systems for Forensicator Core/Enterprise analysis — with built-in on-host triage along the way.
 </p>
 
 
@@ -20,16 +20,15 @@ Built for fast, structured, and actionable forensic investigations.
 
 ## 🤔 About
 
-**Forensicator** is a cross-platform incident response and live forensics toolkit.
+**Forensicator** is a cross-platform forensic artifact collector.
 
-It is designed to help forensic investigators and incident responders rapidly collect, analyze, and interpret system artifacts during live investigations.
+It is designed to help forensic investigators and incident responders rapidly collect system and user activity artifacts from a live host or device, packaged for Forensicator Core/Enterprise analysis — with built-in on-host triage along the way.
 
 Forensicator:
 
-* Collects system and user activity data
-* Detects anomalous behavior and suspicious indicators
-* Highlights potential compromise or misconfiguration
+* Collects system and user activity artifacts, ready for Forensicator Core/Enterprise upload
 * Generates structured, investigation-ready HTML reports
+* Performs built-in triage — detects anomalous behavior and suspicious indicators, and highlights potential compromise or misconfiguration, on the spot
 
 ---
 
@@ -37,15 +36,13 @@ Forensicator:
 
 ### 🖳 Windows (PowerShell)
 
-* Advanced Event Log analysis
-* Detection of suspicious activity via known Event IDs
-* Sigma rule engine (1,400+ community rules) evaluated against Security/Sysmon Event Logs
-* Malware hash matching (e.g., abuse.ch feeds)
-* Browser history analysis with IOC matching
-* Optional artifact encryption (AES)
-* Detection Insight - a summary of the detection, why it matters, the detection logic, what to look for, and its MITRE mapping
 * Windows Artifact Analysis collection (opt-in) — raw Shimcache/Amcache/Prefetch/UserAssist/BAM/Autoruns/LNK/Jump List/Shellbag artifacts for Forensicator Core/Enterprise, including a Volume Shadow Copy snapshot to reach locked registry hives
+* Advanced Event Log collection
+* Browser history extraction with IOC matching
 * Investigation archive + structured JSON output for Forensicator Enterprise
+* Optional artifact encryption (AES)
+* Built-in triage: Sigma rule engine (1,400+ community rules) evaluated against Security/Sysmon Event Logs, known-Event-ID detection, and malware hash matching (e.g., abuse.ch feeds)
+* Detection Insight - a summary of the detection, why it matters, the detection logic, what to look for, and its MITRE mapping
 * Forensicator AI — optional, per-finding AI verdicts from a local (Ollama) or commercial LLM, shown in the report's tooltip
 
 👉 https://github.com/Johnng007/Live-Forensicator/tree/main/Windows
@@ -54,13 +51,13 @@ Forensicator:
 
 ### 🍎 macOS (Shell)
 
-* Detection engine covering reverse shells, SIP/Gatekeeper/kext tampering, PATH hijacking, deleted-binary execution, credential timestomping, and more
+* Collection of key forensic artifacts (system, user, network, process, file), FileVault/SIP/Gatekeeper/TCC/Signed System Volume integrity state, and browser history
+* Investigation archive + structured JSON output for Forensicator Enterprise
+* Optional artifact encryption (AES)
+* Built-in triage: detection engine covering reverse shells, SIP/Gatekeeper/kext tampering, PATH hijacking, deleted-binary execution, credential timestomping, and more
 * Best-effort Sigma rule engine sourced from real SigmaHQ community rules, evaluated against the unified log
 * Malware hash matching and browser history IOC matching, with auto-updating abuse.ch/URLhaus feeds
-* FileVault, SIP, Gatekeeper, TCC, and Signed System Volume integrity checks
 * Application code-signature verification
-* Optional artifact encryption (AES)
-* Investigation archive + structured JSON output for Forensicator Enterprise
 
 👉 https://github.com/Johnng007/Live-Forensicator/tree/main/MacOS
 
@@ -71,12 +68,12 @@ Forensicator:
 ### 🐧 Linux (Bash)
 
 * Cross-distro compatible Bash scripts, no non-native dependencies
-* Detection engine covering reverse shells, timestomping, PATH hijacking, deleted-binary execution, package integrity, and more
+* LUKS disk-encryption status and credential-file tampering timeline collection
+* Structured JSON output for Forensicator Enterprise
+* Optional artifact encryption (AES)
+* Built-in triage: detection engine covering reverse shells, timestomping, PATH hijacking, deleted-binary execution, package integrity, and more
 * Sigma rule engine sourced from real SigmaHQ community rules, evaluated against auditd and journald where available
 * Malware hash matching and malicious URL matching, with auto-updating abuse.ch/URLhaus feeds
-* LUKS disk-encryption status and credential-file tampering timeline
-* Optional artifact encryption (AES)
-* Structured JSON output for Forensicator Enterprise
 
 👉 https://github.com/Johnng007/Live-Forensicator/tree/main/Linux
 
@@ -87,13 +84,14 @@ Forensicator:
 ### 🌐 Network Devices (Python)
 
 * SSH-based collection via [Netmiko](https://github.com/ktbyers/netmiko) — Cisco IOS/IOS-XE, Cisco NX-OS, Arista EOS, Juniper Junos, and VyOS
-* 21 detection rules covering unauthorized local accounts, insecure management plane (Telnet/weak SNMP/missing AAA), logic-implant persistence (EEM applets, task schedulers), boot-image and config-section tampering, NTP/syslog tampering, brute-force login patterns, unexpected SPAN sessions and tunnel interfaces, loosened ACLs, and device-to-C2 and transit-traffic-to-known-malicious-IP detection
-* Detection Insight on every finding — plain-language explanation, MITRE ATT&CK mapping, and recommendations, same knowledge-base pattern as the Windows collector
-* Config-driven baselines — device inventory, per-rule toggles, and every rule's expected-value baseline are set in `config.json`, no code changes needed to tune a deployment
-* Per-device error isolation and concurrent multi-device collection — one unreachable device never aborts the rest of the run
-* Self-contained HTML report per device.
-* Optional AES-256-CBC artifact encryption and optional Forensicator AI per-finding verdicts (Ollama/OpenAI/Azure OpenAI/Anthropic).
 * Read-only by design — every collected command is non-mutating; no configuration changes are ever made to a device
+* Per-device error isolation and concurrent multi-device collection — one unreachable device never aborts the rest of the run
+* Self-contained HTML report per device
+* Optional AES-256-CBC artifact encryption
+* Config-driven baselines — device inventory, per-rule toggles, and every rule's expected-value baseline are set in `config.json`, no code changes needed to tune a deployment
+* Built-in triage: 21 detection rules covering unauthorized local accounts, insecure management plane (Telnet/weak SNMP/missing AAA), logic-implant persistence (EEM applets, task schedulers), boot-image and config-section tampering, NTP/syslog tampering, brute-force login patterns, unexpected SPAN sessions and tunnel interfaces, loosened ACLs, and device-to-C2 and transit-traffic-to-known-malicious-IP detection
+* Detection Insight on every finding — plain-language explanation, MITRE ATT&CK mapping, and recommendations, same knowledge-base pattern as the Windows collector
+* Optional Forensicator AI per-finding verdicts (Ollama/OpenAI/Azure OpenAI/Anthropic)
 
 👉 https://github.com/Johnng007/Live-Forensicator/tree/main/Network
 
@@ -104,12 +102,12 @@ Forensicator:
 ## 🔍 Key Features
 
 * Cross-platform forensic artifact collection — Windows, Linux, macOS, and (over SSH) network infrastructure
-* Detection of suspicious activity and anomalies on every platform
+* Structured HTML reporting (with dashboards)
+* Optional artifact encryption (Windows, Linux, macOS, and Network Devices)
+* Built-in triage on every platform — detection of suspicious activity and anomalies as artifacts are collected, not just after the fact
 * Event Log analysis (Windows)
 * Sigma rule integration on the three host platforms — coverage and data source vary by OS; see each platform's section below and its own README. Network Devices uses its own declarative rule engine instead (Sigma's process/event-log model doesn't apply to network-device config auditing) — see its README's Detection Rules section
 * Malware hash and IOC matching, with auto-updating threat-intel feeds (host platforms); IP/CIDR threat-intel blocklist matching against device session tables (Network Devices)
-* Structured HTML reporting (with dashboards)
-* Optional artifact encryption (Windows, Linux, macOS, and Network Devices)
 * Detection Insight with Mitre Mapping
 * Forensicator AI — optional, per-finding AI verdicts from a local (Ollama) or commercial LLM (Windows and Network Devices now; Linux/macOS planned)
 
@@ -179,9 +177,9 @@ Prefer a commercial API instead (OpenAI, Anthropic, Azure OpenAI, or any OpenAI-
 
 ---
 
-## 🧠 Detection Capabilities
+## 🧠 Built-in Triage
 
-Forensicator identifies suspicious activity through:
+On top of collection, Forensicator identifies suspicious activity on the spot through:
 
 * Event Log analysis
 * Sigma-based detections

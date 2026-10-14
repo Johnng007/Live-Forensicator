@@ -1,11 +1,11 @@
-<h1 align="center">🛡️ Forensicator (Linux) 🛡️</h1>
+<h1 align="center">🛡️ Forensicator Artifact Collector (Linux) 🛡️</h1>
 
 <h3 align="center">
-Bash-based Incident Response & Live Forensics Toolkit
+Bash-based Forensic Artifact Collector
 </h3>
 
 <p align="center">
-Lightweight, cross-distro forensic collection and timeline analysis for Linux systems.
+Collects forensic artifacts from Linux systems for Forensicator Core/Enterprise analysis, with built-in timeline-based triage along the way.
 </p>
 
 <picture>
@@ -18,41 +18,38 @@ Lightweight, cross-distro forensic collection and timeline analysis for Linux sy
 
 ## 🤔 About
 
-**Forensicator (Linux)** is a Bash-based incident response and live forensics tool designed to assist investigators in rapidly collecting and analyzing system artifacts across Linux environments.
+**Forensicator (Linux)** is a Bash-based forensic artifact collector — it rapidly gathers the evidence an investigator needs from a live Linux host and packages it for Forensicator Core/Enterprise, with built-in on-host triage along the way.
 
 It enables:
 
-* Rapid triage of Linux systems
-* Collection of key forensic artifacts
-* Built-in MITRE ATT&CK-mapped detection logic, backed by a real Sigma rule engine
-* Detection of suspicious persistence mechanisms
-* Timeline-based log analysis
+* Collection of key forensic artifacts across Linux environments
+* Timeline-based log collection
+* Built-in triage — MITRE ATT&CK-mapped detection logic backed by a real Sigma rule engine, and detection of suspicious persistence mechanisms
 
 This version focuses on:
 
 * Lightweight execution
 * Cross-distribution compatibility (no non-native dependencies)
-* Config-driven detection, so operators can tune what's flagged without editing the script
+* Config-driven collection and triage, so operators can tune what's flagged without editing the script
 
 ---
 
 ## ⚙️ Key Features
 
-* Cross-distro compatible Bash scripts
-* 25-rule MITRE ATT&CK-mapped detection engine (reverse shells, timestomping, PATH hijacking, deleted-binary execution, package integrity, and more)
-* Sigma rule engine sourced from real SigmaHQ community rules, evaluated against `auditd` (if configured) and `journald`
-* Malware hash matching and malicious URL/domain matching, with auto-updating abuse.ch/URLhaus feeds
+* Cross-distro compatible Bash scripts, no non-native dependencies
 * LUKS disk-encryption status check
 * Credential-file tampering timeline (mtime vs. ctime on passwd/shadow/sudoers/authorized_keys)
 * Multi-user, multi-shell command history (bash/zsh/sh/fish)
-* Timeline-based log analysis
+* Timeline-based log collection
 * Network capture (PCAP)
-* Browser history extraction (Firefox/Chrome-family), with malicious-URL IOC matching
-* Ransomware extension detection
+* Browser history extraction (Firefox/Chrome-family)
 * Persistence discovery (cron, systemd, init, etc.)
 * Optional artifact encryption (AES-256)
 * Structured per-check JSON output under `investigation/`, for Forensicator Enterprise upload
 * Structured HTML output
+* Built-in triage: 25-rule MITRE ATT&CK-mapped detection engine (reverse shells, timestomping, PATH hijacking, deleted-binary execution, package integrity, and more)
+* Sigma rule engine sourced from real SigmaHQ community rules, evaluated against `auditd` (if configured) and `journald`
+* Malware hash matching and malicious URL/domain matching, with auto-updating abuse.ch/URLhaus feeds, including browser-history IOC matching and ransomware extension detection
 
 > ⚠️ The Sigma engine requires `python3`. If it isn't present, that step is skipped cleanly and the rest of the collection is unaffected. Real-world Sigma hit rate depends heavily on whether `auditd` is already configured on the target box — most distros don't enable exec auditing by default, so `journald`-backed rules (sshd/sudo/cron) are the more consistently useful half of the ruleset.
 

@@ -1,11 +1,11 @@
-<h1 align="center">🛡️ Forensicator (macOS) 🛡️</h1>
+<h1 align="center">🛡️ Forensicator Artifact Collector (macOS) 🛡️</h1>
 
 <h3 align="center">
-Bash-based Incident Response & Live Forensics Toolkit
+Bash-based Forensic Artifact Collector
 </h3>
 
 <p align="center">
-Live forensic artifact collection, MITRE ATT&CK-mapped detections, and structured reporting for macOS systems.
+Collects forensic artifacts from macOS systems for Forensicator Core/Enterprise analysis, with built-in MITRE ATT&CK-mapped triage along the way.
 </p>
 
 <picture>
@@ -18,14 +18,13 @@ Live forensic artifact collection, MITRE ATT&CK-mapped detections, and structure
 
 ## 🤔 About
 
-**Forensicator (macOS)** is a Bash-based incident response and live forensics tool designed to assist investigators in rapidly collecting and analyzing system artifacts on macOS.
+**Forensicator (macOS)** is a Bash-based forensic artifact collector — it rapidly gathers the evidence an investigator needs from a live macOS host and packages it for Forensicator Core/Enterprise, with built-in on-host triage along the way.
 
 It enables:
 
-* Rapid triage of macOS systems
 * Collection of key forensic artifacts (system, user, network, process, file)
-* Built-in MITRE ATT&CK-mapped detection logic, backed by a best-effort Sigma rule engine
 * macOS-native integrity checks (SIP, Gatekeeper, FileVault, Signed System Volume, code signatures)
+* Built-in triage — MITRE ATT&CK-mapped detection logic, backed by a best-effort Sigma rule engine
 
 Apple restricts real process-creation telemetry (comparable to Linux `auditd` or Windows Sysmon) to its Endpoint Security Framework, which requires a signed system extension with a special Apple-issued entitlement — not something a plain script can obtain. Where that limits a check, this README says so plainly rather than overclaiming.
 
@@ -33,19 +32,19 @@ Apple restricts real process-creation telemetry (comparable to Linux `auditd` or
 
 ## ⚙️ Key Features
 
-* Detection engine, MITRE ATT&CK-mapped (reverse shells, attack tools, brute force, SIP/Gatekeeper tampering, dylib hijacking, timestomping, PATH hijacking, deleted-binary execution, and more)
-* Best-effort Sigma rule engine sourced from real SigmaHQ community rules, evaluated against the unified log (`log show`)
-* Malware hash matching and malicious URL/domain matching, with auto-updating abuse.ch/URLhaus feeds
 * FileVault, SIP, Gatekeeper, and TCC privacy database inspection
 * Signed System Volume (SSV) seal status and application code-signature verification (the macOS analog of package-checksum verification — there is no `rpm`/`dpkg` here)
 * Credential-file tampering timeline (mtime vs. ctime on passwd/sudoers/authorized_keys)
 * Multi-user, multi-shell command history (bash/zsh/sh/fish)
-* Browser history extraction (Safari, Chrome, Firefox, Edge, Brave) with malicious-URL IOC matching
-* Ransomware extension detection
+* Browser history extraction (Safari, Chrome, Firefox, Edge, Brave)
 * Persistence discovery (LaunchDaemons, LaunchAgents, login items, cron)
 * Optional artifact encryption (AES-256)
 * Structured per-check JSON output under `investigation/`, plus a hashed investigation archive for Forensicator Enterprise upload
 * Single-page HTML dashboard report
+* Built-in triage: detection engine, MITRE ATT&CK-mapped (reverse shells, attack tools, brute force, SIP/Gatekeeper tampering, dylib hijacking, timestomping, PATH hijacking, deleted-binary execution, and more)
+* Best-effort Sigma rule engine sourced from real SigmaHQ community rules, evaluated against the unified log (`log show`)
+* Malware hash matching and malicious URL/domain matching, with auto-updating abuse.ch/URLhaus feeds
+* Ransomware extension detection, and browser-history malicious-URL IOC matching
 
 > ⚠️ The Sigma engine requires `python3`. If it isn't present, that step is skipped cleanly and the rest of the collection is unaffected. Most Sigma rules here expect command-line/parent-process data the unified log doesn't record — expect low hit rate on rules other than the ones that only need a process's own image path. A quiet Sigma tab does not mean nothing happened; it means the telemetry those rules need isn't accessible without Endpoint Security Framework.
 
