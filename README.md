@@ -173,7 +173,7 @@ ollama pull mistral:7b-instruct
 
 Prefer a commercial API instead (OpenAI, Anthropic, Azure OpenAI, or any OpenAI-compatible endpoint)? Set `provider` accordingly and add your `api_key`.
 
-📘 Full setup guide (all providers, tuning, troubleshooting): <a href="https://opendocs.forensicator.io">opendocs.forensicator.io</a>
+📘 Full setup guide (all providers, tuning, troubleshooting): <a href="https://docs.forensicator.io">opendocs.forensicator.io</a>
 
 ---
 
