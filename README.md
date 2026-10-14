@@ -293,5 +293,5 @@ Users are responsible for complying with the applicable licenses and terms of an
 
 ## ☕ Documentation
 
-<a href="https://docs.forensicator.io"> Documentation</a>
+<a href="https://docs.forensicator.io/collector/changelog/"> Documentation</a>
 
