@@ -5,7 +5,7 @@ PowerShell-based Forensic Artifact Collector
 </h3>
 
 <p align="center">
-Collects forensic artifacts from Windows systems for Forensicator Core/Enterprise analysis, with built-in event log triage along the way.
+Collects forensic artifacts from live windows systems for analysis in Forensicator Core. Includes a built-in HTML report for quick triage and preliminary findings review.
 </p>
 
 <picture>
@@ -18,7 +18,7 @@ Collects forensic artifacts from Windows systems for Forensicator Core/Enterpris
 
 ## 🤔 About
 
-**Forensicator (Windows)** is a PowerShell-based forensic artifact collector — it rapidly gathers the evidence an investigator needs from a live Windows host and packages it for Forensicator Core/Enterprise, with built-in on-host triage along the way.
+**Live Forensicator (Windows)** is a PowerShell-based forensic artifact collector — it rapidly gathers the evidence an investigator needs from a live Windows host and packages it for Forensicator Core, with built-in on-host triage along the way.
 
 It enables:
 
@@ -28,7 +28,7 @@ It enables:
 
 Key capabilities include:
 
-* Windows Artifact Analysis collection — raw Shimcache/Amcache/Prefetch/UserAssist/BAM/Autoruns/LNK/Jump List/Shellbag artifacts for Forensicator Core/Enterprise
+* Windows Artifact Analysis collection — raw Shimcache/Amcache/Prefetch/UserAssist/BAM/Autoruns/LNK/Jump List/Shellbag artifacts for Forensicator Core
 * Event Log collection (targeted Event IDs)
 * Browser history extraction and IOC matching
 * Built-in triage: Sigma rule integration and malware hash matching (e.g., abuse.ch feeds)
@@ -201,7 +201,7 @@ Automatically detected and enabled only when SharePoint Server is present:
 
 ### 🗃️ Windows Artifact Analysis (opt-in, `-WINARTIFACTS`)
 
-Raw artifact files for upload to Forensicator Core/Enterprise's Windows Artifact Analysis feature — this collects the files themselves, not a summary:
+Raw artifact files for upload to Forensicator Core's Windows Artifact Analysis feature — this collects the files themselves, not a summary:
 
 * Registry hives — `SYSTEM`, `SOFTWARE`, `SECURITY`, `Amcache.hve`, and every user profile's `NTUSER.DAT`/`UsrClass.dat` (Shimcache, Amcache, UserAssist, BAM/DAM, Autoruns, Shellbags)
 * Prefetch — every `.pf` file in `C:\Windows\Prefetch`
@@ -314,5 +314,5 @@ Users are responsible for complying with the applicable licenses and terms of an
 
 ## ☕ Documentation
 
-<a href="https://opendocs.forensicator.io"> OpenDocs</a>
+<a href="https://docs.forensicator.io"> OpenDocs</a>
 

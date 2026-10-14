@@ -6,7 +6,7 @@ Windows | Linux | macOS | Network Devices
 </h3>
 
 <p align="center">
-Collects forensic artifacts from live systems for Forensicator Core/Enterprise analysis — with built-in on-host triage along the way.
+Collects forensic artifacts from live systems for analysis in Forensicator Core. Includes a built-in HTML report for quick triage and preliminary findings review.
 </p>
 
 
@@ -20,11 +20,11 @@ Collects forensic artifacts from live systems for Forensicator Core/Enterprise a
 
 ## 🤔 About
 
-**Forensicator** is a cross-platform forensic artifact collector.
+**Live Forensicator** is a cross-platform forensic artifact collector.
 
-It is designed to help forensic investigators and incident responders rapidly collect system and user activity artifacts from a live host or device, packaged for Forensicator Core/Enterprise analysis — with built-in on-host triage along the way.
+It is designed to help forensic investigators and incident responders rapidly collect system and user activity artifacts from a live host or device, the collected artifscts can uploaded to Forensicator Core for analysis. The collector also bundles a built-in HTML report for quick triage along the way.
 
-Forensicator:
+Live Forensicator:
 
 * Collects system and user activity artifacts, ready for Forensicator Core/Enterprise upload
 * Generates structured, investigation-ready HTML reports
@@ -36,7 +36,7 @@ Forensicator:
 
 ### 🖳 Windows (PowerShell)
 
-* Windows Artifact Analysis collection (opt-in) — raw Shimcache/Amcache/Prefetch/UserAssist/BAM/Autoruns/LNK/Jump List/Shellbag artifacts for Forensicator Core/Enterprise, including a Volume Shadow Copy snapshot to reach locked registry hives
+* Windows Artifact Analysis collection (opt-in) — raw Shimcache/Amcache/Prefetch/UserAssist/BAM/Autoruns/LNK/Jump List/Shellbag artifacts, including a Volume Shadow Copy snapshot to reach locked registry hives
 * Advanced Event Log collection
 * Browser history extraction with IOC matching
 * Investigation archive + structured JSON output for Forensicator Enterprise
@@ -254,23 +254,8 @@ Full changelog:
 
 ```bash
 Windows: v4.3.0 (October 2026)
-- NEW: Windows Artifact Analysis collection (-WINARTIFACTS, opt-in) — collects the raw Shimcache/Amcache (SYSTEM hive, Amcache.hve), Prefetch (.pf), UserAssist/BAM (NTUSER.DAT), Registry Autoruns (SYSTEM/SOFTWARE), and LNK/Jump List/Shellbag (.lnk, .automaticDestinations-ms/.customDestinations-ms, UsrClass.dat) artifacts Forensicator Core/Enterprise's Windows Artifact Analysis feature parses server-side. Locked hives are read via a Volume Shadow Copy snapshot (created and removed automatically), falling back to reg.exe save for whatever's loaded if VSS isn't available.
+- NEW: Windows Artifact Analysis collection (-WINARTIFACTS, opt-in) — collects the raw Shimcache/Amcache (SYSTEM hive, Amcache.hve), Prefetch (.pf), UserAssist/BAM (NTUSER.DAT), Registry Autoruns (SYSTEM/SOFTWARE), and LNK/Jump List/Shellbag (.lnk, .automaticDestinations-ms/.customDestinations-ms, UsrClass.dat) artifacts Forensicator's Windows Artifact Analysis feature parses server-side. Locked hives are read via a Volume Shadow Copy snapshot (created and removed automatically), falling back to reg.exe save for whatever's loaded if VSS isn't available.
 
-Windows: v4.2.0 (August 2026)
-- NEW: Forensicator AI — optional, per-finding AI verdicts from a local (Ollama) or commercial LLM (OpenAI, Anthropic, Azure OpenAI, or any OpenAI-compatible endpoint), shown right in the report's tooltip. Off by default.
-- NEW: Investigation Summary — a cross-finding case rollup with an overall risk score, reconstructed timeline, attack chain, evidence correlation, and recommended next steps, computed from every finding in the run.
-- FIX: Investigation Summary's overall risk score no longer inflated by routine, always-present findings (services, scheduled tasks, browser history, running processes, RDP logins, and similar) that carry no evidence of actual compromise — a clean host with zero detections now correctly scores Low instead of High/Critical.
-- FIX: Improvements and bug fixes.
-
-Windows: v4.1.7 (July 2026)
-- NEW: Added support for PowerShell v5.
-- NEW: Active Directory detection module (Domain Controllers only) — NTDS database integrity, SYSVOL/GPO script analysis, privileged group membership, KRBTGT account age, SPN/Kerberoasting exposure, Kerberos delegation, DCSync rights enumeration, DC-specific privileged/Kerberos event collection, and WMI permanent event subscription detection.
-- NEW: Microsoft SQL Server detection module — dangerous configuration options (xp_cmdshell, OLE Automation Procedures, CLR), sysadmin/sa account review, linked servers, TRUSTWORTHY databases, SQL Agent job persistence checks, and login failure event collection.
-- NEW: Microsoft SharePoint Server detection module — webshell/dropped-file scanning, suspicious IIS worker process (w3wp.exe) child processes, web.config ViewState/machineKey misconfiguration review, and known exploit URI matching in IIS logs.
-- FIX: Sigma rule engine returning zero findings on PowerShell 5.1 due to a ConvertFrom-Json array-unrolling difference between PS5.1 and PS7.
-- FIX: HTML report rendering broken on PowerShell 5.1 caused by inconsistent Out-File encoding (UTF-16 vs UTF-8) between PowerShell versions.
-- FIX: Friendlier error handling when manage-bde.exe is unavailable during BitLocker key extraction.
-- FIX: Improvements and bug fixes.
 ```
 
 ---
@@ -308,5 +293,5 @@ Users are responsible for complying with the applicable licenses and terms of an
 
 ## ☕ Documentation
 
-<a href="https://opendocs.forensicator.io"> OpenDocs</a>
+<a href="https://docs.forensicator.io"> OpenDocs</a>
 

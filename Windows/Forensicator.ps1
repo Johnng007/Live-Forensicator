@@ -15551,10 +15551,10 @@ Archive   : investigation.zip
 SHA256    : $InvestigationHash
 
 ───────────────────────────────────────────────
-Forensicator Enterprise
+Forensicator Core
 
 The investigation archive can be uploaded to
-Forensicator Enterprise for:
+Forensicator Core for:
 
  • Log Analysis
  • IOC enrichment
@@ -15564,7 +15564,7 @@ Forensicator Enterprise for:
  • Team collaboration
 
 Learn more:
-https://forensicator.io
+https://docs.forensicator.io
 ───────────────────────────────────────────────
 "@
 

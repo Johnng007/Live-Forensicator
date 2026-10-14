@@ -5,7 +5,7 @@ Bash-based Forensic Artifact Collector
 </h3>
 
 <p align="center">
-Collects forensic artifacts from Linux systems for Forensicator Core/Enterprise analysis, with built-in timeline-based triage along the way.
+Collects forensic artifacts from Linux systems for analysis in Forensicator Core. Includes a built-in HTML report for quick triage and preliminary findings review.
 </p>
 
 <picture>
@@ -18,7 +18,7 @@ Collects forensic artifacts from Linux systems for Forensicator Core/Enterprise 
 
 ## 🤔 About
 
-**Forensicator (Linux)** is a Bash-based forensic artifact collector — it rapidly gathers the evidence an investigator needs from a live Linux host and packages it for Forensicator Core/Enterprise, with built-in on-host triage along the way.
+**Live Forensicator (Linux)** is a Bash-based forensic artifact collector — it rapidly gathers the evidence an investigator needs from a live Linux host and packages it for Forensicator Core, with built-in on-host triage along the way.
 
 It enables:
 
@@ -336,4 +336,4 @@ Users are responsible for complying with the applicable licenses and terms of an
 
 ## ☕ Documentation
 
-<a href="https://opendocs.forensicator.io"> OpenDocs</a>
+<a href="https://docs.forensicator.io"> OpenDocs</a>
