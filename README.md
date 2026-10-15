@@ -36,7 +36,7 @@ Live Forensicator:
 
 ### 🖳 Windows (PowerShell)
 
-* Windows Artifact Analysis collection (opt-in) — raw Shimcache/Amcache/Prefetch/UserAssist/BAM/Autoruns/LNK/Jump List/Shellbag artifacts, including a Volume Shadow Copy snapshot to reach locked registry hives
+* Windows Artifact Analysis collection (opt-in) — raw Shimcache/Amcache/Prefetch/UserAssist/BAM/Autoruns/LNK/Jump List/Shellbag/$MFT/$UsnJrnl/SRUM artifacts, including a Volume Shadow Copy snapshot to reach locked registry hives, $MFT, $UsnJrnl:$J, and SRUDB.dat
 * Advanced Event Log collection
 * Browser history extraction with IOC matching
 * Investigation archive + structured JSON output for Forensicator Enterprise
@@ -255,6 +255,7 @@ Full changelog:
 ```bash
 Windows: v4.3.0 (October 2026)
 - NEW: Windows Artifact Analysis collection (-WINARTIFACTS, opt-in) — collects the raw Shimcache/Amcache (SYSTEM hive, Amcache.hve), Prefetch (.pf), UserAssist/BAM (NTUSER.DAT), Registry Autoruns (SYSTEM/SOFTWARE), and LNK/Jump List/Shellbag (.lnk, .automaticDestinations-ms/.customDestinations-ms, UsrClass.dat) artifacts Forensicator's Windows Artifact Analysis feature parses server-side. Locked hives are read via a Volume Shadow Copy snapshot (created and removed automatically), falling back to reg.exe save for whatever's loaded if VSS isn't available.
+- NEW: -WINARTIFACTS also collects $MFT and the $UsnJrnl:$J alternate data stream (plus its raw fsutil usn queryjournal metadata) and SRUDB.dat (the SRUM/System Resource Usage Monitor ESE database), along with the HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SRUM\Extensions registry data needed to interpret it — all raw files/streams for offline analysis, not parsed by this script. $MFT, $UsnJrnl:$J, and SRUDB.dat are read via the same VSS snapshot as the locked registry hives; the journal metadata and SRUM registry data are read live and collected regardless of VSS.
 
 ```
 

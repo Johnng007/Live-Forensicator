@@ -441,7 +441,7 @@ if ($USAGE) {
   Write-Host -ForegroundColor Cyan "[!] requires the etl2pcapng file in share folder"
   Write-Host -ForegroundColor DarkCyan '[*] -RAM RAM                 Extract RAM Dump'
   Write-Host -ForegroundColor Cyan "[!] requires the winpmem file in share folder"
-  Write-Host -ForegroundColor DarkCyan '[*] -WINARTIFACTS WINARTIFACTS   Collect raw Shimcache/Amcache/Prefetch/UserAssist/BAM/Autoruns/LNK/Jump List artifacts for Forensicator Core/Enterprise'
+  Write-Host -ForegroundColor DarkCyan '[*] -WINARTIFACTS WINARTIFACTS   Collect raw Shimcache/Amcache/Prefetch/UserAssist/BAM/Autoruns/LNK/Jump List/$MFT/$UsnJrnl/SRUM artifacts for Forensicator Core/Enterprise'
   Write-Host -ForegroundColor Cyan "[!] uses a Volume Shadow Copy snapshot to read locked registry hives"
   Write-Host -ForegroundColor DarkCyan '[*] -LOG4J LOG4J             Checks for vulnerable log4j files'
   Write-Host -ForegroundColor DarkCyan '[*] -ENCRYPTED ENCRYPTED     Encrypts Artifacts after collecting them'
@@ -5086,12 +5086,17 @@ $DownloadFinding | ConvertTo-Json -Depth 10 | Out-File $DownloadJsonOutputPath -
 
 
 ###########################################################################################################
-#region  WINDOWS ARTIFACTS (WinArtifacts) — Shimcache/Amcache, Prefetch, UserAssist/BAM, Autoruns, LNK/Jump Lists/Shellbags
+#region  WINDOWS ARTIFACTS (WinArtifacts) — Shimcache/Amcache, Prefetch, UserAssist/BAM, Autoruns, LNK/Jump Lists/Shellbags, $MFT/$UsnJrnl, SRUM
 ###########################################################################################################
 # Collects the RAW files Forensicator-Core's "Windows Artifact Analysis" feature parses server-side
 # (regipy for registry hives, pyscca for Prefetch, LnkParse3 for LNK/Jump Lists) for later upload via
 # /windows-artifacts/upload — this section does not parse or interpret any of it itself. Opt-in via
 # -WINARTIFACTS, same reasoning as -RAM/-PCAP being opt-in (VSS overhead, potentially large files).
+#
+# Also collects a few NTFS/SRUM-level artifacts Core's upload page has no dedicated parser for yet
+# ($MFT, $UsnJrnl:$J + its queryjournal metadata, SRUDB.dat + the registry data needed to interpret
+# it) — same raw-files-only posture as everything else here, for offline analysis with standalone
+# tools (MFTECmd, SrumECmd, etc.) until/unless Core adds native parsing for them.
 #
 # SYSTEM/SOFTWARE/SECURITY/Amcache.hve and every profile's NTUSER.DAT/UsrClass.dat are held open by
 # the OS while Windows runs, so a plain Copy-Item on them fails with a sharing violation. This uses a
@@ -5103,6 +5108,13 @@ $DownloadFinding | ConvertTo-Json -Depth 10 | Out-File $DownloadJsonOutputPath -
 # with one mechanism. If VSS creation fails (service disabled, non-NTFS, restricted environment), this
 # falls back to `reg.exe save` for whatever IS loaded and logs exactly what got skipped — it never
 # throws or aborts the rest of the run, matching this script's error-tolerance everywhere else.
+#
+# $MFT, the $UsnJrnl:$J alternate data stream, and SRUDB.dat are exclusively-locked NTFS/SRUM metadata
+# files for the same underlying reason as the registry hives above, so they're collected through the
+# exact same VSS snapshot rather than a second mechanism. `reg.exe save` has no equivalent for any of
+# these three (it's registry-specific) — without VSS they're attempted as a plain, almost-certainly-
+# failing Copy-Item anyway ("where accessible"), logged and skipped on failure like everything else
+# here, never aborting the rest of the run.
 #
 # Uses Get-CimInstance/Invoke-CimMethod (not the legacy Get-WmiObject, which was removed in
 # PowerShell 7/Core) so this works on both Windows PowerShell 5.1 and PowerShell 7+.
@@ -5206,7 +5218,7 @@ function Save-ForensicHive {
 if($WINARTIFACTS){
 
     Write-ForensicLog ""
-    Write-ForensicLog "[*] Collecting Windows Artifact Analysis artifacts (Shimcache/Amcache, Prefetch, UserAssist/BAM, Autoruns, LNK/Jump Lists/Shellbags)..." -Level INFO -Section "WINARTIFACTS"
+    Write-ForensicLog "[*] Collecting Windows Artifact Analysis artifacts (Shimcache/Amcache, Prefetch, UserAssist/BAM, Autoruns, LNK/Jump Lists/Shellbags, `$MFT, `$UsnJrnl:`$J, SRUM)..." -Level INFO -Section "WINARTIFACTS"
 
     $WinArtifactsRoot = "$PSScriptRoot\$env:COMPUTERNAME\artifacts\WindowsArtifacts"
     $RegistryOut     = "$WinArtifactsRoot\Registry"
@@ -5214,13 +5226,15 @@ if($WINARTIFACTS){
     $LnkOut          = "$WinArtifactsRoot\LNK"
     $JumpListAutoOut = "$WinArtifactsRoot\JumpLists\Automatic"
     $JumpListCustOut = "$WinArtifactsRoot\JumpLists\Custom"
+    $NtfsOut         = "$WinArtifactsRoot\NTFS"
+    $SrumOut         = "$WinArtifactsRoot\SRUM"
 
-    foreach($dir in @($RegistryOut, $PrefetchOut, $LnkOut, $JumpListAutoOut, $JumpListCustOut)){
+    foreach($dir in @($RegistryOut, $PrefetchOut, $LnkOut, $JumpListAutoOut, $JumpListCustOut, $NtfsOut, $SrumOut)){
         New-Item -ItemType Directory -Force -Path $dir -ErrorAction SilentlyContinue | Out-Null
     }
 
     # ---------------------------------------------------------
-    # LOCKED REGISTRY HIVES
+    # LOCKED REGISTRY HIVES, $MFT, $UsnJrnl:$J, SRUDB.dat
     # ---------------------------------------------------------
     $vssShadow = New-ForensicVssSnapshot -Volume "$env:SystemDrive\"
 
@@ -5246,10 +5260,31 @@ if($WINARTIFACTS){
                                -Label "UsrClass.dat ($username)" | Out-Null
         }
 
+        # $MFT — resident NTFS metadata file at the volume root, locked the
+        # same way the registry hives above are.
+        Copy-ForensicFile -SourcePath "$shadowRoot\`$MFT" `
+                           -DestinationPath "$NtfsOut\`$MFT" `
+                           -Label '$MFT' | Out-Null
+
+        # $UsnJrnl:$J — the journal's actual content lives entirely in this
+        # alternate data stream; the $UsnJrnl file itself has no useful
+        # default stream. Addressed directly via the "path:stream" form,
+        # same technique used for reading any other named ADS.
+        Copy-ForensicFile -SourcePath "$shadowRoot\`$Extend\`$UsnJrnl:`$J" `
+                           -DestinationPath "$NtfsOut\`$J" `
+                           -Label '$UsnJrnl:$J' | Out-Null
+
+        # SRUDB.dat — the SRUM (System Resource Usage Monitor) ESE database;
+        # held open by the SRU service while Windows runs, same reason as
+        # the registry hives above.
+        Copy-ForensicFile -SourcePath "$shadowRoot\Windows\System32\sru\SRUDB.dat" `
+                           -DestinationPath "$SrumOut\SRUDB.dat" `
+                           -Label 'SRUDB.dat' | Out-Null
+
         Remove-ForensicVssSnapshot -Shadow $vssShadow
     }
     else{
-        Write-ForensicLog "[!] No VSS snapshot available — Amcache.hve and any offline user profile's hives will NOT be collected" -Level WARN -Section "WINARTIFACTS"
+        Write-ForensicLog "[!] No VSS snapshot available — Amcache.hve, any offline user profile's hives, `$MFT, `$UsnJrnl:`$J, and SRUDB.dat will likely NOT be collected" -Level WARN -Section "WINARTIFACTS"
 
         Save-ForensicHive -KeyPath 'HKLM\SYSTEM'   -DestinationPath "$RegistryOut\SYSTEM"   -Label "SYSTEM hive"
         Save-ForensicHive -KeyPath 'HKLM\SOFTWARE' -DestinationPath "$RegistryOut\SOFTWARE" -Label "SOFTWARE hive"
@@ -5276,7 +5311,59 @@ if($WINARTIFACTS){
         }
 
         Write-ForensicLog "[!] Amcache.hve skipped — not reachable via reg.exe save without VSS" -Level WARN -Section "WINARTIFACTS"
+
+        # $MFT, $UsnJrnl:$J, and SRUDB.dat have no reg.exe-save-style
+        # fallback (that trick only applies to registry hives) — attempted
+        # as a plain copy anyway per "collect where accessible"; expected
+        # to fail with a sharing violation on most systems without VSS,
+        # which Copy-ForensicFile already logs and skips, same as any
+        # other missing/locked file.
+        Copy-ForensicFile -SourcePath "$env:SystemDrive\`$MFT" `
+                           -DestinationPath "$NtfsOut\`$MFT" `
+                           -Label '$MFT' | Out-Null
+
+        Copy-ForensicFile -SourcePath "$env:SystemDrive\`$Extend\`$UsnJrnl:`$J" `
+                           -DestinationPath "$NtfsOut\`$J" `
+                           -Label '$UsnJrnl:$J' | Out-Null
+
+        Copy-ForensicFile -SourcePath "$env:SystemRoot\System32\sru\SRUDB.dat" `
+                           -DestinationPath "$SrumOut\SRUDB.dat" `
+                           -Label 'SRUDB.dat' | Out-Null
     }
+
+    # ---------------------------------------------------------
+    # USN JOURNAL METADATA — fsutil's own raw query output, saved
+    # verbatim (not parsed) alongside the raw $J stream. Independent of
+    # VSS: this reads the live journal's current state via an IOCTL, not
+    # the locked $Extend\$UsnJrnl file itself, so it's attempted
+    # unconditionally regardless of whether the copy above succeeded.
+    # ---------------------------------------------------------
+    try {
+        $usnMetaRaw = & fsutil usn queryjournal "$env:SystemDrive\" 2>&1
+        if($LASTEXITCODE -eq 0){
+            $usnMetaRaw | Out-File -LiteralPath (Join-Path $NtfsOut 'UsnJournal_Metadata.txt') -Encoding utf8
+            Write-ForensicLog "[+] Collected USN journal metadata (fsutil usn queryjournal)" -Level SUCCESS -Section "WINARTIFACTS"
+        }
+        else {
+            Write-ForensicLog "[!] fsutil usn queryjournal returned exit code $LASTEXITCODE — journal may not exist on this volume" -Level WARN -Section "WINARTIFACTS" -Detail ($usnMetaRaw -join ' ')
+        }
+    }
+    catch {
+        Write-ForensicLog "[!] USN journal metadata collection failed" -Level WARN -Section "WINARTIFACTS" -Detail $_.Exception.Message
+    }
+
+    # ---------------------------------------------------------
+    # SRUM EXTENSIONS REGISTRY DATA — maps the GUID-named tables inside
+    # SRUDB.dat to the actual SRUM provider each one is (network usage,
+    # application resource usage, energy estimation, etc.) — needed to
+    # interpret the database, not optional context. A live registry key
+    # (not a locked file), so this uses the same reg.exe-save path the
+    # no-VSS hive fallback above already does, unconditionally — no VSS
+    # dependency either way.
+    # ---------------------------------------------------------
+    Save-ForensicHive -KeyPath 'HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SRUM\Extensions' `
+                       -DestinationPath (Join-Path $SrumOut 'SRUM_Extensions.hive') `
+                       -Label 'SRUM Extensions registry data'
 
     # ---------------------------------------------------------
     # PREFETCH — not locked, plain copy
@@ -11569,7 +11656,7 @@ $ExtrasArtifactsFragment = @(
   (New-ExtrasArtifactRow -Label 'IIS Logs'                    -Folder 'artifacts\IISLogs'          -Patterns @('*.log')),
   (New-ExtrasArtifactRow -Label 'TomCat Logs'                 -Folder 'artifacts\TomCatLogs'       -Patterns @('*.log')),
   (New-ExtrasArtifactRow -Label 'Log4j Findings'              -Folder 'artifacts\LOG4J'       -Patterns @('*.txt')),
-  (New-ExtrasArtifactRow -Label 'Windows Artifact Analysis'   -Folder 'artifacts\WindowsArtifacts' -Patterns @('*.pf','*.lnk','*.hve','SYSTEM','SOFTWARE','SECURITY','NTUSER.DAT','UsrClass.dat','*.automaticDestinations-ms','*.customDestinations-ms'))
+  (New-ExtrasArtifactRow -Label 'Windows Artifact Analysis'   -Folder 'artifacts\WindowsArtifacts' -Patterns @('*.pf','*.lnk','*.hve','SYSTEM','SOFTWARE','SECURITY','NTUSER.DAT','UsrClass.dat','*.automaticDestinations-ms','*.customDestinations-ms','$mft','$j','srudb.dat'))
 
   
 ) -join "`n"

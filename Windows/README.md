@@ -28,7 +28,7 @@ It enables:
 
 Key capabilities include:
 
-* Windows Artifact Analysis collection — raw Shimcache/Amcache/Prefetch/UserAssist/BAM/Autoruns/LNK/Jump List/Shellbag artifacts for Forensicator Core
+* Windows Artifact Analysis collection — raw Shimcache/Amcache/Prefetch/UserAssist/BAM/Autoruns/LNK/Jump List/Shellbag/$MFT/$UsnJrnl/SRUM artifacts for Forensicator Core
 * Event Log collection (targeted Event IDs)
 * Browser history extraction and IOC matching
 * Built-in triage: Sigma rule integration and malware hash matching (e.g., abuse.ch feeds)
@@ -207,8 +207,11 @@ Raw artifact files for upload to Forensicator Core's Windows Artifact Analysis f
 * Prefetch — every `.pf` file in `C:\Windows\Prefetch`
 * LNK files — every `.lnk` found under `C:\Users`
 * Jump Lists — every `.automaticDestinations-ms`/`.customDestinations-ms` per profile
+* `$MFT` — the volume's Master File Table
+* `$UsnJrnl:$J` — the USN change journal's data stream, plus its raw `fsutil usn queryjournal` metadata (journal ID, USN range, max size, etc.), saved alongside it unparsed
+* `SRUDB.dat` — the SRUM (System Resource Usage Monitor) ESE database, plus the `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SRUM\Extensions` registry data needed to map its GUID-named tables to the actual SRUM provider each one is
 
-`SYSTEM`/`SOFTWARE`/`SECURITY`/`Amcache.hve` and NTUSER.DAT/UsrClass.dat are held open by Windows while running, so this uses a Volume Shadow Copy snapshot to read them (created and removed automatically — standard, auditable IR technique, same as KAPE/Velociraptor use). If VSS isn't available, it falls back to `reg.exe save` for whichever hives are currently loaded and logs exactly what had to be skipped (`Amcache.hve` and any profile that isn't logged on can only be reached via VSS).
+`SYSTEM`/`SOFTWARE`/`SECURITY`/`Amcache.hve`, NTUSER.DAT/UsrClass.dat, `$MFT`, `$UsnJrnl:$J`, and `SRUDB.dat` are all held open by Windows while running, so this uses a Volume Shadow Copy snapshot to read them (created and removed automatically — standard, auditable IR technique, same as KAPE/Velociraptor use). If VSS isn't available, registry hives fall back to `reg.exe save` for whichever are currently loaded; `$MFT`/`$UsnJrnl:$J`/`SRUDB.dat` have no equivalent fallback and are only collected where accessible without it. The journal metadata and the SRUM registry data are both read live and collected regardless of VSS.
 
 ### 🚀 Extended Features
 
