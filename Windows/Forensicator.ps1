@@ -5207,6 +5207,178 @@ function Remove-ForensicVssSnapshot {
     }
 }
 
+# $MFT and $UsnJrnl:$J are protected NTFS metadata files — unlike the
+# registry hives/SRUDB.dat/etc. above, VSS alone doesn't make them
+# readable via Copy-Item/.NET file I/O; opening them at all, even as
+# Administrator, even through a VSS shadow device path, requires calling
+# CreateFile directly with FILE_FLAG_BACKUP_SEMANTICS after enabling
+# SeBackupPrivilege on the process token — the same technique forensic
+# imaging tools (RawCopy, FTK Imager) use. Copy-RawForensicFile below
+# uses this type instead of Copy-Item for exactly those two files.
+if (-not ("Forensicator.RawFileReader" -as [type])) {
+    Add-Type -Language CSharp -TypeDefinition @'
+using System;
+using System.IO;
+using System.Runtime.InteropServices;
+using Microsoft.Win32.SafeHandles;
+
+namespace Forensicator
+{
+    public static class RawFileReader
+    {
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        private static extern SafeFileHandle CreateFile(
+            string lpFileName, uint dwDesiredAccess, uint dwShareMode,
+            IntPtr lpSecurityAttributes, uint dwCreationDisposition,
+            uint dwFlagsAndAttributes, IntPtr hTemplateFile);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern IntPtr GetCurrentProcess();
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool CloseHandle(IntPtr hObject);
+
+        [DllImport("advapi32.dll", SetLastError = true)]
+        private static extern bool OpenProcessToken(IntPtr ProcessHandle, uint DesiredAccess, out IntPtr TokenHandle);
+
+        [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        private static extern bool LookupPrivilegeValue(string lpSystemName, string lpName, out LUID lpLuid);
+
+        [DllImport("advapi32.dll", SetLastError = true)]
+        private static extern bool AdjustTokenPrivileges(
+            IntPtr TokenHandle, bool DisableAllPrivileges, ref TOKEN_PRIVILEGES NewState,
+            uint BufferLengthInBytes, IntPtr PreviousState, IntPtr ReturnLengthInBytes);
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct LUID
+        {
+            public uint LowPart;
+            public int HighPart;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct LUID_AND_ATTRIBUTES
+        {
+            public LUID Luid;
+            public uint Attributes;
+        }
+
+        // Holds exactly one privilege entry (not a variable-length array)
+        // — PrivilegeCount is always 1 here, and this layout marshals
+        // correctly for that single-privilege case, which is all
+        // EnableBackupPrivilege ever needs.
+        [StructLayout(LayoutKind.Sequential)]
+        private struct TOKEN_PRIVILEGES
+        {
+            public uint PrivilegeCount;
+            public LUID_AND_ATTRIBUTES Privileges;
+        }
+
+        private const uint GENERIC_READ = 0x80000000;
+        private const uint FILE_SHARE_READ = 0x1;
+        private const uint FILE_SHARE_WRITE = 0x2;
+        private const uint FILE_SHARE_DELETE = 0x4;
+        private const uint OPEN_EXISTING = 3;
+        private const uint FILE_FLAG_BACKUP_SEMANTICS = 0x02000000;
+        private const uint TOKEN_ADJUST_PRIVILEGES = 0x20;
+        private const uint TOKEN_QUERY = 0x8;
+        private const uint SE_PRIVILEGE_ENABLED = 0x2;
+        private const int ERROR_NOT_ALL_ASSIGNED = 1300;
+
+        public static bool EnableBackupPrivilege()
+        {
+            IntPtr hToken;
+            if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, out hToken))
+                return false;
+
+            try
+            {
+                LUID luid;
+                if (!LookupPrivilegeValue(null, "SeBackupPrivilege", out luid))
+                    return false;
+
+                TOKEN_PRIVILEGES tp = new TOKEN_PRIVILEGES();
+                tp.PrivilegeCount = 1;
+                tp.Privileges = new LUID_AND_ATTRIBUTES { Luid = luid, Attributes = SE_PRIVILEGE_ENABLED };
+
+                if (!AdjustTokenPrivileges(hToken, false, ref tp, 0, IntPtr.Zero, IntPtr.Zero))
+                    return false;
+
+                // AdjustTokenPrivileges can return true but still not have
+                // enabled anything if this account was never granted the
+                // "Back up files and directories" right at all (most
+                // commonly: not actually running elevated as Administrator).
+                return Marshal.GetLastWin32Error() != ERROR_NOT_ALL_ASSIGNED;
+            }
+            finally
+            {
+                CloseHandle(hToken);
+            }
+        }
+
+        public static FileStream OpenRawRead(string path)
+        {
+            SafeFileHandle handle = CreateFile(
+                path, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                IntPtr.Zero, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, IntPtr.Zero);
+
+            if (handle.IsInvalid)
+            {
+                int err = Marshal.GetLastWin32Error();
+                handle.Dispose();
+                throw new IOException("CreateFile failed for " + path + " (Win32 error " + err + ")");
+            }
+
+            return new FileStream(handle, FileAccess.Read, 64 * 1024, false);
+        }
+    }
+}
+'@
+}
+
+function Copy-RawForensicFile {
+    # Same per-item error tolerance as Copy-ForensicFile, but for files
+    # that Copy-Item/.NET file I/O can never open regardless of privilege
+    # level — see the Forensicator.RawFileReader comment above for why.
+    param(
+        [string]$SourcePath,
+        [string]$DestinationPath,
+        [string]$Label
+    )
+    try {
+        if (-not [Forensicator.RawFileReader]::EnableBackupPrivilege()) {
+            Write-ForensicLog "[!] Could not enable SeBackupPrivilege (requires running elevated as Administrator) — $Label requires it; skipping" -Level WARN -Section "WINARTIFACTS"
+            return $false
+        }
+
+        $destDir = Split-Path -Parent $DestinationPath
+        if ($destDir -and -not (Test-Path -LiteralPath $destDir)) {
+            New-Item -ItemType Directory -Force -Path $destDir -ErrorAction SilentlyContinue | Out-Null
+        }
+
+        $sourceStream = [Forensicator.RawFileReader]::OpenRawRead($SourcePath)
+        try {
+            $destStream = [System.IO.File]::Create($DestinationPath)
+            try {
+                $sourceStream.CopyTo($destStream)
+            }
+            finally {
+                $destStream.Dispose()
+            }
+        }
+        finally {
+            $sourceStream.Dispose()
+        }
+
+        Write-ForensicLog "[+] Collected $Label" -Level SUCCESS -Section "WINARTIFACTS" -Detail $DestinationPath
+        return $true
+    }
+    catch {
+        Write-ForensicLog "[!] Failed to collect $Label from $SourcePath" -Level WARN -Section "WINARTIFACTS" -Detail $_.Exception.Message
+        return $false
+    }
+}
+
 function Copy-ForensicFile {
     # Every raw-file copy in this section goes through here so one
     # missing/locked/permission-denied file just logs a WARN and the
@@ -5228,6 +5400,24 @@ function Copy-ForensicFile {
             New-Item -ItemType Directory -Force -Path $destDir -ErrorAction SilentlyContinue | Out-Null
         }
         Copy-Item -LiteralPath $SourcePath -Destination $DestinationPath -Force -ErrorAction Stop
+
+        # Copy-Item preserves the source's attributes — registry hives,
+        # their .LOG1/.LOG2 companions, NTUSER.DAT, and UsrClass.dat are
+        # all Hidden+System on a live install, so without this the copy
+        # inherits those flags too. That makes it invisible in Explorer
+        # by default (Hide protected operating system files) and liable
+        # to be silently skipped by any later Get-ChildItem that isn't
+        # passed -Force (e.g. the zip-packaging walk) — despite having
+        # genuinely been collected, as this function's own SUCCESS log
+        # line below correctly reports. Normalize to a plain file so it
+        # behaves like any other collected artifact downstream.
+        try {
+            [System.IO.File]::SetAttributes($DestinationPath, [System.IO.FileAttributes]::Normal)
+        }
+        catch {
+            Write-ForensicLog "[!] Collected $Label but could not clear its Hidden/System attributes — it may not appear in Explorer or be picked up by later packaging steps" -Level WARN -Section "WINARTIFACTS" -Detail $_.Exception.Message
+        }
+
         Write-ForensicLog "[+] Collected $Label" -Level SUCCESS -Section "WINARTIFACTS" -Detail $DestinationPath
         return $true
     }
@@ -5383,19 +5573,20 @@ if($WINARTIFACTS){
                            -DestinationPath "$SearchOut\Windows.db" `
                            -Label 'Windows Search database (Windows.db)' | Out-Null
 
-        # $MFT — resident NTFS metadata file at the volume root, locked the
-        # same way the registry hives above are.
-        Copy-ForensicFile -SourcePath "$shadowRoot\`$MFT" `
-                           -DestinationPath "$NtfsOut\`$MFT" `
-                           -Label '$MFT' | Out-Null
+        # $MFT — resident NTFS metadata file at the volume root. VSS alone
+        # doesn't make it readable via Copy-Item — see Copy-RawForensicFile.
+        Copy-RawForensicFile -SourcePath "$shadowRoot\`$MFT" `
+                              -DestinationPath "$NtfsOut\`$MFT" `
+                              -Label '$MFT' | Out-Null
 
         # $UsnJrnl:$J — the journal's actual content lives entirely in this
         # alternate data stream; the $UsnJrnl file itself has no useful
         # default stream. Addressed directly via the "path:stream" form,
-        # same technique used for reading any other named ADS.
-        Copy-ForensicFile -SourcePath "$shadowRoot\`$Extend\`$UsnJrnl:`$J" `
-                           -DestinationPath "$NtfsOut\`$J" `
-                           -Label '$UsnJrnl:$J' | Out-Null
+        # same technique used for reading any other named ADS. Same
+        # Copy-RawForensicFile requirement as $MFT above.
+        Copy-RawForensicFile -SourcePath "$shadowRoot\`$Extend\`$UsnJrnl:`$J" `
+                              -DestinationPath "$NtfsOut\`$J" `
+                              -Label '$UsnJrnl:$J' | Out-Null
 
         # SRUDB.dat — the SRUM (System Resource Usage Monitor) ESE database;
         # held open by the SRU service while Windows runs, same reason as
@@ -5404,10 +5595,21 @@ if($WINARTIFACTS){
                            -DestinationPath "$SrumOut\SRUDB.dat" `
                            -Label 'SRUDB.dat' | Out-Null
 
+        # BITS job database — qmgr.db (or the legacy qmgr0.dat/qmgr1.dat
+        # pair) is held open by the BITS service while Windows runs, same
+        # reason as SRUDB.dat above. Collected here, through the shadow,
+        # rather than later via a live path — a live-path copy of qmgr.db
+        # reliably fails with a sharing violation since the BITS service
+        # has it open for as long as Windows is running.
+        $bitsDownloaderDir = "$shadowRoot\ProgramData\Microsoft\Network\Downloader"
+        foreach($bitsFile in @('qmgr0.dat', 'qmgr1.dat', 'qmgr.db')){
+            Copy-ForensicFile -SourcePath (Join-Path $bitsDownloaderDir $bitsFile) -DestinationPath (Join-Path $BitsOut $bitsFile) -Label "BITS job database ($bitsFile)" | Out-Null
+        }
+
         Remove-ForensicVssSnapshot -Shadow $vssShadow
     }
     else{
-        Write-ForensicLog "[!] No VSS snapshot available — Amcache.hve, any offline user profile's hives, `$MFT, `$UsnJrnl:`$J, and SRUDB.dat will likely NOT be collected" -Level WARN -Section "WINARTIFACTS"
+        Write-ForensicLog "[!] No VSS snapshot available — Amcache.hve, any offline user profile's hives, `$MFT, `$UsnJrnl:`$J, SRUDB.dat, and the BITS job database will likely NOT be collected" -Level WARN -Section "WINARTIFACTS"
 
         Save-ForensicHive -KeyPath 'HKLM\SYSTEM'   -DestinationPath "$RegistryOut\SYSTEM"   -Label "SYSTEM hive"
         Save-ForensicHive -KeyPath 'HKLM\SOFTWARE' -DestinationPath "$RegistryOut\SOFTWARE" -Label "SOFTWARE hive"
@@ -5451,23 +5653,29 @@ if($WINARTIFACTS){
 
         Write-ForensicLog "[!] Amcache.hve skipped — not reachable via reg.exe save without VSS" -Level WARN -Section "WINARTIFACTS"
 
-        # $MFT, $UsnJrnl:$J, and SRUDB.dat have no reg.exe-save-style
-        # fallback (that trick only applies to registry hives) — attempted
-        # as a plain copy anyway per "collect where accessible"; expected
-        # to fail with a sharing violation on most systems without VSS,
-        # which Copy-ForensicFile already logs and skips, same as any
-        # other missing/locked file.
-        Copy-ForensicFile -SourcePath "$env:SystemDrive\`$MFT" `
-                           -DestinationPath "$NtfsOut\`$MFT" `
-                           -Label '$MFT' | Out-Null
+        # $MFT and $UsnJrnl:$J have no reg.exe-save-style fallback (that
+        # trick only applies to registry hives) — but unlike a plain
+        # Copy-Item, Copy-RawForensicFile's backup-semantics open can
+        # often still succeed directly against the live volume even
+        # without VSS, so this isn't just a best-effort no-op here.
+        Copy-RawForensicFile -SourcePath "$env:SystemDrive\`$MFT" `
+                              -DestinationPath "$NtfsOut\`$MFT" `
+                              -Label '$MFT' | Out-Null
 
-        Copy-ForensicFile -SourcePath "$env:SystemDrive\`$Extend\`$UsnJrnl:`$J" `
-                           -DestinationPath "$NtfsOut\`$J" `
-                           -Label '$UsnJrnl:$J' | Out-Null
+        Copy-RawForensicFile -SourcePath "$env:SystemDrive\`$Extend\`$UsnJrnl:`$J" `
+                              -DestinationPath "$NtfsOut\`$J" `
+                              -Label '$UsnJrnl:$J' | Out-Null
 
         Copy-ForensicFile -SourcePath "$env:SystemRoot\System32\sru\SRUDB.dat" `
                            -DestinationPath "$SrumOut\SRUDB.dat" `
                            -Label 'SRUDB.dat' | Out-Null
+
+        # BITS job database — same "no fallback trick, attempted as a
+        # plain copy anyway" posture as $MFT/$UsnJrnl/SRUDB.dat above.
+        $bitsDownloaderDir = "$env:ProgramData\Microsoft\Network\Downloader"
+        foreach($bitsFile in @('qmgr0.dat', 'qmgr1.dat', 'qmgr.db')){
+            Copy-ForensicFile -SourcePath (Join-Path $bitsDownloaderDir $bitsFile) -DestinationPath (Join-Path $BitsOut $bitsFile) -Label "BITS job database ($bitsFile)" | Out-Null
+        }
 
         Copy-ForensicFile -SourcePath "$env:ProgramData\Microsoft\Search\Data\Applications\Windows\Windows.edb" `
                            -DestinationPath "$SearchOut\Windows.edb" `
@@ -5752,18 +5960,14 @@ if($WINARTIFACTS){
         Write-ForensicLog "[!] Recycle Bin metadata collection failed" -Level WARN -Section "WINARTIFACTS" -Detail $_.Exception.Message
     }
 
-    # ---------------------------------------------------------
-    # BITS JOB DATABASE — legacy qmgr0.dat/qmgr1.dat is the only
-    # Microsoft/SecureWorks-documented location; a newer ESE-based
-    # qmgr.db is mentioned by one secondary source only and is
-    # unconfirmed — collect whichever actually exist, best-effort.
-    # Pair with the Microsoft-Windows-Bits-Client/Operational event
-    # channel (collected under -EVTX) for job-level context.
-    # ---------------------------------------------------------
-    $bitsDownloaderDir = "$env:ProgramData\Microsoft\Network\Downloader"
-    foreach($bitsFile in @('qmgr0.dat', 'qmgr1.dat', 'qmgr.db')){
-        Copy-ForensicFile -SourcePath (Join-Path $bitsDownloaderDir $bitsFile) -DestinationPath (Join-Path $BitsOut $bitsFile) -Label "BITS job database ($bitsFile)" | Out-Null
-    }
+    # BITS job database (qmgr0.dat/qmgr1.dat/qmgr.db — whichever exist)
+    # was already collected above, through the VSS shadow when one was
+    # available, alongside SRUDB.dat — see that section instead of here;
+    # a live-path copy at this point would reliably fail with a sharing
+    # violation since the BITS service holds qmgr.db open for as long as
+    # Windows is running. Pair with the Microsoft-Windows-Bits-Client/
+    # Operational event channel (collected under -EVTX) for job-level
+    # context.
 
     Write-ForensicLog "[!] Done" -Level SUCCESS -Section "WINARTIFACTS" -Detail "Windows Artifact Analysis collection complete"
 }
@@ -15822,7 +16026,11 @@ $largeFileThreshold = [long]1.8GB
 
 Push-Location $ArtifactFolder
 
-$FileList = Get-ChildItem '*.*' -File -Recurse
+# -Force: without it, Get-ChildItem silently omits Hidden/System files —
+# belt-and-suspenders alongside Copy-ForensicFile's own attribute
+# normalization above, in case anything else ever writes a Hidden/System
+# file into the output tree.
+$FileList = Get-ChildItem '*.*' -File -Recurse -Force
 
 try{
     # Use ZipArchiveMode::Update so existing entries are preserved
