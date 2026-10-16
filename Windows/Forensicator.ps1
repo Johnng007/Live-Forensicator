@@ -435,14 +435,15 @@ if ($USAGE) {
   Write-Host -ForegroundColor Cyan 'FLAGS'
   Write-Host -ForegroundColor Cyan 'The below sample flags can be added to the Basic Usage'
   Write-Host ''
-  Write-Host -ForegroundColor DarkCyan '[*] -EVTX EVTX               Also grab Event Logs'
+  Write-Host -ForegroundColor DarkCyan '[*] -EVTX EVTX               Also grab Event Logs (System/Security/Application as raw .evtx, plus Sysmon/Defender/PowerShell/etc. as Core-ready text logs)'
+  Write-Host -ForegroundColor Cyan "[!] richer channel list is analyst-configurable via config.json: logChannels.channels"
   Write-Host -ForegroundColor DarkCyan '[*] -WEBLOGS WEBLOGS         Also grab Web Logs.'
   Write-Host -ForegroundColor DarkCyan '[*] -PCAP PCAP               Run network tracing and capture PCAP for 120seconds'
   Write-Host -ForegroundColor Cyan "[!] requires the etl2pcapng file in share folder"
   Write-Host -ForegroundColor DarkCyan '[*] -RAM RAM                 Extract RAM Dump'
   Write-Host -ForegroundColor Cyan "[!] requires the winpmem file in share folder"
-  Write-Host -ForegroundColor DarkCyan '[*] -WINARTIFACTS WINARTIFACTS   Collect raw Shimcache/Amcache/Prefetch/UserAssist/BAM/Autoruns/LNK/Jump List/$MFT/$UsnJrnl/SRUM artifacts for Forensicator Core/Enterprise'
-  Write-Host -ForegroundColor Cyan "[!] uses a Volume Shadow Copy snapshot to read locked registry hives"
+  Write-Host -ForegroundColor DarkCyan '[*] -WINARTIFACTS WINARTIFACTS   Collect raw Shimcache/Amcache/Prefetch/UserAssist/BAM/Autoruns/LNK/Jump List/$MFT/$UsnJrnl/SRUM/Defender quarantine/WER/Search database/Recycle Bin/Notifications/BITS artifacts for Forensicator Core/Enterprise'
+  Write-Host -ForegroundColor Cyan "[!] uses a Volume Shadow Copy snapshot to read locked registry hives, Windows.edb, and wpndatabase.db"
   Write-Host -ForegroundColor DarkCyan '[*] -LOG4J LOG4J             Checks for vulnerable log4j files'
   Write-Host -ForegroundColor DarkCyan '[*] -ENCRYPTED ENCRYPTED     Encrypts Artifacts after collecting them'
   Write-Host -ForegroundColor DarkCyan '[*] -HASHCHECK HASHCHECK     Check executable hashes for latest malware'
@@ -2099,10 +2100,14 @@ $HotfixesFragment = $sb.ToString()
 # Forensicator - Windows Defender Status Finding Collector
 # ============================================
 
-# Gets Windows Defender status and configuration.
+# Gets Windows Defender status and configuration. IsTamperProtected is
+# included here specifically as tamper-protection-disablement evidence —
+# it's Microsoft's own live indicator of whether Tamper Protection is
+# currently on, the same signal Defender's own UI/Get-MpComputerStatus
+# exposes for this.
 $Cmd_WinDefender = @{
-    Display = 'Get-MpComputerStatus | Select-Object -Property AMProductVersion, AMRunningMode, AMServiceEnabled, AntispywareEnabled, AntispywareSignatureLastUpdated, AntivirusEnabled, AntivirusSignatureLastUpdated, BehaviorMonitorEnabled, DefenderSignaturesOutOfDate, DeviceControlPoliciesLastUpdated, DeviceControlState, NISSignatureLastUpdated, QuickScanEndTime, RealTimeProtectionEnabled'
-    Action  = { Get-MpComputerStatus | Select-Object -Property AMProductVersion, AMRunningMode, AMServiceEnabled, AntispywareEnabled, AntispywareSignatureLastUpdated, AntivirusEnabled, AntivirusSignatureLastUpdated, BehaviorMonitorEnabled, DefenderSignaturesOutOfDate, DeviceControlPoliciesLastUpdated, DeviceControlState, NISSignatureLastUpdated, QuickScanEndTime, RealTimeProtectionEnabled }
+    Display = 'Get-MpComputerStatus | Select-Object -Property AMProductVersion, AMRunningMode, AMServiceEnabled, AntispywareEnabled, AntispywareSignatureLastUpdated, AntivirusEnabled, AntivirusSignatureLastUpdated, BehaviorMonitorEnabled, DefenderSignaturesOutOfDate, DeviceControlPoliciesLastUpdated, DeviceControlState, IsTamperProtected, NISSignatureLastUpdated, QuickScanEndTime, RealTimeProtectionEnabled'
+    Action  = { Get-MpComputerStatus | Select-Object -Property AMProductVersion, AMRunningMode, AMServiceEnabled, AntispywareEnabled, AntispywareSignatureLastUpdated, AntivirusEnabled, AntivirusSignatureLastUpdated, BehaviorMonitorEnabled, DefenderSignaturesOutOfDate, DeviceControlPoliciesLastUpdated, DeviceControlState, IsTamperProtected, NISSignatureLastUpdated, QuickScanEndTime, RealTimeProtectionEnabled }
 }
 
 $WinDefender = & $Cmd_WinDefender.Action
@@ -2121,6 +2126,7 @@ foreach ($Entry in $WinDefender) {
         defender_signatures_out_of_date      = $Entry.DefenderSignaturesOutOfDate
         device_control_policies_last_updated = $Entry.DeviceControlPoliciesLastUpdated
         device_control_state                 = $Entry.DeviceControlState
+        is_tamper_protected                  = $Entry.IsTamperProtected
         nis_signature_last_updated           = $Entry.NISSignatureLastUpdated
         quick_scan_end_time                  = $Entry.QuickScanEndTime
         real_time_protection_enabled         = $Entry.RealTimeProtectionEnabled
@@ -2147,6 +2153,7 @@ foreach ($Item in $Finding.evidence) {
     [void]$sb.Append("<td>$($Item.defender_signatures_out_of_date)</td>")
     [void]$sb.Append("<td>$($Item.device_control_policies_last_updated)</td>")
     [void]$sb.Append("<td>$($Item.device_control_state)</td>")
+    [void]$sb.Append("<td>$($Item.is_tamper_protected)</td>")
     [void]$sb.Append("<td>$($Item.nis_signature_last_updated)</td>")
     [void]$sb.Append("<td>$($Item.quick_scan_end_time)</td>")
     [void]$sb.Append("<td>$($Item.real_time_protection_enabled)</td>")
@@ -2154,6 +2161,30 @@ foreach ($Item in $Finding.evidence) {
 }
 $WinDefenderFragment = $sb.ToString()
 
+# Current exclusion configuration — "exclusion... evidence" per the
+# config-change events Defender's own Operational event log records;
+# this captures the exclusion list's CURRENT state as a standalone
+# artifact (not just the live HTML report), same JSON-finding pattern as
+# win-defender above. Get-MpPreference failing (e.g. Defender not
+# present) is handled the same non-fatal way as everything else here.
+try {
+    $MpPreference = Get-MpPreference -ErrorAction Stop
+    $ExclusionEvidence = [System.Collections.Generic.List[object]]::new()
+    $ExclusionEvidence.Add(@{
+        exclusion_path      = @($MpPreference.ExclusionPath)
+        exclusion_extension = @($MpPreference.ExclusionExtension)
+        exclusion_process   = @($MpPreference.ExclusionProcess)
+        exclusion_ip_address = @($MpPreference.ExclusionIpAddress)
+        disable_realtime_monitoring = $MpPreference.DisableRealtimeMonitoring
+        disable_behavior_monitoring = $MpPreference.DisableBehaviorMonitoring
+        disable_ioav_protection      = $MpPreference.DisableIOAVProtection
+    })
+    $ExclusionFinding = New-ForensicatorFinding -ArtifactKey "win-defender-exclusions" -Evidence $ExclusionEvidence
+    $ExclusionFinding | ConvertTo-Json -Depth 10 | Out-File "$PSScriptRoot\$env:COMPUTERNAME\investigation\system\win-defender-exclusions-finding.json" -Encoding utf8
+}
+catch {
+    Write-ForensicLog "[!] Could not collect Windows Defender exclusions (Get-MpPreference)" -Level WARN -Section "SYSTEM_INFO" -Detail $_.Exception.Message
+}
 
 Write-ForensicLog "[!] Done" -Level SUCCESS -Section "SYSTEM_INFO"
 
@@ -5086,7 +5117,7 @@ $DownloadFinding | ConvertTo-Json -Depth 10 | Out-File $DownloadJsonOutputPath -
 
 
 ###########################################################################################################
-#region  WINDOWS ARTIFACTS (WinArtifacts) — Shimcache/Amcache, Prefetch, UserAssist/BAM, Autoruns, LNK/Jump Lists/Shellbags, $MFT/$UsnJrnl, SRUM
+#region  WINDOWS ARTIFACTS (WinArtifacts) — Shimcache/Amcache, Prefetch, UserAssist/BAM, Autoruns, LNK/Jump Lists/Shellbags, $MFT/$UsnJrnl, SRUM, Defender quarantine, WER, Search, RecycleBin, Notifications, BITS
 ###########################################################################################################
 # Collects the RAW files Forensicator-Core's "Windows Artifact Analysis" feature parses server-side
 # (regipy for registry hives, pyscca for Prefetch, LnkParse3 for LNK/Jump Lists) for later upload via
@@ -5098,8 +5129,18 @@ $DownloadFinding | ConvertTo-Json -Depth 10 | Out-File $DownloadJsonOutputPath -
 # it) — same raw-files-only posture as everything else here, for offline analysis with standalone
 # tools (MFTECmd, SrumECmd, etc.) until/unless Core adds native parsing for them.
 #
-# SYSTEM/SOFTWARE/SECURITY/Amcache.hve and every profile's NTUSER.DAT/UsrClass.dat are held open by
-# the OS while Windows runs, so a plain Copy-Item on them fails with a sharing violation. This uses a
+# Also collects a further batch of raw artifacts with no Core parser yet: Windows Defender quarantine
+# (Entries/ResourceData, both RC4-encrypted by Defender itself, so this isn't live malware bytes), WER
+# reports/crash dumps (size-capped via config.json: werCrashDumps.max_dump_size_mb), the Windows Search
+# database (Windows.edb), Recycle Bin $I metadata, the Notification platform database (wpndatabase.db),
+# and the BITS job database (qmgr*.dat). Tamper-protection state and current exclusion configuration are
+# collected separately, unconditionally, as part of the existing Defender status check earlier in this
+# script (win-defender-finding.json / win-defender-exclusions-finding.json) — not gated behind
+# -WINARTIFACTS, since they're cheap read-only status queries, not file collection.
+#
+# SYSTEM/SOFTWARE/SECURITY/Amcache.hve, every profile's NTUSER.DAT/UsrClass.dat/wpndatabase.db, and
+# the Windows Search database (Windows.edb) are held open by the OS while Windows runs, so a plain
+# Copy-Item on them fails with a sharing violation. This uses a
 # Volume Shadow Copy (VSS) snapshot — the standard DFIR technique for this (KAPE, Velociraptor, etc.
 # all use it) — rather than `reg.exe save`, because `reg.exe save` only reaches hives already loaded
 # into the live registry tree (HKLM\SYSTEM/SOFTWARE/SECURITY, and a *logged-on* user's NTUSER.DAT
@@ -5218,7 +5259,7 @@ function Save-ForensicHive {
 if($WINARTIFACTS){
 
     Write-ForensicLog ""
-    Write-ForensicLog "[*] Collecting Windows Artifact Analysis artifacts (Shimcache/Amcache, Prefetch, UserAssist/BAM, Autoruns, LNK/Jump Lists/Shellbags, `$MFT, `$UsnJrnl:`$J, SRUM)..." -Level INFO -Section "WINARTIFACTS"
+    Write-ForensicLog "[*] Collecting Windows Artifact Analysis artifacts (Shimcache/Amcache, Prefetch, UserAssist/BAM, Autoruns, LNK/Jump Lists/Shellbags, `$MFT, `$UsnJrnl:`$J, SRUM, Defender quarantine, WER, Search database, Recycle Bin metadata, Notifications database, BITS)..." -Level INFO -Section "WINARTIFACTS"
 
     $WinArtifactsRoot = "$PSScriptRoot\$env:COMPUTERNAME\artifacts\WindowsArtifacts"
     $RegistryOut     = "$WinArtifactsRoot\Registry"
@@ -5228,8 +5269,14 @@ if($WINARTIFACTS){
     $JumpListCustOut = "$WinArtifactsRoot\JumpLists\Custom"
     $NtfsOut         = "$WinArtifactsRoot\NTFS"
     $SrumOut         = "$WinArtifactsRoot\SRUM"
+    $DefenderOut     = "$WinArtifactsRoot\Defender"
+    $WerOut          = "$WinArtifactsRoot\WER"
+    $SearchOut       = "$WinArtifactsRoot\Search"
+    $RecycleBinOut   = "$WinArtifactsRoot\RecycleBin"
+    $NotificationsOut = "$WinArtifactsRoot\Notifications"
+    $BitsOut         = "$WinArtifactsRoot\BITS"
 
-    foreach($dir in @($RegistryOut, $PrefetchOut, $LnkOut, $JumpListAutoOut, $JumpListCustOut, $NtfsOut, $SrumOut)){
+    foreach($dir in @($RegistryOut, $PrefetchOut, $LnkOut, $JumpListAutoOut, $JumpListCustOut, $NtfsOut, $SrumOut, $DefenderOut, $WerOut, $SearchOut, $RecycleBinOut, $NotificationsOut, $BitsOut)){
         New-Item -ItemType Directory -Force -Path $dir -ErrorAction SilentlyContinue | Out-Null
     }
 
@@ -5258,7 +5305,32 @@ if($WINARTIFACTS){
             Copy-ForensicFile -SourcePath "$shadowUserPath\AppData\Local\Microsoft\Windows\UsrClass.dat" `
                                -DestinationPath "$RegistryOut\$username\UsrClass.dat" `
                                -Label "UsrClass.dat ($username)" | Out-Null
+
+            # Notification database — held open by the Notification
+            # platform while Windows runs, same reason as UsrClass.dat
+            # above. wpndatabase.db post-dates the Windows 10 Anniversary
+            # Update; appdb.dat is the older name — try both, best-effort.
+            Copy-ForensicFile -SourcePath "$shadowUserPath\AppData\Local\Microsoft\Windows\Notifications\wpndatabase.db" `
+                               -DestinationPath "$NotificationsOut\$username\wpndatabase.db" `
+                               -Label "Notification database ($username)" | Out-Null
+
+            Copy-ForensicFile -SourcePath "$shadowUserPath\AppData\Local\Microsoft\Windows\Notifications\appdb.dat" `
+                               -DestinationPath "$NotificationsOut\$username\appdb.dat" `
+                               -Label "Notification database, legacy name ($username)" | Out-Null
         }
+
+        # Windows Search database — held open by SearchIndexer.exe while
+        # Windows runs, same reason as the registry hives above.
+        # Windows.edb is the documented name; one secondary source
+        # mentions a Windows.db rename on some Windows 11 builds —
+        # unconfirmed, so both are attempted, best-effort.
+        Copy-ForensicFile -SourcePath "$shadowRoot\ProgramData\Microsoft\Search\Data\Applications\Windows\Windows.edb" `
+                           -DestinationPath "$SearchOut\Windows.edb" `
+                           -Label 'Windows Search database (Windows.edb)' | Out-Null
+
+        Copy-ForensicFile -SourcePath "$shadowRoot\ProgramData\Microsoft\Search\Data\Applications\Windows\Windows.db" `
+                           -DestinationPath "$SearchOut\Windows.db" `
+                           -Label 'Windows Search database (Windows.db)' | Out-Null
 
         # $MFT — resident NTFS metadata file at the volume root, locked the
         # same way the registry hives above are.
@@ -5329,6 +5401,25 @@ if($WINARTIFACTS){
         Copy-ForensicFile -SourcePath "$env:SystemRoot\System32\sru\SRUDB.dat" `
                            -DestinationPath "$SrumOut\SRUDB.dat" `
                            -Label 'SRUDB.dat' | Out-Null
+
+        Copy-ForensicFile -SourcePath "$env:ProgramData\Microsoft\Search\Data\Applications\Windows\Windows.edb" `
+                           -DestinationPath "$SearchOut\Windows.edb" `
+                           -Label 'Windows Search database (Windows.edb)' | Out-Null
+
+        Copy-ForensicFile -SourcePath "$env:ProgramData\Microsoft\Search\Data\Applications\Windows\Windows.db" `
+                           -DestinationPath "$SearchOut\Windows.db" `
+                           -Label 'Windows Search database (Windows.db)' | Out-Null
+
+        foreach($userPath in $users){
+            $username = Split-Path $userPath -Leaf
+            Copy-ForensicFile -SourcePath "$userPath\AppData\Local\Microsoft\Windows\Notifications\wpndatabase.db" `
+                               -DestinationPath "$NotificationsOut\$username\wpndatabase.db" `
+                               -Label "Notification database ($username)" | Out-Null
+
+            Copy-ForensicFile -SourcePath "$userPath\AppData\Local\Microsoft\Windows\Notifications\appdb.dat" `
+                               -DestinationPath "$NotificationsOut\$username\appdb.dat" `
+                               -Label "Notification database, legacy name ($username)" | Out-Null
+        }
     }
 
     # ---------------------------------------------------------
@@ -5437,6 +5528,153 @@ if($WINARTIFACTS){
     }
     catch {
         Write-ForensicLog "[!] Jump List collection failed" -Level WARN -Section "WINARTIFACTS" -Detail $_.Exception.Message
+    }
+
+    # ---------------------------------------------------------
+    # WINDOWS DEFENDER QUARANTINE — Entries (detection metadata) and
+    # ResourceData (the detected file's content) are both RC4-encrypted
+    # by Defender itself before being written here, so this is not
+    # handling live malware bytes — same "collect raw, interpret later"
+    # posture as everything else in this region. Not locked by a single
+    # exclusive handle the way a hive is, so plain best-effort copy.
+    # ---------------------------------------------------------
+    try {
+        $quarantineRoot = "$env:ProgramData\Microsoft\Windows Defender\Quarantine"
+        $quarantineCount = 0
+        foreach($sub in @('Entries', 'ResourceData')){
+            $srcDir = Join-Path $quarantineRoot $sub
+            if(Test-Path -LiteralPath $srcDir){
+                foreach($qf in @(Get-ChildItem -LiteralPath $srcDir -Recurse -File -ErrorAction SilentlyContinue)){
+                    $relPath = $qf.FullName.Substring($quarantineRoot.Length).TrimStart('\')
+                    if(Copy-ForensicFile -SourcePath $qf.FullName -DestinationPath "$DefenderOut\Quarantine\$relPath" -Label "Defender quarantine file $relPath"){
+                        $quarantineCount++
+                    }
+                }
+            }
+        }
+        Write-ForensicLog "[+] Collected $quarantineCount Defender quarantine file(s)" -Level SUCCESS -Section "WINARTIFACTS"
+    }
+    catch {
+        Write-ForensicLog "[!] Defender quarantine collection failed" -Level WARN -Section "WINARTIFACTS" -Detail $_.Exception.Message
+    }
+
+    # ---------------------------------------------------------
+    # WINDOWS ERROR REPORTING — reports/crash metadata + dumps, size-
+    # capped (crash dumps can run into the GBs, unlike every other file
+    # this region collects). Cap is analyst-configurable via config.json:
+    # werCrashDumps.max_dump_size_mb (default 500). Not locked, plain
+    # best-effort copy.
+    # ---------------------------------------------------------
+    $WerMaxDumpSizeMb = 500
+    if($null -ne $configData -and $configData.PSObject.Properties["werCrashDumps"] -and $null -ne $configData.werCrashDumps.max_dump_size_mb){
+        $parsedWerMaxMb = 0
+        if([int]::TryParse([string]$configData.werCrashDumps.max_dump_size_mb, [ref]$parsedWerMaxMb) -and $parsedWerMaxMb -gt 0){
+            $WerMaxDumpSizeMb = $parsedWerMaxMb
+        }
+        else{
+            Write-ForensicLog "Invalid werCrashDumps.max_dump_size_mb in config.json — using default" -Level WARN -Section "WINARTIFACTS" -Detail "Configured value: $($configData.werCrashDumps.max_dump_size_mb) | Default: 500"
+        }
+    }
+
+    function Copy-ForensicFileSizeChecked {
+        # Same as Copy-ForensicFile but skips (WARN, non-fatal) anything
+        # over the configured size cap instead of copying it.
+        param([string]$SourcePath, [string]$DestinationPath, [string]$Label, [int]$MaxSizeMb)
+        try {
+            if (-not (Test-Path -LiteralPath $SourcePath)) { return $false }
+            $sizeMb = (Get-Item -LiteralPath $SourcePath).Length / 1MB
+            if ($sizeMb -gt $MaxSizeMb) {
+                Write-ForensicLog "[!] $Label is $([math]::Round($sizeMb,1)) MB, exceeds werCrashDumps.max_dump_size_mb ($MaxSizeMb) — skipping" -Level WARN -Section "WINARTIFACTS"
+                return $false
+            }
+        }
+        catch {
+            Write-ForensicLog "[!] Could not check size of $Label — skipping" -Level WARN -Section "WINARTIFACTS" -Detail $_.Exception.Message
+            return $false
+        }
+        return Copy-ForensicFile -SourcePath $SourcePath -DestinationPath $DestinationPath -Label $Label
+    }
+
+    try {
+        $werCount = 0
+        foreach($werDir in @("$env:ProgramData\Microsoft\Windows\WER\ReportArchive", "$env:ProgramData\Microsoft\Windows\WER\ReportQueue")){
+            if(Test-Path -LiteralPath $werDir){
+                $werDirLeaf = Split-Path -Leaf $werDir
+                foreach($werFile in @(Get-ChildItem -LiteralPath $werDir -Recurse -File -ErrorAction SilentlyContinue)){
+                    $relPath = $werFile.FullName.Substring($werDir.Length).TrimStart('\')
+                    if(Copy-ForensicFileSizeChecked -SourcePath $werFile.FullName -DestinationPath "$WerOut\System\$werDirLeaf\$relPath" -Label "WER report $relPath" -MaxSizeMb $WerMaxDumpSizeMb){
+                        $werCount++
+                    }
+                }
+            }
+        }
+
+        foreach($userPath in $users){
+            $username = Split-Path $userPath -Leaf
+
+            foreach($werSub in @('ReportArchive', 'ReportQueue')){
+                $werUserDir = Join-Path $userPath "AppData\Local\Microsoft\Windows\WER\$werSub"
+                if(Test-Path -LiteralPath $werUserDir){
+                    foreach($werFile in @(Get-ChildItem -LiteralPath $werUserDir -Recurse -File -ErrorAction SilentlyContinue)){
+                        $relPath = $werFile.FullName.Substring($werUserDir.Length).TrimStart('\')
+                        if(Copy-ForensicFileSizeChecked -SourcePath $werFile.FullName -DestinationPath "$WerOut\$username\$werSub\$relPath" -Label "WER report $relPath ($username)" -MaxSizeMb $WerMaxDumpSizeMb){
+                            $werCount++
+                        }
+                    }
+                }
+            }
+
+            $crashDumpDir = Join-Path $userPath 'AppData\Local\CrashDumps'
+            if(Test-Path -LiteralPath $crashDumpDir){
+                foreach($dmp in @(Get-ChildItem -LiteralPath $crashDumpDir -Filter '*.dmp' -ErrorAction SilentlyContinue)){
+                    if(Copy-ForensicFileSizeChecked -SourcePath $dmp.FullName -DestinationPath "$WerOut\$username\CrashDumps\$($dmp.Name)" -Label "Crash dump $($dmp.Name) ($username)" -MaxSizeMb $WerMaxDumpSizeMb){
+                        $werCount++
+                    }
+                }
+            }
+        }
+
+        Write-ForensicLog "[+] Collected $werCount WER report/crash dump file(s) (size cap: $WerMaxDumpSizeMb MB)" -Level SUCCESS -Section "WINARTIFACTS"
+    }
+    catch {
+        Write-ForensicLog "[!] WER collection failed" -Level WARN -Section "WINARTIFACTS" -Detail $_.Exception.Message
+    }
+
+    # ---------------------------------------------------------
+    # RECYCLE BIN METADATA — $I* files only (original path, deleted
+    # time, size); the $R* payload files themselves are out of scope,
+    # matching "metadata" collection only. Scoped to the system drive,
+    # same limitation $MFT/$UsnJrnl already have.
+    # ---------------------------------------------------------
+    try {
+        $recycleBinRoot = "$env:SystemDrive\`$Recycle.Bin"
+        $recycleBinCount = 0
+        if(Test-Path -LiteralPath $recycleBinRoot){
+            foreach($sidDir in @(Get-ChildItem -LiteralPath $recycleBinRoot -Directory -Force -ErrorAction SilentlyContinue)){
+                foreach($iFile in @(Get-ChildItem -LiteralPath $sidDir.FullName -Filter '$I*' -Force -File -ErrorAction SilentlyContinue)){
+                    if(Copy-ForensicFile -SourcePath $iFile.FullName -DestinationPath "$RecycleBinOut\$($sidDir.Name)\$($iFile.Name)" -Label "Recycle Bin metadata $($iFile.Name) ($($sidDir.Name))"){
+                        $recycleBinCount++
+                    }
+                }
+            }
+        }
+        Write-ForensicLog "[+] Collected $recycleBinCount Recycle Bin metadata file(s)" -Level SUCCESS -Section "WINARTIFACTS"
+    }
+    catch {
+        Write-ForensicLog "[!] Recycle Bin metadata collection failed" -Level WARN -Section "WINARTIFACTS" -Detail $_.Exception.Message
+    }
+
+    # ---------------------------------------------------------
+    # BITS JOB DATABASE — legacy qmgr0.dat/qmgr1.dat is the only
+    # Microsoft/SecureWorks-documented location; a newer ESE-based
+    # qmgr.db is mentioned by one secondary source only and is
+    # unconfirmed — collect whichever actually exist, best-effort.
+    # Pair with the Microsoft-Windows-Bits-Client/Operational event
+    # channel (collected under -EVTX) for job-level context.
+    # ---------------------------------------------------------
+    $bitsDownloaderDir = "$env:ProgramData\Microsoft\Network\Downloader"
+    foreach($bitsFile in @('qmgr0.dat', 'qmgr1.dat', 'qmgr.db')){
+        Copy-ForensicFile -SourcePath (Join-Path $bitsDownloaderDir $bitsFile) -DestinationPath (Join-Path $BitsOut $bitsFile) -Label "BITS job database ($bitsFile)" | Out-Null
     }
 
     Write-ForensicLog "[!] Done" -Level SUCCESS -Section "WINARTIFACTS" -Detail "Windows Artifact Analysis collection complete"
@@ -6063,6 +6301,118 @@ if ($EVTX) {
 
     # Extract each log file listed in $logArray from the local server.
     wevtutil epl $log $destination
+  }
+
+  # ---------------------------------------------------------------------
+  # RICHER EVENT CHANNELS — exported as single-line Event XML per line
+  # (Forensicator-Core's Log Analysis decoders — windows-event/windows-
+  # sysmon/windows-security/windows-powershell — already expect exactly
+  # this shape: each line a complete <Event xmlns=...>...</Event> blob,
+  # which is what Get-WinEvent's own .ToXml() produces per event). The
+  # legacy raw .evtx export above is left untouched for archival/other
+  # tools; this is a separate, additional export specifically so these
+  # channels are immediately usable in Core's Log Analysis feature.
+  #
+  # Channel list is analyst-configurable via config.json: logChannels.
+  # channels (defaults below if unset/empty). Bounded by the existing
+  # eventlog.days_back and the new eventlog.max_events_per_channel caps.
+  # Each channel is existence-checked first (Get-WinEvent -ListLog) so a
+  # channel that isn't installed (e.g. no Sysmon) logs a clear WARN and
+  # is skipped, rather than silently exporting nothing the way a raw
+  # wevtutil/Get-WinEvent call on a missing channel would.
+  #
+  # .NET's ToXml() emits double-quoted attributes (SystemTime="..."),
+  # but Core's decoders are inconsistent about which quote style their
+  # own event.start regex expects: windows-event/windows-sysmon/windows-
+  # security want single-quoted (SystemTime='...'), while windows-
+  # powershell specifically wants double-quoted. Normalizing to single
+  # quotes here is the better trade-off since it's what the majority of
+  # this channel list's traffic (System/Security/Sysmon, and anything
+  # else falling to the generic windows-event decoder) needs — the cost
+  # is that PowerShell-channel events lose their own event.start field
+  # specifically (every other field — EventID/Computer/ProcessID/
+  # CommandLine/ScriptBlockText — still extracts fine, and the real
+  # timestamp is still present verbatim in the raw XML either way, just
+  # not picked out into that one structured field by Core's decoder).
+  # ---------------------------------------------------------------------
+  $DefaultLogChannels = @(
+    "System", "Security", "Application",
+    "Microsoft-Windows-Sysmon/Operational",
+    "Microsoft-Windows-Windows Defender/Operational",
+    "Microsoft-Windows-PowerShell/Operational",
+    "Windows PowerShell",
+    "Microsoft-Windows-TaskScheduler/Operational",
+    "Microsoft-Windows-WMI-Activity/Operational",
+    "Microsoft-Windows-Bits-Client/Operational",
+    "Microsoft-Windows-TerminalServices-RemoteConnectionManager/Operational"
+  )
+  $LogChannels = $DefaultLogChannels
+  if($null -ne $configData -and $configData.PSObject.Properties["logChannels"] -and $null -ne $configData.logChannels.channels){
+    $configuredChannels = @($configData.logChannels.channels | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
+    if($configuredChannels.Count -gt 0){
+      $LogChannels = $configuredChannels
+    }
+  }
+
+  $EvtxChannelDaysBack = 30
+  if($null -ne $configData -and $configData.PSObject.Properties["eventlog"] -and $null -ne $configData.eventlog.days_back){
+    $parsedDaysBack = 0
+    if([int]::TryParse([string]$configData.eventlog.days_back, [ref]$parsedDaysBack) -and $parsedDaysBack -gt 0){
+      $EvtxChannelDaysBack = $parsedDaysBack
+    }
+  }
+
+  $MaxEventsPerChannel = 50000
+  if($null -ne $configData -and $configData.PSObject.Properties["eventlog"] -and $null -ne $configData.eventlog.max_events_per_channel){
+    $parsedMaxEvents = 0
+    if([int]::TryParse([string]$configData.eventlog.max_events_per_channel, [ref]$parsedMaxEvents) -and $parsedMaxEvents -gt 0){
+      $MaxEventsPerChannel = $parsedMaxEvents
+    }
+    else{
+      Write-ForensicLog "Invalid eventlog.max_events_per_channel in config.json — using default" -Level WARN -Section "EVENTLOGS" -Detail "Configured value: $($configData.eventlog.max_events_per_channel) | Default: 50000"
+    }
+  }
+
+  $LogChannelsOut = Join-Path $destinationpath "LogChannels"
+  if(!(Test-Path -Path $LogChannelsOut)){
+    New-Item -ItemType Directory -Path $LogChannelsOut -Force | Out-Null
+  }
+
+  $logChannelStartTime = (Get-Date).AddDays(-$EvtxChannelDaysBack)
+
+  foreach($channel in $LogChannels){
+    if(-not (Get-WinEvent -ListLog $channel -ErrorAction SilentlyContinue)){
+      Write-ForensicLog "[!] Event channel '$channel' not found/not installed — skipping" -Level WARN -Section "EVENTLOGS"
+      continue
+    }
+
+    try {
+      $channelEvents = @(Get-WinEvent -FilterHashtable @{ LogName = $channel; StartTime = $logChannelStartTime } -MaxEvents $MaxEventsPerChannel -ErrorAction Stop)
+    }
+    catch {
+      # Get-WinEvent throws when a channel exists but has zero matching
+      # events in the window — not a real failure, just nothing to export.
+      if($_.Exception.Message -match 'No events were found'){
+        Write-ForensicLog "[i] No events found for channel '$channel' in the last $EvtxChannelDaysBack day(s)" -Level INFO -Section "EVENTLOGS"
+      }
+      else{
+        Write-ForensicLog "[!] Failed to query channel '$channel'" -Level WARN -Section "EVENTLOGS" -Detail $_.Exception.Message
+      }
+      continue
+    }
+
+    $safeChannelName = ($channel -replace '[\\/:*?"<>|]', '_')
+    $channelOutFile  = Join-Path $LogChannelsOut "$safeChannelName.log"
+
+    try {
+      $channelEvents |
+        ForEach-Object { ($_.ToXml() -replace 'SystemTime="([^"]+)"', "SystemTime='`$1'") } |
+        Set-Content -LiteralPath $channelOutFile -Encoding utf8
+      Write-ForensicLog "[+] Exported $($channelEvents.Count) event(s) from '$channel'" -Level SUCCESS -Section "EVENTLOGS" -Detail $channelOutFile
+    }
+    catch {
+      Write-ForensicLog "[!] Failed to export channel '$channel'" -Level WARN -Section "EVENTLOGS" -Detail $_.Exception.Message
+    }
   }
 
   Write-ForensicLog "[!] Done" -Level SUCCESS -Section "EVENTLOGS"
@@ -10218,6 +10568,15 @@ Write-ForensicLog ""
 $sigmaRulesRoot   = "$PSScriptRoot\Forensicator-Share\rules"
 $sigmaRuntimePath = "$PSScriptRoot\Forensicator-Share\SigmaRuntime.ps1"
 $sigmaConfig      = $configData.sigma
+# Off by default — a real-time scan of Security/System/Sysmon event logs
+# against ~1,400 community Sigma rules adds meaningful runtime and log-
+# query load, so this requires an explicit opt-in (config.json:
+# sigma.enabled), same "disabled unless turned on" posture as Forensicator
+# AI's own ai.enabled.
+$sigmaEnabled     = $false
+if($null -ne $sigmaConfig -and $null -ne $sigmaConfig.enabled){
+    $sigmaEnabled = [bool]$sigmaConfig.enabled
+}
 $sigmaDaysBack    = 30
 $sigmaMinLevel    = "medium"
 $sigmaEnableSysmon = $true
@@ -10278,6 +10637,8 @@ if(-not $sigmaEnableSysmon){
         @("Microsoft-Windows-Sysmon/Operational")
     ) | Select-Object -Unique
 }
+
+if($sigmaEnabled){
 
 Write-ForensicLog "Initialising Sigma detection engine" -Level INFO -Section "SIGMA"
 $sigmaMaxEventsLabel = if($sigmaMaxEventsPerSource -gt 0){ [string]$sigmaMaxEventsPerSource } else { "unbounded" }
@@ -10501,6 +10862,21 @@ $sigmaJsonFindings | ConvertTo-Json -Depth 10 | Out-File $sigmaJsonInvestigation
 
 # HTML-safe: prevent </script> in command lines from breaking the page
 $script:sigmaJsonSafe = $sigmaJsonData -replace '</', '\/'
+
+}
+else{
+    Write-ForensicLog "Sigma rule scanning disabled (config.json: sigma.enabled=false) — skipping" -Level INFO -Section "SIGMA"
+    $sigmaFindings = [System.Collections.Generic.List[PSCustomObject]]::new()
+    $sigmaJsonData = '[]'
+    $script:SigmaOverviewRows  = ''
+    $script:SigmaDetectionRows = ''
+    $script:sigmaJsonSafe = '[]'
+
+    New-Item -ItemType Directory -Force -Path "$PSScriptRoot\$env:COMPUTERNAME\investigation\sigma" | Out-Null
+    $sigmaJsonInvestigationPath = "$PSScriptRoot\$env:COMPUTERNAME\investigation\sigma\sigma-findings.json"
+    $sigmaDisabledEvidence = [System.Collections.Generic.List[object]]::new()
+    (New-ForensicatorFinding -ArtifactKey "sigma" -Evidence $sigmaDisabledEvidence) | ConvertTo-Json -Depth 10 | Out-File $sigmaJsonInvestigationPath -Encoding utf8
+}
 
 # ── HASH_DATA ── map $hashMatches into the same schema JS expects
 $hashJsonData = if ($hashMatches -and $hashMatches.Count -gt 0) {
@@ -11656,7 +12032,7 @@ $ExtrasArtifactsFragment = @(
   (New-ExtrasArtifactRow -Label 'IIS Logs'                    -Folder 'artifacts\IISLogs'          -Patterns @('*.log')),
   (New-ExtrasArtifactRow -Label 'TomCat Logs'                 -Folder 'artifacts\TomCatLogs'       -Patterns @('*.log')),
   (New-ExtrasArtifactRow -Label 'Log4j Findings'              -Folder 'artifacts\LOG4J'       -Patterns @('*.txt')),
-  (New-ExtrasArtifactRow -Label 'Windows Artifact Analysis'   -Folder 'artifacts\WindowsArtifacts' -Patterns @('*.pf','*.lnk','*.hve','SYSTEM','SOFTWARE','SECURITY','NTUSER.DAT','UsrClass.dat','*.automaticDestinations-ms','*.customDestinations-ms','$mft','$j','srudb.dat'))
+  (New-ExtrasArtifactRow -Label 'Windows Artifact Analysis'   -Folder 'artifacts\WindowsArtifacts' -Patterns @('*.pf','*.lnk','*.hve','SYSTEM','SOFTWARE','SECURITY','NTUSER.DAT','UsrClass.dat','*.automaticDestinations-ms','*.customDestinations-ms','$mft','$j','srudb.dat','wpndatabase.db','appdb.dat','windows.edb','windows.db','qmgr*.dat','qmgr.db','*.dmp','$i*'))
 
   
 ) -join "`n"
@@ -12987,7 +13363,7 @@ window.nav = window.nav || function(id) {
     </div>
     <div class="tbl-wrap">
       <table class="std">
-        <thead><tr><th>AM Product Version</th><th>AM Running Mode</th><th>AM Service Enabled</th><th>Antispyware Enabled</th><th>Antispyware Signature LastUpdated</th><th>Antivirus Enabled</th><th>Antivirus Signature LastUpdated</th><th>Behavior Monitor Enabled</th><th>Defender Signatures OutOfDate</th><th>Device Control Policies LastUpdated</th><th>Device Control State</th><th>NIS Signature LastUpdated</th><th>Quick Scan EndTime</th><th>RealTime Protection Enabled</th></tr></thead>
+        <thead><tr><th>AM Product Version</th><th>AM Running Mode</th><th>AM Service Enabled</th><th>Antispyware Enabled</th><th>Antispyware Signature LastUpdated</th><th>Antivirus Enabled</th><th>Antivirus Signature LastUpdated</th><th>Behavior Monitor Enabled</th><th>Defender Signatures OutOfDate</th><th>Device Control Policies LastUpdated</th><th>Device Control State</th><th>Tamper Protected</th><th>NIS Signature LastUpdated</th><th>Quick Scan EndTime</th><th>RealTime Protection Enabled</th></tr></thead>
         <tbody id="defender-tbody">$WinDefenderFragment</tbody>
       </table>
     </div>

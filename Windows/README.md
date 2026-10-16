@@ -28,8 +28,8 @@ It enables:
 
 Key capabilities include:
 
-* Windows Artifact Analysis collection — raw Shimcache/Amcache/Prefetch/UserAssist/BAM/Autoruns/LNK/Jump List/Shellbag/$MFT/$UsnJrnl/SRUM artifacts for Forensicator Core
-* Event Log collection (targeted Event IDs)
+* Windows Artifact Analysis collection — raw Shimcache/Amcache/Prefetch/UserAssist/BAM/Autoruns/LNK/Jump List/Shellbag/$MFT/$UsnJrnl/SRUM/Defender quarantine/WER/Windows Search database/Recycle Bin/Notifications/BITS artifacts for Forensicator Core
+* Event Log collection (targeted Event IDs), plus a configurable richer channel export (Sysmon, Defender Operational, PowerShell, TaskScheduler, WMI-Activity, BITS-Client, RDP, etc.) ready for Forensicator-Core's Log Analysis feature
 * Browser history extraction and IOC matching
 * Built-in triage: Sigma rule integration and malware hash matching (e.g., abuse.ch feeds)
 * Forensicator AI — optional, per-finding AI verdicts from a local or commercial LLM
@@ -210,8 +210,14 @@ Raw artifact files for upload to Forensicator Core's Windows Artifact Analysis f
 * `$MFT` — the volume's Master File Table
 * `$UsnJrnl:$J` — the USN change journal's data stream, plus its raw `fsutil usn queryjournal` metadata (journal ID, USN range, max size, etc.), saved alongside it unparsed
 * `SRUDB.dat` — the SRUM (System Resource Usage Monitor) ESE database, plus the `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SRUM\Extensions` registry data needed to map its GUID-named tables to the actual SRUM provider each one is
+* Windows Defender quarantine — `Quarantine\Entries` and `Quarantine\ResourceData` (both RC4-encrypted by Defender itself before collection, so this isn't live malware bytes)
+* Windows Error Reporting — reports/crash metadata under `WER\ReportArchive`/`ReportQueue` (system + per-profile) and per-profile `CrashDumps\*.dmp`, size-capped via `config.json`'s `werCrashDumps.max_dump_size_mb` (default 500 MB) — anything larger is skipped and logged, not collected
+* Windows Search database — `Windows.edb` (or `Windows.db` on builds that use that name)
+* Recycle Bin metadata — `$I*` files only (original path, deleted time, size — not the `$R*` payload)
+* Notification platform database — `wpndatabase.db` (or the older `appdb.dat`) per profile
+* BITS job database — `qmgr0.dat`/`qmgr1.dat`, or `qmgr.db` on builds that use the newer ESE-based store
 
-`SYSTEM`/`SOFTWARE`/`SECURITY`/`Amcache.hve`, NTUSER.DAT/UsrClass.dat, `$MFT`, `$UsnJrnl:$J`, and `SRUDB.dat` are all held open by Windows while running, so this uses a Volume Shadow Copy snapshot to read them (created and removed automatically — standard, auditable IR technique, same as KAPE/Velociraptor use). If VSS isn't available, registry hives fall back to `reg.exe save` for whichever are currently loaded; `$MFT`/`$UsnJrnl:$J`/`SRUDB.dat` have no equivalent fallback and are only collected where accessible without it. The journal metadata and the SRUM registry data are both read live and collected regardless of VSS.
+`SYSTEM`/`SOFTWARE`/`SECURITY`/`Amcache.hve`, NTUSER.DAT/UsrClass.dat/`wpndatabase.db`, `$MFT`, `$UsnJrnl:$J`, `SRUDB.dat`, and `Windows.edb` are all held open by Windows while running, so this uses a Volume Shadow Copy snapshot to read them (created and removed automatically — standard, auditable IR technique, same as KAPE/Velociraptor use). If VSS isn't available, registry hives fall back to `reg.exe save` for whichever are currently loaded; the rest have no equivalent fallback and are only collected where accessible without it. The journal metadata, SRUM registry data, Defender quarantine, WER, Recycle Bin, and BITS artifacts are not VSS-locked and are collected unconditionally via a plain best-effort copy.
 
 ### 🚀 Extended Features
 
@@ -220,7 +226,7 @@ Raw artifact files for upload to Forensicator Core's Windows Artifact Analysis f
 * Web server logs (IIS, Tomcat)
 * Browser history (all users)
 * Ransomware pattern detection
-* EVTX export
+* EVTX export — System/Security/Application as raw `.evtx` (archival), plus a configurable richer channel list exported as Core-ready single-line Event XML (`config.json`: `logChannels.channels`)
 * Detection Insight into each collected data with Mitre Mapping.
 * Structured per-check JSON output under `investigation/`, for Forensicator Enterprise upload
 * Investigation archive — a hashed, zipped copy of the investigation folder with a Readme pointing to Forensicator Enterprise for automated analysis

@@ -87,7 +87,26 @@
     ".encrypted"
   ],
   "eventlog": {
-    "days_back": 30
+    "days_back": 30,
+    "max_events_per_channel": 50000
+  },
+  "logChannels": {
+    "channels": [
+      "System",
+      "Security",
+      "Application",
+      "Microsoft-Windows-Sysmon/Operational",
+      "Microsoft-Windows-Windows Defender/Operational",
+      "Microsoft-Windows-PowerShell/Operational",
+      "Windows PowerShell",
+      "Microsoft-Windows-TaskScheduler/Operational",
+      "Microsoft-Windows-WMI-Activity/Operational",
+      "Microsoft-Windows-Bits-Client/Operational",
+      "Microsoft-Windows-TerminalServices-RemoteConnectionManager/Operational"
+    ]
+  },
+  "werCrashDumps": {
+    "max_dump_size_mb": 500
   },
   "new_files": {
     "days_back": 1,
@@ -108,6 +127,8 @@
     ]
   },
   "sigma": {
+    "_comment": "Sigma rule scanning is OFF by default — it's a real-time scan of Security/System/Sysmon event logs against ~1,400 community rules, which adds meaningful runtime and log-query load. Set enabled=true to turn it on.",
+    "enabled": false,
     "days_back": 30,
     "min_level": "medium",
     "enable_sysmon": false,

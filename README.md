@@ -36,8 +36,9 @@ Live Forensicator:
 
 ### 🖳 Windows (PowerShell)
 
-* Windows Artifact Analysis collection (opt-in) — raw Shimcache/Amcache/Prefetch/UserAssist/BAM/Autoruns/LNK/Jump List/Shellbag/$MFT/$UsnJrnl/SRUM artifacts, including a Volume Shadow Copy snapshot to reach locked registry hives, $MFT, $UsnJrnl:$J, and SRUDB.dat
-* Advanced Event Log collection
+* Windows Artifact Analysis collection (opt-in) — raw Shimcache/Amcache/Prefetch/UserAssist/BAM/Autoruns/LNK/Jump List/Shellbag/$MFT/$UsnJrnl/SRUM/Defender quarantine/WER/Windows Search database/Recycle Bin/Notifications/BITS artifacts, including a Volume Shadow Copy snapshot to reach locked registry hives, $MFT, $UsnJrnl:$J, SRUDB.dat, Windows.edb, and wpndatabase.db
+* Advanced Event Log collection — System/Security/Application as raw .evtx, plus a configurable, richer channel list (Sysmon, Defender Operational, PowerShell, TaskScheduler, WMI-Activity, BITS-Client, RDP, etc.) exported as Core-ready single-line Event XML for Forensicator-Core's Log Analysis feature
+* Windows Defender tamper-protection state and current exclusion configuration, captured as standalone findings
 * Browser history extraction with IOC matching
 * Investigation archive + structured JSON output for Forensicator Enterprise
 * Optional artifact encryption (AES)
@@ -256,6 +257,9 @@ Full changelog:
 Windows: v4.3.0 (October 2026)
 - NEW: Windows Artifact Analysis collection (-WINARTIFACTS, opt-in) — collects the raw Shimcache/Amcache (SYSTEM hive, Amcache.hve), Prefetch (.pf), UserAssist/BAM (NTUSER.DAT), Registry Autoruns (SYSTEM/SOFTWARE), and LNK/Jump List/Shellbag (.lnk, .automaticDestinations-ms/.customDestinations-ms, UsrClass.dat) artifacts Forensicator's Windows Artifact Analysis feature parses server-side. Locked hives are read via a Volume Shadow Copy snapshot (created and removed automatically), falling back to reg.exe save for whatever's loaded if VSS isn't available.
 - NEW: -WINARTIFACTS also collects $MFT and the $UsnJrnl:$J alternate data stream (plus its raw fsutil usn queryjournal metadata) and SRUDB.dat (the SRUM/System Resource Usage Monitor ESE database), along with the HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SRUM\Extensions registry data needed to interpret it — all raw files/streams for offline analysis, not parsed by this script. $MFT, $UsnJrnl:$J, and SRUDB.dat are read via the same VSS snapshot as the locked registry hives; the journal metadata and SRUM registry data are read live and collected regardless of VSS.
+- NEW: -WINARTIFACTS also collects Windows Defender quarantine files (Entries/ResourceData, both RC4-encrypted by Defender itself), WER reports and crash dumps (size-capped via config.json: werCrashDumps.max_dump_size_mb, default 500 MB), the Windows Search database (Windows.edb/Windows.db, read via VSS), Recycle Bin $I metadata files, the Notification platform database (wpndatabase.db/appdb.dat, read via VSS), and the BITS job database (qmgr0.dat/qmgr1.dat/qmgr.db) — all raw, best-effort, not parsed by this script.
+- NEW: -EVTX now also exports a richer, analyst-configurable set of event channels (config.json: logChannels.channels — defaults to System/Security/Application plus Sysmon, Defender Operational, PowerShell, TaskScheduler, WMI-Activity, BITS-Client, and RemoteDesktop Operational) as single-line Event XML per line, ready for direct upload into Forensicator-Core's Log Analysis feature. The original raw .evtx export of System/Security/Application is unchanged. A missing channel (e.g. no Sysmon installed) is detected and skipped with a clear warning instead of silently exporting nothing.
+- NEW: Windows Defender status check now also captures IsTamperProtected (tamper-protection-disablement evidence) and a separate current-exclusion-configuration finding (Get-MpPreference) — both collected unconditionally, not gated behind -WINARTIFACTS.
 
 ```
 
