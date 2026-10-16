@@ -3262,6 +3262,90 @@ namespace Forensicator
             return results;
         }
 
+        // Reconstructs an equivalent $UsnJrnl:$J dump by walking the live
+        // journal via FSCTL_READ_USN_JOURNAL instead of opening
+        // "$Extend\$UsnJrnl:$J" by name — that named open fails with
+        // ERROR_ACCESS_DENIED even with FILE_FLAG_BACKUP_SEMANTICS +
+        // SeBackupPrivilege enabled, same Windows-side block as "$MFT"
+        // (see RawFileReader.CopyRawMft's comment). The raw bytes
+        // FSCTL_READ_USN_JOURNAL hands back for each record are the exact
+        // same USN_RECORD_V2/V3 wire format as the real ADS stream (this
+        // method's own ReadRecentCreates above decodes that same shape
+        // from the same call) — written out sequentially with no gaps,
+        // this is a strict subset of the real stream's content (every
+        // record currently retained by the journal, just without the
+        // sparse-file zero-padding between them) and Core's usnjrnl-parse.py
+        // reads it correctly: it already advances purely by each record's
+        // own self-reported RecordLength, never by absolute file offset.
+        public static void DumpRawRecords(string volumePath, string destinationPath)
+        {
+            using (SafeFileHandle hVol = CreateFile(volumePath, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                                          IntPtr.Zero, OPEN_EXISTING, 0, IntPtr.Zero))
+            {
+                if (hVol.IsInvalid)
+                    throw new IOException("Cannot open volume " + volumePath + " (Win32 error " + Marshal.GetLastWin32Error() + ")");
+
+                int journalSize = Marshal.SizeOf(typeof(USN_JOURNAL_DATA_V0));
+                byte[] journalBuf = new byte[journalSize];
+                uint bytesReturned;
+
+                if (!DeviceIoControl(hVol, FSCTL_QUERY_USN_JOURNAL, null, 0, journalBuf, (uint)journalSize, out bytesReturned, IntPtr.Zero))
+                    throw new IOException("FSCTL_QUERY_USN_JOURNAL failed (Win32 error " + Marshal.GetLastWin32Error() + ")");
+
+                GCHandle gch = GCHandle.Alloc(journalBuf, GCHandleType.Pinned);
+                USN_JOURNAL_DATA_V0 journalData;
+                try { journalData = (USN_JOURNAL_DATA_V0)Marshal.PtrToStructure(gch.AddrOfPinnedObject(), typeof(USN_JOURNAL_DATA_V0)); }
+                finally { gch.Free(); }
+
+                var readData = new READ_USN_JOURNAL_DATA_V0
+                {
+                    StartUsn = journalData.FirstUsn,
+                    ReasonMask = 0xFFFFFFFF,
+                    ReturnOnlyOnClose = 0,
+                    Timeout = 0,
+                    BytesToWaitFor = 0,
+                    UsnJournalID = journalData.UsnJournalID
+                };
+
+                int readDataSize = Marshal.SizeOf(typeof(READ_USN_JOURNAL_DATA_V0));
+                byte[] outputBuffer = new byte[65536];
+
+                using (var destStream = File.Create(destinationPath))
+                {
+                    while (true)
+                    {
+                        byte[] readBuf = StructToBytes(readData, readDataSize);
+
+                        bool ok = DeviceIoControl(hVol, FSCTL_READ_USN_JOURNAL, readBuf, (uint)readBuf.Length,
+                                                    outputBuffer, (uint)outputBuffer.Length, out bytesReturned, IntPtr.Zero);
+                        if (!ok)
+                            throw new IOException("FSCTL_READ_USN_JOURNAL failed (Win32 error " + Marshal.GetLastWin32Error() + ")");
+
+                        if (bytesReturned <= 8) break;
+
+                        long nextStartUsn = BitConverter.ToInt64(outputBuffer, 0);
+                        int offset = 8;
+                        bool anyRecords = false;
+
+                        while (offset < bytesReturned)
+                        {
+                            int recordLength = BitConverter.ToInt32(outputBuffer, offset);
+                            if (recordLength <= 0 || offset + recordLength > bytesReturned) break;
+                            anyRecords = true;
+
+                            destStream.Write(outputBuffer, offset, recordLength);
+                            offset += recordLength;
+                        }
+
+                        if (!anyRecords) break;
+                        if (nextStartUsn <= readData.StartUsn) break; // no forward progress — stop
+                        readData.StartUsn = nextStartUsn;
+                        if (nextStartUsn >= journalData.NextUsn) break;
+                    }
+                }
+            }
+        }
+
         private static byte[] StructToBytes<T>(T str, int size) where T : struct
         {
             byte[] arr = new byte[size];
@@ -5207,14 +5291,19 @@ function Remove-ForensicVssSnapshot {
     }
 }
 
-# $MFT and $UsnJrnl:$J are protected NTFS metadata files — unlike the
-# registry hives/SRUDB.dat/etc. above, VSS alone doesn't make them
-# readable via Copy-Item/.NET file I/O; opening them at all, even as
-# Administrator, even through a VSS shadow device path, requires calling
-# CreateFile directly with FILE_FLAG_BACKUP_SEMANTICS after enabling
-# SeBackupPrivilege on the process token — the same technique forensic
-# imaging tools (RawCopy, FTK Imager) use. Copy-RawForensicFile below
-# uses this type instead of Copy-Item for exactly those two files.
+# $MFT is a protected NTFS metadata file — Windows denies CreateFile on
+# "$MFT" by name with ERROR_ACCESS_DENIED unconditionally (confirmed:
+# even as Administrator, even through a VSS shadow device path, even
+# with FILE_FLAG_BACKUP_SEMANTICS + SeBackupPrivilege enabled — an
+# earlier version of this script tried exactly that and still got denied
+# every time). The only way around it is to never open "$MFT" by name at
+# all: read it directly off the volume's raw clusters instead, located
+# via FSCTL_GET_NTFS_VOLUME_DATA — the same fallback RawCopy/FTK Imager
+# use for this exact reason. That's a volume-level open (CreateFile on
+# "\\.\C:"-style/VSS-device paths, not a specific file), which needs no
+# special privilege beyond already running elevated as Administrator —
+# this script's own UsnJournalReader.ReadRecentCreates below already
+# proves that with its own, separate, long-working volume handle.
 if (-not ("Forensicator.RawFileReader" -as [type])) {
     Add-Type -Language CSharp -TypeDefinition @'
 using System;
@@ -5233,148 +5322,187 @@ namespace Forensicator
             uint dwFlagsAndAttributes, IntPtr hTemplateFile);
 
         [DllImport("kernel32.dll", SetLastError = true)]
-        private static extern IntPtr GetCurrentProcess();
+        private static extern bool DeviceIoControl(
+            SafeFileHandle hDevice, uint dwIoControlCode,
+            byte[] lpInBuffer, uint nInBufferSize,
+            byte[] lpOutBuffer, uint nOutBufferSize,
+            out uint lpBytesReturned, IntPtr lpOverlapped);
 
         [DllImport("kernel32.dll", SetLastError = true)]
-        private static extern bool CloseHandle(IntPtr hObject);
+        private static extern bool SetFilePointerEx(
+            SafeFileHandle hFile, long liDistanceToMove, out long lpNewFilePointer, uint dwMoveMethod);
 
-        [DllImport("advapi32.dll", SetLastError = true)]
-        private static extern bool OpenProcessToken(IntPtr ProcessHandle, uint DesiredAccess, out IntPtr TokenHandle);
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool ReadFile(
+            SafeFileHandle hFile, byte[] lpBuffer, uint nNumberOfBytesToRead,
+            out uint lpNumberOfBytesRead, IntPtr lpOverlapped);
 
-        [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Auto)]
-        private static extern bool LookupPrivilegeValue(string lpSystemName, string lpName, out LUID lpLuid);
-
-        [DllImport("advapi32.dll", SetLastError = true)]
-        private static extern bool AdjustTokenPrivileges(
-            IntPtr TokenHandle, bool DisableAllPrivileges, ref TOKEN_PRIVILEGES NewState,
-            uint BufferLengthInBytes, IntPtr PreviousState, IntPtr ReturnLengthInBytes);
-
+        // Documented layout (winioctl.h) — 5 LARGE_INTEGERs, 4 DWORDs, then
+        // 5 more LARGE_INTEGERs, in exactly this order. MftStartLcn is the
+        // cluster where the $MFT's first (and, on an unfragmented volume,
+        // only) data run begins; MftValidDataLength is the $MFT's own
+        // real/used length within that run. Reading
+        // MftStartLcn*BytesPerCluster..+MftValidDataLength off the volume
+        // directly gets the $MFT's content without ever opening "$MFT" by
+        // name — sidestepping the access-denied Windows enforces on that
+        // name regardless of privilege (confirmed: CreateFile on "$MFT"
+        // still fails with ERROR_ACCESS_DENIED even with
+        // FILE_FLAG_BACKUP_SEMANTICS + SeBackupPrivilege enabled — the
+        // same technique RawCopy/FTK Imager fall back to for this reason).
+        // Known limitation: assumes the $MFT is a single contiguous run,
+        // true on the large majority of real-world volumes (Windows
+        // reserves a dedicated MFT zone specifically to keep it that way)
+        // but not guaranteed on a sufficiently fragmented one — handling a
+        // fragmented $MFT correctly would need FSCTL_GET_RETRIEVAL_POINTERS
+        // against a $MFT file handle, which (being metadata-query, not a
+        // data read) may not hit the same block, but wasn't implemented
+        // here; flagged plainly rather than silently assumed solid.
         [StructLayout(LayoutKind.Sequential)]
-        private struct LUID
+        private struct NTFS_VOLUME_DATA_BUFFER
         {
-            public uint LowPart;
-            public int HighPart;
+            public long VolumeSerialNumber;
+            public long NumberSectors;
+            public long TotalClusters;
+            public long FreeClusters;
+            public long TotalReserved;
+            public uint BytesPerSector;
+            public uint BytesPerCluster;
+            public uint BytesPerFileRecordSegment;
+            public uint ClustersPerFileRecordSegment;
+            public long MftValidDataLength;
+            public long MftStartLcn;
+            public long Mft2StartLcn;
+            public long MftZoneStart;
+            public long MftZoneEnd;
         }
 
-        [StructLayout(LayoutKind.Sequential)]
-        private struct LUID_AND_ATTRIBUTES
-        {
-            public LUID Luid;
-            public uint Attributes;
-        }
-
-        // Holds exactly one privilege entry (not a variable-length array)
-        // — PrivilegeCount is always 1 here, and this layout marshals
-        // correctly for that single-privilege case, which is all
-        // EnableBackupPrivilege ever needs.
-        [StructLayout(LayoutKind.Sequential)]
-        private struct TOKEN_PRIVILEGES
-        {
-            public uint PrivilegeCount;
-            public LUID_AND_ATTRIBUTES Privileges;
-        }
+        // CTL_CODE(FILE_DEVICE_FILE_SYSTEM=0x9, 25, METHOD_BUFFERED=0, FILE_ANY_ACCESS=0)
+        private const uint FSCTL_GET_NTFS_VOLUME_DATA = 0x00090064;
+        private const uint FILE_BEGIN = 0;
 
         private const uint GENERIC_READ = 0x80000000;
         private const uint FILE_SHARE_READ = 0x1;
         private const uint FILE_SHARE_WRITE = 0x2;
         private const uint FILE_SHARE_DELETE = 0x4;
         private const uint OPEN_EXISTING = 3;
-        private const uint FILE_FLAG_BACKUP_SEMANTICS = 0x02000000;
-        private const uint TOKEN_ADJUST_PRIVILEGES = 0x20;
-        private const uint TOKEN_QUERY = 0x8;
-        private const uint SE_PRIVILEGE_ENABLED = 0x2;
-        private const int ERROR_NOT_ALL_ASSIGNED = 1300;
 
-        public static bool EnableBackupPrivilege()
+        // volumePath: "\\.\C:" for the live volume, or a VSS shadow copy's
+        // own device path with no trailing filename (e.g.
+        // "\\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy12") to read a
+        // point-in-time-consistent $MFT instead of the live one — a
+        // shadow copy device is itself openable and FSCTL-queryable the
+        // same way a live volume is, no trailing "$MFT" name involved.
+        public static void CopyRawMft(string volumePath, string destinationPath)
         {
-            IntPtr hToken;
-            if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, out hToken))
-                return false;
-
-            try
+            using (SafeFileHandle hVol = CreateFile(
+                volumePath, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                IntPtr.Zero, OPEN_EXISTING, 0, IntPtr.Zero))
             {
-                LUID luid;
-                if (!LookupPrivilegeValue(null, "SeBackupPrivilege", out luid))
-                    return false;
+                if (hVol.IsInvalid)
+                {
+                    int err = Marshal.GetLastWin32Error();
+                    throw new IOException("CreateFile failed for volume " + volumePath + " (Win32 error " + err + ")");
+                }
 
-                TOKEN_PRIVILEGES tp = new TOKEN_PRIVILEGES();
-                tp.PrivilegeCount = 1;
-                tp.Privileges = new LUID_AND_ATTRIBUTES { Luid = luid, Attributes = SE_PRIVILEGE_ENABLED };
+                int bufSize = Marshal.SizeOf(typeof(NTFS_VOLUME_DATA_BUFFER));
+                byte[] outBuf = new byte[bufSize];
+                uint bytesReturned;
+                if (!DeviceIoControl(hVol, FSCTL_GET_NTFS_VOLUME_DATA, null, 0, outBuf, (uint)bufSize, out bytesReturned, IntPtr.Zero))
+                    throw new IOException("FSCTL_GET_NTFS_VOLUME_DATA failed for " + volumePath + " (Win32 error " + Marshal.GetLastWin32Error() + ")");
 
-                if (!AdjustTokenPrivileges(hToken, false, ref tp, 0, IntPtr.Zero, IntPtr.Zero))
-                    return false;
+                NTFS_VOLUME_DATA_BUFFER volData;
+                GCHandle gch = GCHandle.Alloc(outBuf, GCHandleType.Pinned);
+                try { volData = (NTFS_VOLUME_DATA_BUFFER)Marshal.PtrToStructure(gch.AddrOfPinnedObject(), typeof(NTFS_VOLUME_DATA_BUFFER)); }
+                finally { gch.Free(); }
 
-                // AdjustTokenPrivileges can return true but still not have
-                // enabled anything if this account was never granted the
-                // "Back up files and directories" right at all (most
-                // commonly: not actually running elevated as Administrator).
-                return Marshal.GetLastWin32Error() != ERROR_NOT_ALL_ASSIGNED;
+                long mftOffset = volData.MftStartLcn * volData.BytesPerCluster;
+                long mftLength = volData.MftValidDataLength;
+                if (mftLength <= 0)
+                    throw new IOException("FSCTL_GET_NTFS_VOLUME_DATA returned a non-positive MftValidDataLength for " + volumePath);
+
+                long newPos;
+                if (!SetFilePointerEx(hVol, mftOffset, out newPos, FILE_BEGIN))
+                    throw new IOException("SetFilePointerEx failed for volume " + volumePath + " (Win32 error " + Marshal.GetLastWin32Error() + ")");
+
+                using (var destStream = File.Create(destinationPath))
+                {
+                    byte[] buffer = new byte[4 * 1024 * 1024];
+                    long remaining = mftLength;
+                    while (remaining > 0)
+                    {
+                        uint toRead = (uint)Math.Min(remaining, buffer.Length);
+                        uint read;
+                        bool ok = ReadFile(hVol, buffer, toRead, out read, IntPtr.Zero);
+                        if (!ok)
+                            throw new IOException("ReadFile failed reading $MFT from volume " + volumePath + " (Win32 error " + Marshal.GetLastWin32Error() + ")");
+                        if (read == 0)
+                            break; // shouldn't happen before `remaining` hits 0, but don't spin forever if it does
+
+                        destStream.Write(buffer, 0, (int)read);
+                        remaining -= read;
+                    }
+                }
             }
-            finally
-            {
-                CloseHandle(hToken);
-            }
-        }
-
-        public static FileStream OpenRawRead(string path)
-        {
-            SafeFileHandle handle = CreateFile(
-                path, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                IntPtr.Zero, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, IntPtr.Zero);
-
-            if (handle.IsInvalid)
-            {
-                int err = Marshal.GetLastWin32Error();
-                handle.Dispose();
-                throw new IOException("CreateFile failed for " + path + " (Win32 error " + err + ")");
-            }
-
-            return new FileStream(handle, FileAccess.Read, 64 * 1024, false);
         }
     }
 }
 '@
 }
 
-function Copy-RawForensicFile {
-    # Same per-item error tolerance as Copy-ForensicFile, but for files
-    # that Copy-Item/.NET file I/O can never open regardless of privilege
-    # level — see the Forensicator.RawFileReader comment above for why.
+function Copy-RawMft {
+    # $MFT's named-open is blocked outright by Windows regardless of
+    # privilege (see Forensicator.RawFileReader.CopyRawMft's comment) — this
+    # reads it off the volume directly instead of through Copy-Item/a named
+    # CreateFile. VolumePath: a VSS shadow's own device path (no trailing
+    # filename) for a consistent snapshot, or the live volume
+    # ("\\.\C:"-style) as a no-VSS fallback.
     param(
-        [string]$SourcePath,
+        [string]$VolumePath,
         [string]$DestinationPath,
         [string]$Label
     )
     try {
-        if (-not [Forensicator.RawFileReader]::EnableBackupPrivilege()) {
-            Write-ForensicLog "[!] Could not enable SeBackupPrivilege (requires running elevated as Administrator) — $Label requires it; skipping" -Level WARN -Section "WINARTIFACTS"
-            return $false
-        }
-
         $destDir = Split-Path -Parent $DestinationPath
         if ($destDir -and -not (Test-Path -LiteralPath $destDir)) {
             New-Item -ItemType Directory -Force -Path $destDir -ErrorAction SilentlyContinue | Out-Null
         }
 
-        $sourceStream = [Forensicator.RawFileReader]::OpenRawRead($SourcePath)
-        try {
-            $destStream = [System.IO.File]::Create($DestinationPath)
-            try {
-                $sourceStream.CopyTo($destStream)
-            }
-            finally {
-                $destStream.Dispose()
-            }
-        }
-        finally {
-            $sourceStream.Dispose()
-        }
+        [Forensicator.RawFileReader]::CopyRawMft($VolumePath, $DestinationPath)
 
         Write-ForensicLog "[+] Collected $Label" -Level SUCCESS -Section "WINARTIFACTS" -Detail $DestinationPath
         return $true
     }
     catch {
-        Write-ForensicLog "[!] Failed to collect $Label from $SourcePath" -Level WARN -Section "WINARTIFACTS" -Detail $_.Exception.Message
+        Write-ForensicLog "[!] Failed to collect $Label from volume $VolumePath" -Level WARN -Section "WINARTIFACTS" -Detail $_.Exception.Message
+        return $false
+    }
+}
+
+function Copy-RawUsnJrnl {
+    # Same blocked-named-open problem as $MFT, for "$Extend\$UsnJrnl:$J" —
+    # reconstructed instead via FSCTL_READ_USN_JOURNAL (see
+    # Forensicator.UsnJournalReader.DumpRawRecords's comment for why this
+    # produces output Core's usnjrnl-parse.py reads correctly). No backup
+    # privilege needed here — DeviceIoControl against the volume isn't
+    # a protected-file open the way CopyRawMft's cluster read is.
+    param(
+        [string]$VolumePath,
+        [string]$DestinationPath,
+        [string]$Label
+    )
+    try {
+        $destDir = Split-Path -Parent $DestinationPath
+        if ($destDir -and -not (Test-Path -LiteralPath $destDir)) {
+            New-Item -ItemType Directory -Force -Path $destDir -ErrorAction SilentlyContinue | Out-Null
+        }
+
+        [Forensicator.UsnJournalReader]::DumpRawRecords($VolumePath, $DestinationPath)
+
+        Write-ForensicLog "[+] Collected $Label" -Level SUCCESS -Section "WINARTIFACTS" -Detail $DestinationPath
+        return $true
+    }
+    catch {
+        Write-ForensicLog "[!] Failed to collect $Label from volume $VolumePath" -Level WARN -Section "WINARTIFACTS" -Detail $_.Exception.Message
         return $false
     }
 }
@@ -5573,20 +5701,21 @@ if($WINARTIFACTS){
                            -DestinationPath "$SearchOut\Windows.db" `
                            -Label 'Windows Search database (Windows.db)' | Out-Null
 
-        # $MFT — resident NTFS metadata file at the volume root. VSS alone
-        # doesn't make it readable via Copy-Item — see Copy-RawForensicFile.
-        Copy-RawForensicFile -SourcePath "$shadowRoot\`$MFT" `
-                              -DestinationPath "$NtfsOut\`$MFT" `
-                              -Label '$MFT' | Out-Null
+        # $MFT — resident NTFS metadata file at the volume root. Its named
+        # open is blocked outright (see Copy-RawMft) — read via the
+        # shadow's own volume device path instead, for a consistent,
+        # point-in-time snapshot.
+        Copy-RawMft -VolumePath $shadowRoot `
+                     -DestinationPath "$NtfsOut\`$MFT" `
+                     -Label '$MFT' | Out-Null
 
-        # $UsnJrnl:$J — the journal's actual content lives entirely in this
-        # alternate data stream; the $UsnJrnl file itself has no useful
-        # default stream. Addressed directly via the "path:stream" form,
-        # same technique used for reading any other named ADS. Same
-        # Copy-RawForensicFile requirement as $MFT above.
-        Copy-RawForensicFile -SourcePath "$shadowRoot\`$Extend\`$UsnJrnl:`$J" `
-                              -DestinationPath "$NtfsOut\`$J" `
-                              -Label '$UsnJrnl:$J' | Out-Null
+        # $UsnJrnl:$J — same blocked-named-open problem as $MFT; see
+        # Copy-RawUsnJrnl. Read via the shadow's volume device path too,
+        # for consistency with the rest of this collection even though
+        # the journal itself is a live, continuously-growing structure.
+        Copy-RawUsnJrnl -VolumePath $shadowRoot `
+                         -DestinationPath "$NtfsOut\`$J" `
+                         -Label '$UsnJrnl:$J' | Out-Null
 
         # SRUDB.dat — the SRUM (System Resource Usage Monitor) ESE database;
         # held open by the SRU service while Windows runs, same reason as
@@ -5654,17 +5783,18 @@ if($WINARTIFACTS){
         Write-ForensicLog "[!] Amcache.hve skipped — not reachable via reg.exe save without VSS" -Level WARN -Section "WINARTIFACTS"
 
         # $MFT and $UsnJrnl:$J have no reg.exe-save-style fallback (that
-        # trick only applies to registry hives) — but unlike a plain
-        # Copy-Item, Copy-RawForensicFile's backup-semantics open can
-        # often still succeed directly against the live volume even
-        # without VSS, so this isn't just a best-effort no-op here.
-        Copy-RawForensicFile -SourcePath "$env:SystemDrive\`$MFT" `
-                              -DestinationPath "$NtfsOut\`$MFT" `
-                              -Label '$MFT' | Out-Null
+        # trick only applies to registry hives) — read straight off the
+        # live volume via the same raw-cluster/FSCTL techniques used
+        # above, which need no VSS snapshot to begin with.
+        $liveVolumePath = "\\.\$env:SystemDrive"
 
-        Copy-RawForensicFile -SourcePath "$env:SystemDrive\`$Extend\`$UsnJrnl:`$J" `
-                              -DestinationPath "$NtfsOut\`$J" `
-                              -Label '$UsnJrnl:$J' | Out-Null
+        Copy-RawMft -VolumePath $liveVolumePath `
+                     -DestinationPath "$NtfsOut\`$MFT" `
+                     -Label '$MFT' | Out-Null
+
+        Copy-RawUsnJrnl -VolumePath $liveVolumePath `
+                         -DestinationPath "$NtfsOut\`$J" `
+                         -Label '$UsnJrnl:$J' | Out-Null
 
         Copy-ForensicFile -SourcePath "$env:SystemRoot\System32\sru\SRUDB.dat" `
                            -DestinationPath "$SrumOut\SRUDB.dat" `
