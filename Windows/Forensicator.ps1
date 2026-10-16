@@ -442,7 +442,7 @@ if ($USAGE) {
   Write-Host -ForegroundColor Cyan "[!] requires the etl2pcapng file in share folder"
   Write-Host -ForegroundColor DarkCyan '[*] -RAM RAM                 Extract RAM Dump'
   Write-Host -ForegroundColor Cyan "[!] requires the winpmem file in share folder"
-  Write-Host -ForegroundColor DarkCyan '[*] -WINARTIFACTS WINARTIFACTS   Collect raw Shimcache/Amcache/Prefetch/UserAssist/BAM/Autoruns/LNK/Jump List/$MFT/$UsnJrnl/SRUM/Defender quarantine/WER/Search database/Recycle Bin/Notifications/BITS artifacts for Forensicator Core/Enterprise'
+  Write-Host -ForegroundColor DarkCyan '[*] -WINARTIFACTS WINARTIFACTS   Collect raw Shimcache/Amcache/Prefetch/UserAssist/BAM/Autoruns/LNK/Jump List/$MFT/$UsnJrnl/SRUM/Defender quarantine/WER/Search database/Recycle Bin/Notifications/BITS/Timeline/registry transaction logs artifacts for Forensicator Core/Enterprise'
   Write-Host -ForegroundColor Cyan "[!] uses a Volume Shadow Copy snapshot to read locked registry hives, Windows.edb, and wpndatabase.db"
   Write-Host -ForegroundColor DarkCyan '[*] -LOG4J LOG4J             Checks for vulnerable log4j files'
   Write-Host -ForegroundColor DarkCyan '[*] -ENCRYPTED ENCRYPTED     Encrypts Artifacts after collecting them'
@@ -5117,7 +5117,7 @@ $DownloadFinding | ConvertTo-Json -Depth 10 | Out-File $DownloadJsonOutputPath -
 
 
 ###########################################################################################################
-#region  WINDOWS ARTIFACTS (WinArtifacts) — Shimcache/Amcache, Prefetch, UserAssist/BAM, Autoruns, LNK/Jump Lists/Shellbags, $MFT/$UsnJrnl, SRUM, Defender quarantine, WER, Search, RecycleBin, Notifications, BITS
+#region  WINDOWS ARTIFACTS (WinArtifacts) — Shimcache/Amcache, Prefetch, UserAssist/BAM, Autoruns, LNK/Jump Lists/Shellbags, $MFT/$UsnJrnl, SRUM, Defender quarantine, WER, Search, RecycleBin, Notifications, BITS, Timeline, registry transaction logs
 ###########################################################################################################
 # Collects the RAW files Forensicator-Core's "Windows Artifact Analysis" feature parses server-side
 # (regipy for registry hives, pyscca for Prefetch, LnkParse3 for LNK/Jump Lists) for later upload via
@@ -5138,8 +5138,14 @@ $DownloadFinding | ConvertTo-Json -Depth 10 | Out-File $DownloadJsonOutputPath -
 # script (win-defender-finding.json / win-defender-exclusions-finding.json) — not gated behind
 # -WINARTIFACTS, since they're cheap read-only status queries, not file collection.
 #
-# SYSTEM/SOFTWARE/SECURITY/Amcache.hve, every profile's NTUSER.DAT/UsrClass.dat/wpndatabase.db, and
-# the Windows Search database (Windows.edb) are held open by the OS while Windows runs, so a plain
+# Also collects each registry hive's transaction logs (<HIVE>.LOG1/.LOG2 — "dirty page" transactions
+# not yet flushed into the hive itself) alongside the hive, and the Windows Timeline database
+# (ActivitiesCache.db, per user profile, under a randomly-named ConnectedDevicesPlatform\<UUID>\
+# subfolder this section globs for) — both raw, for Core to interpret.
+#
+# SYSTEM/SOFTWARE/SECURITY/Amcache.hve, every profile's NTUSER.DAT/UsrClass.dat/wpndatabase.db/
+# ActivitiesCache.db, and the Windows Search database (Windows.edb) are held open by the OS while
+# Windows runs, so a plain
 # Copy-Item on them fails with a sharing violation. This uses a
 # Volume Shadow Copy (VSS) snapshot — the standard DFIR technique for this (KAPE, Velociraptor, etc.
 # all use it) — rather than `reg.exe save`, because `reg.exe save` only reaches hives already loaded
@@ -5259,7 +5265,7 @@ function Save-ForensicHive {
 if($WINARTIFACTS){
 
     Write-ForensicLog ""
-    Write-ForensicLog "[*] Collecting Windows Artifact Analysis artifacts (Shimcache/Amcache, Prefetch, UserAssist/BAM, Autoruns, LNK/Jump Lists/Shellbags, `$MFT, `$UsnJrnl:`$J, SRUM, Defender quarantine, WER, Search database, Recycle Bin metadata, Notifications database, BITS)..." -Level INFO -Section "WINARTIFACTS"
+    Write-ForensicLog "[*] Collecting Windows Artifact Analysis artifacts (Shimcache/Amcache, Prefetch, UserAssist/BAM, Autoruns, LNK/Jump Lists/Shellbags, `$MFT, `$UsnJrnl:`$J, SRUM, Defender quarantine, WER, Search database, Recycle Bin metadata, Notifications database, BITS, Windows Timeline, registry transaction logs)..." -Level INFO -Section "WINARTIFACTS"
 
     $WinArtifactsRoot = "$PSScriptRoot\$env:COMPUTERNAME\artifacts\WindowsArtifacts"
     $RegistryOut     = "$WinArtifactsRoot\Registry"
@@ -5275,8 +5281,9 @@ if($WINARTIFACTS){
     $RecycleBinOut   = "$WinArtifactsRoot\RecycleBin"
     $NotificationsOut = "$WinArtifactsRoot\Notifications"
     $BitsOut         = "$WinArtifactsRoot\BITS"
+    $TimelineOut     = "$WinArtifactsRoot\Timeline"
 
-    foreach($dir in @($RegistryOut, $PrefetchOut, $LnkOut, $JumpListAutoOut, $JumpListCustOut, $NtfsOut, $SrumOut, $DefenderOut, $WerOut, $SearchOut, $RecycleBinOut, $NotificationsOut, $BitsOut)){
+    foreach($dir in @($RegistryOut, $PrefetchOut, $LnkOut, $JumpListAutoOut, $JumpListCustOut, $NtfsOut, $SrumOut, $DefenderOut, $WerOut, $SearchOut, $RecycleBinOut, $NotificationsOut, $BitsOut, $TimelineOut)){
         New-Item -ItemType Directory -Force -Path $dir -ErrorAction SilentlyContinue | Out-Null
     }
 
@@ -5294,6 +5301,22 @@ if($WINARTIFACTS){
         Copy-ForensicFile -SourcePath "$shadowRoot\Windows\System32\config\SECURITY"       -DestinationPath "$RegistryOut\SECURITY"     -Label "SECURITY hive"     | Out-Null
         Copy-ForensicFile -SourcePath "$shadowRoot\Windows\appcompat\Programs\Amcache.hve" -DestinationPath "$RegistryOut\Amcache.hve"  -Label "Amcache.hve"       | Out-Null
 
+        # Registry transaction logs — hold "dirty page" transactions not
+        # yet flushed into the hive itself; Forensicator Core can replay
+        # them (regipy's apply_transaction_logs) for a more complete/
+        # accurate hive before parsing. Best-effort — a hive with no
+        # pending transactions simply has no active .LOG1/.LOG2.
+        foreach($hiveLogName in @('SYSTEM.LOG1','SYSTEM.LOG2','SOFTWARE.LOG1','SOFTWARE.LOG2','SECURITY.LOG1','SECURITY.LOG2')){
+            Copy-ForensicFile -SourcePath "$shadowRoot\Windows\System32\config\$hiveLogName" `
+                               -DestinationPath "$RegistryOut\$hiveLogName" `
+                               -Label "$hiveLogName" | Out-Null
+        }
+        foreach($amcacheLogName in @('Amcache.hve.LOG1','Amcache.hve.LOG2')){
+            Copy-ForensicFile -SourcePath "$shadowRoot\Windows\appcompat\Programs\$amcacheLogName" `
+                               -DestinationPath "$RegistryOut\$amcacheLogName" `
+                               -Label "$amcacheLogName" | Out-Null
+        }
+
         foreach($userPath in $users){
             $username       = Split-Path $userPath -Leaf
             $shadowUserPath = $userPath -replace ('^' + [regex]::Escape($env:SystemDrive)), $shadowRoot
@@ -5306,6 +5329,19 @@ if($WINARTIFACTS){
                                -DestinationPath "$RegistryOut\$username\UsrClass.dat" `
                                -Label "UsrClass.dat ($username)" | Out-Null
 
+            # Registry transaction logs for the per-profile hives — same
+            # rationale as SYSTEM/SOFTWARE/SECURITY/Amcache.hve above.
+            foreach($profileLogName in @('NTUSER.DAT.LOG1','NTUSER.DAT.LOG2')){
+                Copy-ForensicFile -SourcePath "$shadowUserPath\$profileLogName" `
+                                   -DestinationPath "$RegistryOut\$username\$profileLogName" `
+                                   -Label "$profileLogName ($username)" | Out-Null
+            }
+            foreach($usrclassLogName in @('UsrClass.dat.LOG1','UsrClass.dat.LOG2')){
+                Copy-ForensicFile -SourcePath "$shadowUserPath\AppData\Local\Microsoft\Windows\$usrclassLogName" `
+                                   -DestinationPath "$RegistryOut\$username\$usrclassLogName" `
+                                   -Label "$usrclassLogName ($username)" | Out-Null
+            }
+
             # Notification database — held open by the Notification
             # platform while Windows runs, same reason as UsrClass.dat
             # above. wpndatabase.db post-dates the Windows 10 Anniversary
@@ -5317,6 +5353,21 @@ if($WINARTIFACTS){
             Copy-ForensicFile -SourcePath "$shadowUserPath\AppData\Local\Microsoft\Windows\Notifications\appdb.dat" `
                                -DestinationPath "$NotificationsOut\$username\appdb.dat" `
                                -Label "Notification database, legacy name ($username)" | Out-Null
+
+            # Windows Timeline (ActivitiesCache.db) — held open by the
+            # Connected Devices Platform service while Windows runs, same
+            # reason as the other per-profile databases above. Lives
+            # under a per-install, randomly-named subfolder
+            # (ConnectedDevicesPlatform\<UUID>\), so this globs for it
+            # rather than assuming a fixed name.
+            $shadowCdpRoot = "$shadowUserPath\AppData\Local\ConnectedDevicesPlatform"
+            if(Test-Path -LiteralPath $shadowCdpRoot){
+                foreach($cdpDir in @(Get-ChildItem -LiteralPath $shadowCdpRoot -Directory -ErrorAction SilentlyContinue)){
+                    Copy-ForensicFile -SourcePath "$($cdpDir.FullName)\ActivitiesCache.db" `
+                                       -DestinationPath "$TimelineOut\$username\$($cdpDir.Name)\ActivitiesCache.db" `
+                                       -Label "ActivitiesCache.db ($username/$($cdpDir.Name))" | Out-Null
+                }
+            }
         }
 
         # Windows Search database — held open by SearchIndexer.exe while
@@ -5361,6 +5412,22 @@ if($WINARTIFACTS){
         Save-ForensicHive -KeyPath 'HKLM\SYSTEM'   -DestinationPath "$RegistryOut\SYSTEM"   -Label "SYSTEM hive"
         Save-ForensicHive -KeyPath 'HKLM\SOFTWARE' -DestinationPath "$RegistryOut\SOFTWARE" -Label "SOFTWARE hive"
         Save-ForensicHive -KeyPath 'HKLM\SECURITY' -DestinationPath "$RegistryOut\SECURITY" -Label "SECURITY hive"
+
+        # reg.exe save has no transaction-log concept of its own (it
+        # exports an already-consistent snapshot) — the raw .LOG1/.LOG2
+        # files on disk have no fallback trick either, attempted as a
+        # plain copy anyway per "collect where accessible", same posture
+        # as $MFT/$UsnJrnl below.
+        foreach($hiveLogName in @('SYSTEM.LOG1','SYSTEM.LOG2','SOFTWARE.LOG1','SOFTWARE.LOG2','SECURITY.LOG1','SECURITY.LOG2')){
+            Copy-ForensicFile -SourcePath "$env:SystemRoot\System32\config\$hiveLogName" `
+                               -DestinationPath "$RegistryOut\$hiveLogName" `
+                               -Label "$hiveLogName" | Out-Null
+        }
+        foreach($amcacheLogName in @('Amcache.hve.LOG1','Amcache.hve.LOG2')){
+            Copy-ForensicFile -SourcePath "$env:SystemRoot\appcompat\Programs\$amcacheLogName" `
+                               -DestinationPath "$RegistryOut\$amcacheLogName" `
+                               -Label "$amcacheLogName" | Out-Null
+        }
 
         $loadedSids = @()
         try {
@@ -5412,6 +5479,18 @@ if($WINARTIFACTS){
 
         foreach($userPath in $users){
             $username = Split-Path $userPath -Leaf
+
+            foreach($profileLogName in @('NTUSER.DAT.LOG1','NTUSER.DAT.LOG2')){
+                Copy-ForensicFile -SourcePath "$userPath\$profileLogName" `
+                                   -DestinationPath "$RegistryOut\$username\$profileLogName" `
+                                   -Label "$profileLogName ($username)" | Out-Null
+            }
+            foreach($usrclassLogName in @('UsrClass.dat.LOG1','UsrClass.dat.LOG2')){
+                Copy-ForensicFile -SourcePath "$userPath\AppData\Local\Microsoft\Windows\$usrclassLogName" `
+                                   -DestinationPath "$RegistryOut\$username\$usrclassLogName" `
+                                   -Label "$usrclassLogName ($username)" | Out-Null
+            }
+
             Copy-ForensicFile -SourcePath "$userPath\AppData\Local\Microsoft\Windows\Notifications\wpndatabase.db" `
                                -DestinationPath "$NotificationsOut\$username\wpndatabase.db" `
                                -Label "Notification database ($username)" | Out-Null
@@ -5419,6 +5498,15 @@ if($WINARTIFACTS){
             Copy-ForensicFile -SourcePath "$userPath\AppData\Local\Microsoft\Windows\Notifications\appdb.dat" `
                                -DestinationPath "$NotificationsOut\$username\appdb.dat" `
                                -Label "Notification database, legacy name ($username)" | Out-Null
+
+            $cdpRoot = "$userPath\AppData\Local\ConnectedDevicesPlatform"
+            if(Test-Path -LiteralPath $cdpRoot){
+                foreach($cdpDir in @(Get-ChildItem -LiteralPath $cdpRoot -Directory -ErrorAction SilentlyContinue)){
+                    Copy-ForensicFile -SourcePath "$($cdpDir.FullName)\ActivitiesCache.db" `
+                                       -DestinationPath "$TimelineOut\$username\$($cdpDir.Name)\ActivitiesCache.db" `
+                                       -Label "ActivitiesCache.db ($username/$($cdpDir.Name))" | Out-Null
+                }
+            }
         }
     }
 
@@ -12032,7 +12120,7 @@ $ExtrasArtifactsFragment = @(
   (New-ExtrasArtifactRow -Label 'IIS Logs'                    -Folder 'artifacts\IISLogs'          -Patterns @('*.log')),
   (New-ExtrasArtifactRow -Label 'TomCat Logs'                 -Folder 'artifacts\TomCatLogs'       -Patterns @('*.log')),
   (New-ExtrasArtifactRow -Label 'Log4j Findings'              -Folder 'artifacts\LOG4J'       -Patterns @('*.txt')),
-  (New-ExtrasArtifactRow -Label 'Windows Artifact Analysis'   -Folder 'artifacts\WindowsArtifacts' -Patterns @('*.pf','*.lnk','*.hve','SYSTEM','SOFTWARE','SECURITY','NTUSER.DAT','UsrClass.dat','*.automaticDestinations-ms','*.customDestinations-ms','$mft','$j','srudb.dat','wpndatabase.db','appdb.dat','windows.edb','windows.db','qmgr*.dat','qmgr.db','*.dmp','$i*'))
+  (New-ExtrasArtifactRow -Label 'Windows Artifact Analysis'   -Folder 'artifacts\WindowsArtifacts' -Patterns @('*.pf','*.lnk','*.hve','SYSTEM','SOFTWARE','SECURITY','NTUSER.DAT','UsrClass.dat','*.automaticDestinations-ms','*.customDestinations-ms','$mft','$j','srudb.dat','wpndatabase.db','appdb.dat','windows.edb','windows.db','qmgr*.dat','qmgr.db','*.dmp','$i*','activitiescache.db','*.log1','*.log2'))
 
   
 ) -join "`n"
