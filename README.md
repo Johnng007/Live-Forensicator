@@ -26,7 +26,7 @@ It is designed to help forensic investigators and incident responders rapidly co
 
 Live Forensicator:
 
-* Collects system and user activity artifacts, ready for Forensicator Core/Enterprise upload
+* Collects system and user activity artifacts, ready for Forensicator Core upload
 * Generates structured, investigation-ready HTML reports
 * Performs built-in triage — detects anomalous behavior and suspicious indicators, and highlights potential compromise or misconfiguration, on the spot
 
@@ -40,7 +40,7 @@ Live Forensicator:
 * Advanced Event Log collection — System/Security/Application as raw .evtx, plus a configurable, richer channel list (Sysmon, Defender Operational, PowerShell, TaskScheduler, WMI-Activity, BITS-Client, RDP, etc.) exported as Core-ready single-line Event XML for Forensicator-Core's Log Analysis feature
 * Windows Defender tamper-protection state and current exclusion configuration, captured as standalone findings
 * Browser history extraction with IOC matching
-* Investigation archive + structured JSON output for Forensicator Enterprise
+* Investigation archive + structured JSON output for Forensicator Core
 * Optional artifact encryption (AES)
 * Built-in triage: Sigma rule engine (1,400+ community rules) evaluated against Security/Sysmon Event Logs, known-Event-ID detection, and malware hash matching (e.g., abuse.ch feeds)
 * Detection Insight - a summary of the detection, why it matters, the detection logic, what to look for, and its MITRE mapping
@@ -53,7 +53,7 @@ Live Forensicator:
 ### 🍎 macOS (Shell)
 
 * Collection of key forensic artifacts (system, user, network, process, file), FileVault/SIP/Gatekeeper/TCC/Signed System Volume integrity state, and browser history
-* Investigation archive + structured JSON output for Forensicator Enterprise
+* Investigation archive + structured JSON output for Forensicator Core
 * Optional artifact encryption (AES)
 * Built-in triage: detection engine covering reverse shells, SIP/Gatekeeper/kext tampering, PATH hijacking, deleted-binary execution, credential timestomping, and more
 * Best-effort Sigma rule engine sourced from real SigmaHQ community rules, evaluated against the unified log
