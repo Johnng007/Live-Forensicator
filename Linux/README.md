@@ -336,4 +336,4 @@ Users are responsible for complying with the applicable licenses and terms of an
 
 ## ☕ Documentation
 
-<a href="https://docs.forensicator.io"> OpenDocs</a>
+<a href="https://docs.forensicator.io"> Docs</a>

@@ -45,7 +45,7 @@ git clone https://github.com/Johnng007/Live-Forensicator.git
 # Execute
 .\Forensicator.ps1 <parameters>
 ```
-<a href="https://opendocs.forensicator.io/">See full Usage</a>
+<a href="https://docs.forensicator.io/">See full Usage</a>
 ---
 
 ## ⚠️ Important Notes
@@ -97,7 +97,7 @@ Run Forensicator as usual — no other flags needed. Prefer a commercial API ins
 
 > ⚠️ Each finding is a real LLM call — enabling this can noticeably extend total run time, especially on a cold-loaded model.
 
-📘 Full setup guide (all providers, tuning, troubleshooting): <a href="https://opendocs.forensicator.io">opendocs.forensicator.io</a>
+📘 Full setup guide (all providers, tuning, troubleshooting): <a href="https://docs.forensicator.io">docs.forensicator.io</a>
 
 ---
 
@@ -325,5 +325,5 @@ Users are responsible for complying with the applicable licenses and terms of an
 
 ## ☕ Documentation
 
-<a href="https://docs.forensicator.io"> OpenDocs</a>
+<a href="https://docs.forensicator.io"> Docs</a>
 
