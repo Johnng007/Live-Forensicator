@@ -28,10 +28,10 @@ It enables:
 
 Key capabilities include:
 
-* Windows Artifact Analysis collection — raw Shimcache/Amcache/Prefetch/UserAssist/BAM/Autoruns/LNK/Jump List/Shellbag/$MFT/$UsnJrnl/SRUM/Defender quarantine/WER/Windows Search database/Recycle Bin/Notifications/BITS artifacts for Forensicator Core
+* Windows Artifact Analysis collection — raw Shimcache/Amcache/Prefetch/UserAssist/BAM/Autoruns/LNK/Jump List/Shellbag/$MFT/$UsnJrnl/SRUM/Defender quarantine/WER/Windows Search database/Recycle Bin/Notifications/BITS/Windows Timeline artifacts for Forensicator Core, plus each registry hive's own `.LOG1`/`.LOG2` transaction logs for Core to replay into a more complete hive
 * Event Log collection (targeted Event IDs), plus a configurable richer channel export (Sysmon, Defender Operational, PowerShell, TaskScheduler, WMI-Activity, BITS-Client, RDP, etc.) ready for Forensicator-Core's Log Analysis feature
 * Browser history extraction and IOC matching
-* Built-in triage: Sigma rule integration and malware hash matching (e.g., abuse.ch feeds)
+* Built-in triage: Sigma rule integration (opt-in, off by default — see `config.json`: `sigma.enabled`) and malware hash matching (e.g., abuse.ch feeds)
 * Forensicator AI — optional, per-finding AI verdicts from a local or commercial LLM
 
 ---
@@ -204,6 +204,7 @@ Automatically detected and enabled only when SharePoint Server is present:
 Raw artifact files for upload to Forensicator Core's Windows Artifact Analysis feature — this collects the files themselves, not a summary:
 
 * Registry hives — `SYSTEM`, `SOFTWARE`, `SECURITY`, `Amcache.hve`, and every user profile's `NTUSER.DAT`/`UsrClass.dat` (Shimcache, Amcache, UserAssist, BAM/DAM, Autoruns, Shellbags)
+* Registry transaction logs — each hive's own `.LOG1`/`.LOG2` files ("dirty page" transactions not yet flushed into the hive itself), collected alongside it; Forensicator Core replays them for a more complete/accurate hive before parsing
 * Prefetch — every `.pf` file in `C:\Windows\Prefetch`
 * LNK files — every `.lnk` found under `C:\Users`
 * Jump Lists — every `.automaticDestinations-ms`/`.customDestinations-ms` per profile
@@ -216,8 +217,9 @@ Raw artifact files for upload to Forensicator Core's Windows Artifact Analysis f
 * Recycle Bin metadata — `$I*` files only (original path, deleted time, size — not the `$R*` payload)
 * Notification platform database — `wpndatabase.db` (or the older `appdb.dat`) per profile
 * BITS job database — `qmgr0.dat`/`qmgr1.dat`, or `qmgr.db` on builds that use the newer ESE-based store
+* Windows Timeline database — `ActivitiesCache.db` per user profile, under a randomly-named `ConnectedDevicesPlatform\<UUID>\` subfolder this collector globs for
 
-`SYSTEM`/`SOFTWARE`/`SECURITY`/`Amcache.hve`, NTUSER.DAT/UsrClass.dat/`wpndatabase.db`, `$MFT`, `$UsnJrnl:$J`, `SRUDB.dat`, and `Windows.edb` are all held open by Windows while running, so this uses a Volume Shadow Copy snapshot to read them (created and removed automatically — standard, auditable IR technique, same as KAPE/Velociraptor use). If VSS isn't available, registry hives fall back to `reg.exe save` for whichever are currently loaded; the rest have no equivalent fallback and are only collected where accessible without it. The journal metadata, SRUM registry data, Defender quarantine, WER, Recycle Bin, and BITS artifacts are not VSS-locked and are collected unconditionally via a plain best-effort copy.
+`SYSTEM`/`SOFTWARE`/`SECURITY`/`Amcache.hve` (and their `.LOG1`/`.LOG2` transaction logs), NTUSER.DAT/UsrClass.dat (and their own `.LOG1`/`.LOG2`)/`wpndatabase.db`/`ActivitiesCache.db`, `$MFT`, `$UsnJrnl:$J`, `SRUDB.dat`, and `Windows.edb` are all held open by Windows while running, so this uses a Volume Shadow Copy snapshot to read them (created and removed automatically — standard, auditable IR technique, same as KAPE/Velociraptor use). If VSS isn't available, registry hives fall back to `reg.exe save` for whichever are currently loaded (transaction logs are then attempted as a plain copy anyway, since `reg.exe save` has no log-file equivalent); the rest have no equivalent fallback and are only collected where accessible without it. The journal metadata, SRUM registry data, Defender quarantine, WER, Recycle Bin, and BITS artifacts are not VSS-locked and are collected unconditionally via a plain best-effort copy.
 
 ### 🚀 Extended Features
 
