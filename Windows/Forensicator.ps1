@@ -5254,28 +5254,69 @@ $DownloadFinding | ConvertTo-Json -Depth 10 | Out-File $DownloadJsonOutputPath -
 # to be a technique attackers/ransomware abuse, so some SOCs' detection rules alert on it. Expected and
 # fine for authorized IR collection; this section logs it plainly rather than trying to hide it.
 
+# Win32_ShadowCopy.Create's documented ReturnValue codes (the WMI
+# method's own return code, not a VSS COM HRESULT) — see
+# https://learn.microsoft.com/previous-versions/windows/desktop/vsswmi/create-method-in-class-win32-shadowcopy
+$script:VssReturnCodeMeanings = @{
+    1  = "Access denied — this script must run elevated as Administrator."
+    2  = "Unsupported shadow copy context."
+    3  = "Volume not found."
+    4  = "Volume not supported (e.g. not NTFS, or a network/removable volume)."
+    6  = "Insufficient storage for the shadow copy — free up disk space."
+    7  = "Volume is in use (another process has it locked in a way VSS can't snapshot around)."
+    8  = "Maximum number of shadow copies already reached for this volume — run 'vssadmin delete shadows' to clear old ones."
+    9  = "Another shadow copy creation/deletion is already in progress on this system."
+    10 = "The shadow copy provider vetoed the operation — commonly another VSS requester (backup software, AV, System Restore) is mid-operation; often transient."
+    11 = "Transportable shadow copies are not supported."
+    12 = "The volume is not a read-write volume."
+    13 = "Unexpected provider error."
+}
+
 function New-ForensicVssSnapshot {
     param([string]$Volume = "$env:SystemDrive\")
 
-    try {
-        $result = Invoke-CimMethod -ClassName Win32_ShadowCopy -MethodName Create -Arguments @{ Volume = $Volume; Context = "ClientAccessible" } -ErrorAction Stop
-        if ($result.ReturnValue -ne 0) {
-            Write-ForensicLog "[!] VSS snapshot creation returned code $($result.ReturnValue)" -Level WARN -Section "WINARTIFACTS"
+    # Codes 9 ("another operation in progress") and 10 ("provider
+    # vetoed") are the two VSS saw in practice that are genuinely
+    # transient — a concurrent requester (backup software, AV, System
+    # Restore) is very often done within a few seconds, so a handful of
+    # short-backoff retries meaningfully beats giving up on the first
+    # veto and silently losing $MFT/$UsnJrnl/Amcache.hve/offline-profile
+    # hives/SRUDB.dat/the BITS job database for the rest of this run.
+    $transientCodes = @(9, 10)
+    $maxAttempts = 4
+    $delaysSeconds = @(5, 10, 20)
+
+    for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+        try {
+            $result = Invoke-CimMethod -ClassName Win32_ShadowCopy -MethodName Create -Arguments @{ Volume = $Volume; Context = "ClientAccessible" } -ErrorAction Stop
+            if ($result.ReturnValue -ne 0) {
+                $meaning = $script:VssReturnCodeMeanings[[int]$result.ReturnValue]
+                $meaningSuffix = if ($meaning) { " — $meaning" } else { "" }
+
+                if ($transientCodes -contains $result.ReturnValue -and $attempt -lt $maxAttempts) {
+                    $delay = $delaysSeconds[$attempt - 1]
+                    Write-ForensicLog "[!] VSS snapshot creation returned code $($result.ReturnValue)$meaningSuffix — retrying in ${delay}s (attempt $attempt of $maxAttempts)" -Level WARN -Section "WINARTIFACTS"
+                    Start-Sleep -Seconds $delay
+                    continue
+                }
+
+                Write-ForensicLog "[!] VSS snapshot creation returned code $($result.ReturnValue)$meaningSuffix" -Level WARN -Section "WINARTIFACTS"
+                return $null
+            }
+
+            $shadow = Get-CimInstance Win32_ShadowCopy -Filter "ID='$($result.ShadowID)'" -ErrorAction Stop
+            if (-not $shadow -or -not $shadow.DeviceObject) {
+                Write-ForensicLog "[!] VSS snapshot created but its device object could not be resolved" -Level WARN -Section "WINARTIFACTS"
+                return $null
+            }
+
+            Write-ForensicLog "[*] Created VSS snapshot at $($shadow.DeviceObject) — standard, auditable IR collection activity; expect it in EDR/SIEM telemetry" -Level INFO -Section "WINARTIFACTS"
+            return $shadow
+        }
+        catch {
+            Write-ForensicLog "[!] VSS snapshot creation failed — falling back to reg.exe save for loaded hives only" -Level WARN -Section "WINARTIFACTS" -Detail $_.Exception.Message
             return $null
         }
-
-        $shadow = Get-CimInstance Win32_ShadowCopy -Filter "ID='$($result.ShadowID)'" -ErrorAction Stop
-        if (-not $shadow -or -not $shadow.DeviceObject) {
-            Write-ForensicLog "[!] VSS snapshot created but its device object could not be resolved" -Level WARN -Section "WINARTIFACTS"
-            return $null
-        }
-
-        Write-ForensicLog "[*] Created VSS snapshot at $($shadow.DeviceObject) — standard, auditable IR collection activity; expect it in EDR/SIEM telemetry" -Level INFO -Section "WINARTIFACTS"
-        return $shadow
-    }
-    catch {
-        Write-ForensicLog "[!] VSS snapshot creation failed — falling back to reg.exe save for loaded hives only" -Level WARN -Section "WINARTIFACTS" -Detail $_.Exception.Message
-        return $null
     }
 }
 
