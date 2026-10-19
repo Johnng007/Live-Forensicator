@@ -2734,6 +2734,7 @@ $Cmd_PSHistory = @{
 }
 
 # Collect session history
+
 if ($PSVersionTable.PSVersion.Major -ge 7) {
 
     $sessionHistory = Get-History -ErrorAction SilentlyContinue |
@@ -2851,201 +2852,8 @@ else {
 }
 
 ##################################################
-# Recently Created Executables
-##################################################
-
-# PowerShell 7's native Get-ChildItem -Recurse is fast enough on its own that the
-# USN Journal / directory-exclusion machinery below is unnecessary complexity for
-# it - that machinery exists specifically to compensate for PS5.1 being slower at
-# this. PS7 uses the plain, original implementation; PS5.1 keeps the optimized path.
-if ($PSVersionTable.PSVersion.Major -ge 7) {
-
-    $Cmd_NewFiles = @{
-        Display = 'Get-ChildItem -Filter <extension> -Recurse'
-    }
-
-    $CutoffDate = (Get-Date).AddDays(-7)
-
-    $Paths = @(
-        "$env:USERPROFILE\AppData\Local\Temp",
-        "$env:USERPROFILE\AppData\Roaming",
-        "$env:USERPROFILE\Downloads",
-        "$env:USERPROFILE\Desktop",
-        "C:\Users\Public",
-        "C:\ProgramData"
-    )
-
-    $Extensions = @(
-        "*.exe",
-        "*.dll",
-        "*.ps1",
-        "*.bat",
-        "*.vbs",
-        "*.js"
-    )
-
-    $Evidence = New-Object System.Collections.Generic.List[object]
-
-    foreach ($Path in $Paths) {
-
-        if (-not (Test-Path $Path)) {
-            continue
-        }
-
-        foreach ($Filter in $Extensions) {
-
-            Get-ChildItem `
-                -Path $Path `
-                -Filter $Filter `
-                -File `
-                -Recurse `
-                -ErrorAction SilentlyContinue |
-
-            Where-Object {
-                $_.LastWriteTime -ge $CutoffDate
-            } |
-
-            ForEach-Object {
-
-                $Evidence.Add(@{
-                    name            = $_.Name
-                    extension       = $_.Extension
-                    full_path       = $_.FullName
-                    last_write_time = $_.LastWriteTime.ToString("o")
-                    size_kb         = "{0:N2} KB" -f ($_.Length / 1KB)
-                })
-
-            }
-
-        }
-
-    }
-
-}
-else {
-
-# ── Lookback window (analyst-configurable via config.json: new_files.days_back) ──
-$NewFilesDaysBack = 7
-if($null -ne $configData -and $configData.PSObject.Properties["new_files"] -and $null -ne $configData.new_files.days_back){
-    $parsedNewFilesDaysBack = 0
-    if([int]::TryParse([string]$configData.new_files.days_back, [ref]$parsedNewFilesDaysBack) -and $parsedNewFilesDaysBack -gt 0){
-        $NewFilesDaysBack = $parsedNewFilesDaysBack
-    }
-    else{
-        Write-ForensicLog "Invalid new_files.days_back in config.json — using default" -Level WARN -Section "FILES_USB" -Detail "Configured value: $($configData.new_files.days_back) | Default: 7"
-    }
-}
-
-# ── Excluded directory names (analyst-configurable via config.json: new_files.excluded_dir_names) ──
-# Dev-tooling directories (node_modules, .git, build output, virtualenvs, ...) can
-# dwarf every other target path combined in file count on developer machines where
-# Desktop/Downloads double as a project workspace, without adding real forensic
-# signal for a dropped-executable triage check. Skipped entirely during recursion,
-# not just filtered from results, so the walk never pays the cost of descending
-# into them.
-$DefaultExcludedDirNames = @(
-    "node_modules", ".git", ".hg", ".svn", "vendor",
-    "dist", "build", "target", "__pycache__",
-    "venv", ".venv", ".next", ".nuxt"
-)
-$ExcludedDirNames = [System.Collections.Generic.HashSet[string]]::new(
-    [string[]]$DefaultExcludedDirNames,
-    [System.StringComparer]::OrdinalIgnoreCase
-)
-if($null -ne $configData -and $configData.PSObject.Properties["new_files"] -and $null -ne $configData.new_files.excluded_dir_names){
-    $configuredExclusions = @($configData.new_files.excluded_dir_names | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
-    if($configuredExclusions.Count -gt 0){
-        $ExcludedDirNames = [System.Collections.Generic.HashSet[string]]::new(
-            [string[]]$configuredExclusions,
-            [System.StringComparer]::OrdinalIgnoreCase
-        )
-    }
-}
-
-# Calling Get-ChildItem once per directory (even skipping excluded subtrees) is
-# dramatically slower than one native -Recurse call, because each cmdlet invocation
-# carries its own PowerShell pipeline/parameter-binding overhead — measured 4x
-# SLOWER than the plain unfiltered recursive walk on a tree with tens of thousands
-# of directories, despite visiting 74% fewer files. Using the raw .NET static
-# enumerators directly (no cmdlet call per directory) instead measured 3x FASTER
-# than the plain walk while correctly skipping excluded subtrees.
-function Get-FilesExcludingDirs {
-    param(
-        [string]$Path,
-        [System.Collections.Generic.HashSet[string]]$ExcludedDirNames
-    )
-
-    $stack = New-Object System.Collections.Generic.Stack[string]
-    $stack.Push($Path)
-
-    while ($stack.Count -gt 0) {
-        $current = $stack.Pop()
-
-        try {
-            foreach ($dir in [System.IO.Directory]::EnumerateDirectories($current)) {
-                $dirName = [System.IO.Path]::GetFileName($dir)
-                if (-not $ExcludedDirNames.Contains($dirName)) {
-                    $stack.Push($dir)
-                }
-            }
-        } catch { }
-
-        try {
-            foreach ($file in [System.IO.Directory]::EnumerateFiles($current)) {
-                $file
-            }
-        } catch { }
-    }
-}
-
-$Cmd_NewFiles = @{
-    Display = 'USN Journal fast path for the default <=7 day lookback, recursive Get-ChildItem fallback otherwise (both skip node_modules/.git/build-output style directories)'
-}
-
-$CutoffDate = (Get-Date).AddDays(-$NewFilesDaysBack)
-
-# .js is scoped to Downloads only — email/browser-delivered .js droppers land there,
-# whereas AppData\Roaming and C:\ProgramData are dominated by dev-tool/app-cache .js
-# noise (npm, VS Code extensions, Electron apps) that would dwarf real findings.
-$CoreExtensions = [System.Collections.Generic.HashSet[string]]::new(
-    [string[]]@(".exe", ".dll", ".ps1", ".bat", ".vbs"),
-    [System.StringComparer]::OrdinalIgnoreCase
-)
-$DownloadsExtensions = [System.Collections.Generic.HashSet[string]]::new(
-    [string[]]@(".exe", ".dll", ".ps1", ".bat", ".vbs"),
-    [System.StringComparer]::OrdinalIgnoreCase
-)
-
-$Paths = @(
-    @{ Path = "$env:USERPROFILE\AppData\Local\Temp"; Extensions = $CoreExtensions }
-    @{ Path = "$env:USERPROFILE\AppData\Roaming";     Extensions = $CoreExtensions }
-    @{ Path = "$env:USERPROFILE\Downloads";           Extensions = $DownloadsExtensions }
-    @{ Path = "$env:USERPROFILE\Desktop";             Extensions = $CoreExtensions }
-    @{ Path = "C:\Users\Public";                      Extensions = $CoreExtensions }
-    @{ Path = "C:\ProgramData";                       Extensions = $CoreExtensions }
-)
-
-$Evidence = New-Object System.Collections.Generic.List[object]
-
-# ---------------------------------------------------------------------------
-# USN Journal fast path
-#
-# The USN Journal ($UsnJrnl) is an NTFS change log: reading it is one linear
-# scan of a small, bounded file instead of a recursive directory walk of
-# every target path. It only applies to the default short lookback because
-# the journal is a fixed-size ring buffer (commonly ~32MB) — on a busy
-# volume it may only retain days of history, so it cannot be trusted to
-# cover a longer analyst-configured window. Any failure (not elevated,
-# non-NTFS volume, journal disabled, or insufficient retention) falls back
-# to the recursive walk below.
-#
-# (MFTECmd — parsing the full $MFT — was tried instead and abandoned: it
-# throws OutOfMemoryException inside its own BuildMaps() step on volumes
-# with large/high-churn MFTs, e.g. ~1.3GB / ~1.3M records here. That's a
-# limitation of the tool's memory handling, not something tunable via its
-# CLI, so the $MFT-parsing approach isn't viable on exactly the busy
-# developer machines most worth scanning.)
-# ---------------------------------------------------------------------------
+# This reader is also used by the -WINARTIFACTS collector on PowerShell 7,
+# so initialize it outside the PS5-only optimized executable-scan branch.
 if (-not ("Forensicator.UsnJournalReader" -as [type])) {
     Add-Type -Language CSharp -TypeDefinition @'
 using System;
@@ -3388,6 +3196,203 @@ namespace Forensicator
 }
 '@
 }
+
+# Recently Created Executables
+##################################################
+
+# PowerShell 7's native Get-ChildItem -Recurse is fast enough on its own that the
+# USN Journal / directory-exclusion machinery below is unnecessary complexity for
+# it - that machinery exists specifically to compensate for PS5.1 being slower at
+# this. PS7 uses the plain, original implementation; PS5.1 keeps the optimized path.
+if ($PSVersionTable.PSVersion.Major -ge 7) {
+
+    $Cmd_NewFiles = @{
+        Display = 'Get-ChildItem -Filter <extension> -Recurse'
+    }
+
+    $CutoffDate = (Get-Date).AddDays(-7)
+
+    $Paths = @(
+        "$env:USERPROFILE\AppData\Local\Temp",
+        "$env:USERPROFILE\AppData\Roaming",
+        "$env:USERPROFILE\Downloads",
+        "$env:USERPROFILE\Desktop",
+        "C:\Users\Public",
+        "C:\ProgramData"
+    )
+
+    $Extensions = @(
+        "*.exe",
+        "*.dll",
+        "*.ps1",
+        "*.bat",
+        "*.vbs",
+        "*.js"
+    )
+
+    $Evidence = New-Object System.Collections.Generic.List[object]
+
+    foreach ($Path in $Paths) {
+
+        if (-not (Test-Path $Path)) {
+            continue
+        }
+
+        foreach ($Filter in $Extensions) {
+
+            Get-ChildItem `
+                -Path $Path `
+                -Filter $Filter `
+                -File `
+                -Recurse `
+                -ErrorAction SilentlyContinue |
+
+            Where-Object {
+                $_.LastWriteTime -ge $CutoffDate
+            } |
+
+            ForEach-Object {
+
+                $Evidence.Add(@{
+                    name            = $_.Name
+                    extension       = $_.Extension
+                    full_path       = $_.FullName
+                    last_write_time = $_.LastWriteTime.ToString("o")
+                    size_kb         = "{0:N2} KB" -f ($_.Length / 1KB)
+                })
+
+            }
+
+        }
+
+    }
+
+}
+else {
+
+# ── Lookback window (analyst-configurable via config.json: new_files.days_back) ──
+$NewFilesDaysBack = 7
+if($null -ne $configData -and $configData.PSObject.Properties["new_files"] -and $null -ne $configData.new_files.days_back){
+    $parsedNewFilesDaysBack = 0
+    if([int]::TryParse([string]$configData.new_files.days_back, [ref]$parsedNewFilesDaysBack) -and $parsedNewFilesDaysBack -gt 0){
+        $NewFilesDaysBack = $parsedNewFilesDaysBack
+    }
+    else{
+        Write-ForensicLog "Invalid new_files.days_back in config.json — using default" -Level WARN -Section "FILES_USB" -Detail "Configured value: $($configData.new_files.days_back) | Default: 7"
+    }
+}
+
+# ── Excluded directory names (analyst-configurable via config.json: new_files.excluded_dir_names) ──
+# Dev-tooling directories (node_modules, .git, build output, virtualenvs, ...) can
+# dwarf every other target path combined in file count on developer machines where
+# Desktop/Downloads double as a project workspace, without adding real forensic
+# signal for a dropped-executable triage check. Skipped entirely during recursion,
+# not just filtered from results, so the walk never pays the cost of descending
+# into them.
+$DefaultExcludedDirNames = @(
+    "node_modules", ".git", ".hg", ".svn", "vendor",
+    "dist", "build", "target", "__pycache__",
+    "venv", ".venv", ".next", ".nuxt"
+)
+$ExcludedDirNames = [System.Collections.Generic.HashSet[string]]::new(
+    [string[]]$DefaultExcludedDirNames,
+    [System.StringComparer]::OrdinalIgnoreCase
+)
+if($null -ne $configData -and $configData.PSObject.Properties["new_files"] -and $null -ne $configData.new_files.excluded_dir_names){
+    $configuredExclusions = @($configData.new_files.excluded_dir_names | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
+    if($configuredExclusions.Count -gt 0){
+        $ExcludedDirNames = [System.Collections.Generic.HashSet[string]]::new(
+            [string[]]$configuredExclusions,
+            [System.StringComparer]::OrdinalIgnoreCase
+        )
+    }
+}
+
+# Calling Get-ChildItem once per directory (even skipping excluded subtrees) is
+# dramatically slower than one native -Recurse call, because each cmdlet invocation
+# carries its own PowerShell pipeline/parameter-binding overhead — measured 4x
+# SLOWER than the plain unfiltered recursive walk on a tree with tens of thousands
+# of directories, despite visiting 74% fewer files. Using the raw .NET static
+# enumerators directly (no cmdlet call per directory) instead measured 3x FASTER
+# than the plain walk while correctly skipping excluded subtrees.
+function Get-FilesExcludingDirs {
+    param(
+        [string]$Path,
+        [System.Collections.Generic.HashSet[string]]$ExcludedDirNames
+    )
+
+    $stack = New-Object System.Collections.Generic.Stack[string]
+    $stack.Push($Path)
+
+    while ($stack.Count -gt 0) {
+        $current = $stack.Pop()
+
+        try {
+            foreach ($dir in [System.IO.Directory]::EnumerateDirectories($current)) {
+                $dirName = [System.IO.Path]::GetFileName($dir)
+                if (-not $ExcludedDirNames.Contains($dirName)) {
+                    $stack.Push($dir)
+                }
+            }
+        } catch { }
+
+        try {
+            foreach ($file in [System.IO.Directory]::EnumerateFiles($current)) {
+                $file
+            }
+        } catch { }
+    }
+}
+
+$Cmd_NewFiles = @{
+    Display = 'USN Journal fast path for the default <=7 day lookback, recursive Get-ChildItem fallback otherwise (both skip node_modules/.git/build-output style directories)'
+}
+
+$CutoffDate = (Get-Date).AddDays(-$NewFilesDaysBack)
+
+# .js is scoped to Downloads only — email/browser-delivered .js droppers land there,
+# whereas AppData\Roaming and C:\ProgramData are dominated by dev-tool/app-cache .js
+# noise (npm, VS Code extensions, Electron apps) that would dwarf real findings.
+$CoreExtensions = [System.Collections.Generic.HashSet[string]]::new(
+    [string[]]@(".exe", ".dll", ".ps1", ".bat", ".vbs"),
+    [System.StringComparer]::OrdinalIgnoreCase
+)
+$DownloadsExtensions = [System.Collections.Generic.HashSet[string]]::new(
+    [string[]]@(".exe", ".dll", ".ps1", ".bat", ".vbs"),
+    [System.StringComparer]::OrdinalIgnoreCase
+)
+
+$Paths = @(
+    @{ Path = "$env:USERPROFILE\AppData\Local\Temp"; Extensions = $CoreExtensions }
+    @{ Path = "$env:USERPROFILE\AppData\Roaming";     Extensions = $CoreExtensions }
+    @{ Path = "$env:USERPROFILE\Downloads";           Extensions = $DownloadsExtensions }
+    @{ Path = "$env:USERPROFILE\Desktop";             Extensions = $CoreExtensions }
+    @{ Path = "C:\Users\Public";                      Extensions = $CoreExtensions }
+    @{ Path = "C:\ProgramData";                       Extensions = $CoreExtensions }
+)
+
+$Evidence = New-Object System.Collections.Generic.List[object]
+
+# ---------------------------------------------------------------------------
+# USN Journal fast path
+#
+# The USN Journal ($UsnJrnl) is an NTFS change log: reading it is one linear
+# scan of a small, bounded file instead of a recursive directory walk of
+# every target path. It only applies to the default short lookback because
+# the journal is a fixed-size ring buffer (commonly ~32MB) — on a busy
+# volume it may only retain days of history, so it cannot be trusted to
+# cover a longer analyst-configured window. Any failure (not elevated,
+# non-NTFS volume, journal disabled, or insufficient retention) falls back
+# to the recursive walk below.
+#
+# (MFTECmd — parsing the full $MFT — was tried instead and abandoned: it
+# throws OutOfMemoryException inside its own BuildMaps() step on volumes
+# with large/high-churn MFTs, e.g. ~1.3GB / ~1.3M records here. That's a
+# limitation of the tool's memory handling, not something tunable via its
+# CLI, so the $MFT-parsing approach isn't viable on exactly the busy
+# developer machines most worth scanning.)
+# ---------------------------------------------------------------------------
+
 
 function Get-NewFilesViaUsnJournal {
     param($PathEntries, [datetime]$CutoffUtc, [System.Collections.Generic.HashSet[string]]$ExcludedDirNames)
