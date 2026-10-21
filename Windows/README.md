@@ -36,6 +36,24 @@ Key capabilities include:
 
 ---
 
+## 🧩 Analyzing the Output in Forensicator Core
+
+**[Forensicator Core](https://github.com/Raptormatics/Forensicator-Core)** is the free, self-hosted analysis platform for this collector's output. Each part of a run's `<HOSTNAME>\` output folder uploads to its own Core section:
+
+| Collector output | Collected with | Core section |
+|---|---|---|
+| `artifacts\` (the whole folder) | `-WINARTIFACTS` | **Windows Artifact Analysis** → *Collector folder* mode. Each file is routed to its parser by path and verified against the SHA-256 in `WindowsArtifacts\CollectionManifest\`. LOG4J, GPResult, and RAM-triage extras from the same folder are picked up too. |
+| `artifacts\EVTX\*.evtx` and `artifacts\EVTX\LogChannels\*.log` | `-EVTX` | **Log Analysis**. Upload either the raw `.evtx` or the single-line Event XML. Built-in decoders cover Security, Sysmon, PowerShell, Defender, Task Scheduler, WMI-Activity, BITS-Client, RDP, and the AD/DNS channels. |
+| `artifacts\RAM\<HOSTNAME>.raw` | `-RAM` | **RAM Analysis** (Volatility3) |
+| `artifacts\PCAP\<HOSTNAME>.pcapng` | Network tracing | **PCAP Analysis** |
+| `investigation.zip` | Every run | **Investigations**. Normalized findings, a timeline, and attack-path reconstruction, rolled into the host's profile. |
+
+Core also enriches IOCs against VirusTotal, AbuseIPDB, OTX, URLhaus, ThreatFox, and MalwareBazaar. It groups uploads under Cases, correlates findings across them, and produces executive and technical reports.
+
+👉 Installation and setup (Docker or a Linux machine or VM): https://github.com/Raptormatics/Forensicator-Core
+
+---
+
 ## 🔨 Usage
 
 ```powershell
@@ -276,8 +294,8 @@ The collector writes `artifact-collection-manifest.csv`, `artifact-collection-ma
 * Ransomware pattern detection
 * EVTX export — System/Security/Application as raw `.evtx` (archival), plus a configurable richer channel list exported both as raw `.evtx` and Core-ready single-line Event XML (`config.json`: `logChannels.channels`). XML remains time/event-count bounded; native EVTX is a full channel export.
 * Detection Insight into each collected data with Mitre Mapping.
-* Structured per-check JSON output under `investigation/`, for Forensicator Enterprise upload
-* Investigation archive — a hashed, zipped copy of the investigation folder with a Readme pointing to Forensicator Enterprise for automated analysis
+* Structured per-check JSON output under `investigation/`, for Forensicator Core upload
+* Investigation archive — a hashed, zipped copy of the investigation folder with a Readme pointing to Forensicator Core for automated analysis
 * Forensicator AI — optional, per-finding AI verdicts (local Ollama or a commercial LLM), off by default (see [🤖 Forensicator AI](#-forensicator-ai))
 
 The `-RANSOMWARE` scan downloads its filename-pattern feed from `ransomware_extension_source` in `config.json` (the Danny Roemhild ransomware-fileext-list raw text feed) only when `Forensicator-Share\ransomware_extensions.txt` does not already exist. Operators may place or update that text file themselves to avoid the download. Upstream entries are wildcard filename patterns, not all simple extensions; they are matched case-insensitively against file names. Treat matches as triage indicators, not proof of encryption.

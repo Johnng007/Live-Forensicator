@@ -22,13 +22,40 @@ Collects forensic artifacts from live systems for analysis in Forensicator Core.
 
 **Live Forensicator** is a cross-platform forensic artifact collector.
 
-It is designed to help forensic investigators and incident responders rapidly collect system and user activity artifacts from a live host or device, the collected artifscts can uploaded to Forensicator Core for analysis. The collector also bundles a built-in HTML report for quick triage along the way.
+It is designed to help forensic investigators and incident responders rapidly collect system and user activity artifacts from a live host or device. The collected artifacts can be uploaded to Forensicator Core for analysis. The collector also bundles a built-in HTML report for quick triage along the way.
 
 Live Forensicator:
 
 * Collects system and user activity artifacts, ready for Forensicator Core upload
 * Generates structured, investigation-ready HTML reports
 * Performs built-in triage — detects anomalous behavior and suspicious indicators, and highlights potential compromise or misconfiguration, on the spot
+
+---
+
+## 🧩 Forensicator Core
+
+The collector gathers the evidence; **[Forensicator Core](https://github.com/Raptormatics/Forensicator-Core)** is where it gets analyzed. Core is the free, self-hosted DFIR platform that parses what this collector produces into structured, searchable findings, then enriches, correlates, and reports on them.
+
+With Core you can:
+
+* Upload a whole Windows host folder in one step. Core routes each file to its parser and verifies its SHA-256 against the collector's CollectionManifest.
+* Parse the raw Windows artifacts collected with `-WINARTIFACTS`: registry hives with their transaction logs, Prefetch, $MFT/$UsnJrnl/$LogFile, SRUM, Windows Search, Defender quarantine, WER, BITS, WMI subscriptions, OneDrive logs, and more.
+* Analyze RAM captures (Volatility3), network captures (PCAP), and event logs (raw `.evtx` or the collector's Event XML channel exports).
+* Enrich IOCs automatically against VirusTotal, AbuseIPDB, OTX, URLhaus, ThreatFox, and MalwareBazaar.
+* Group investigations and hosts under Cases, correlate findings across uploads, and produce executive and technical reports.
+
+Core runs with Docker or on a Linux machine or VM:
+
+```bash
+git clone https://github.com/Raptormatics/Forensicator-Core forensicator-core
+cd forensicator-core
+cp .env.docker.example .env    # set NEXTAUTH_SECRET
+docker compose up -d           # then open http://localhost:3000
+```
+
+👉 https://github.com/Raptormatics/Forensicator-Core
+
+> ℹ️ Core is source-available under the Business Source License 1.1. Each version converts to Apache 2.0 on its Change Date. See the Core repository's README for installation options and license details.
 
 ---
 
@@ -70,7 +97,7 @@ Live Forensicator:
 
 * Cross-distro compatible Bash scripts, no non-native dependencies
 * LUKS disk-encryption status and credential-file tampering timeline collection
-* Structured JSON output for Forensicator Enterprise
+* Structured JSON output for Forensicator Core
 * Optional artifact encryption (AES)
 * Built-in triage: detection engine covering reverse shells, timestomping, PATH hijacking, deleted-binary execution, package integrity, and more
 * Sigma rule engine sourced from real SigmaHQ community rules, evaluated against auditd and journald where available
