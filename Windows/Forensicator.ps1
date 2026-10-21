@@ -129,6 +129,10 @@ ___________                                .__               __
  \___  / \____/|__|    \___  >___|  /____  >__|\___  >____  /__|  \____/|__|   
      \/                    \/     \/     \/        \/     \/                    
 
+█▀█ ▀█▀▄ ▄█▄   ▀  █▀ ▀▀█ █▀ ▄█▄       █▀▀ █▀█ █  █  █▀█ █▀ ▄█▄  █▀█ ▀█▀▄
+█▀█  █    █ ▄  █ ▀█▀ █▀█ █   █ ▄      █   █ █ █  █  █▀▀ █   █ ▄ █ █  █  
+▀ ▀  ▀     ▀   ▀  ▀  ▀▀▀ ▀▀   ▀       ▀▀▀ ▀▀▀ ▀▀ ▀▀ ▀▀▀ ▀▀   ▀  ▀▀▀  ▀  
+
 "@
 
 # Brand colours
@@ -442,7 +446,7 @@ if ($USAGE) {
   Write-Host -ForegroundColor Cyan "[!] requires the etl2pcapng file in share folder"
   Write-Host -ForegroundColor DarkCyan '[*] -RAM RAM                 Extract RAM Dump'
   Write-Host -ForegroundColor Cyan "[!] requires the winpmem file in share folder"
-  Write-Host -ForegroundColor DarkCyan '[*] -WINARTIFACTS WINARTIFACTS   Collect raw Shimcache/Amcache/Prefetch/UserAssist/BAM/Autoruns/LNK/Jump List/$MFT/$UsnJrnl/SRUM/Defender quarantine/WER/Search database/Recycle Bin/Notifications/BITS/Timeline/registry transaction logs artifacts for Forensicator Core/Enterprise'
+  Write-Host -ForegroundColor DarkCyan '[*] -WINARTIFACTS WINARTIFACTS   Collect Windows and application artifacts, including cloud metadata, AV/remote-access logs, Notepad recovery state, and a SHA-256 collection manifest'
   Write-Host -ForegroundColor Cyan "[!] uses a Volume Shadow Copy snapshot to read locked registry hives, Windows.edb, and wpndatabase.db"
   Write-Host -ForegroundColor DarkCyan '[*] -LOG4J LOG4J             Checks for vulnerable log4j files'
   Write-Host -ForegroundColor DarkCyan '[*] -ENCRYPTED ENCRYPTED     Encrypts Artifacts after collecting them'
@@ -5221,7 +5225,7 @@ $DownloadFinding | ConvertTo-Json -Depth 10 | Out-File $DownloadJsonOutputPath -
 # Also collects a further batch of raw artifacts with no Core parser yet: Windows Defender quarantine
 # (Entries/ResourceData, both RC4-encrypted by Defender itself, so this isn't live malware bytes), WER
 # reports/crash dumps (size-capped via config.json: werCrashDumps.max_dump_size_mb), the Windows Search
-# database (Windows.edb), Recycle Bin $I metadata, the Notification platform database (wpndatabase.db),
+# databases (Windows.edb / Windows.db and Windows-gather.db), Recycle Bin $I metadata, the Notification platform database (wpndatabase.db),
 # and the BITS job database (qmgr*.dat). Tamper-protection state and current exclusion configuration are
 # collected separately, unconditionally, as part of the existing Defender status check earlier in this
 # script (win-defender-finding.json / win-defender-exclusions-finding.json) — not gated behind
@@ -5353,6 +5357,7 @@ function Remove-ForensicVssSnapshot {
 if (-not ("Forensicator.RawFileReader" -as [type])) {
     Add-Type -Language CSharp -TypeDefinition @'
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 using Microsoft.Win32.SafeHandles;
@@ -5385,24 +5390,20 @@ namespace Forensicator
 
         // Documented layout (winioctl.h) — 5 LARGE_INTEGERs, 4 DWORDs, then
         // 5 more LARGE_INTEGERs, in exactly this order. MftStartLcn is the
-        // cluster where the $MFT's first (and, on an unfragmented volume,
-        // only) data run begins; MftValidDataLength is the $MFT's own
-        // real/used length within that run. Reading
-        // MftStartLcn*BytesPerCluster..+MftValidDataLength off the volume
-        // directly gets the $MFT's content without ever opening "$MFT" by
-        // name — sidestepping the access-denied Windows enforces on that
+        // cluster where the $MFT's first data run (and so record 0) begins;
+        // MftValidDataLength is the $MFT's used length. Reading the $MFT off
+        // the volume directly gets its content without ever opening "$MFT"
+        // by name — sidestepping the access-denied Windows enforces on that
         // name regardless of privilege (confirmed: CreateFile on "$MFT"
         // still fails with ERROR_ACCESS_DENIED even with
         // FILE_FLAG_BACKUP_SEMANTICS + SeBackupPrivilege enabled — the
         // same technique RawCopy/FTK Imager fall back to for this reason).
-        // Known limitation: assumes the $MFT is a single contiguous run,
-        // true on the large majority of real-world volumes (Windows
-        // reserves a dedicated MFT zone specifically to keep it that way)
-        // but not guaranteed on a sufficiently fragmented one — handling a
-        // fragmented $MFT correctly would need FSCTL_GET_RETRIEVAL_POINTERS
-        // against a $MFT file handle, which (being metadata-query, not a
-        // data read) may not hit the same block, but wasn't implemented
-        // here; flagged plainly rather than silently assumed solid.
+        // CopyRawMft follows the $MFT's own run list (record 0's unnamed
+        // $DATA mapping pairs, plus any extension records named in its
+        // $ATTRIBUTE_LIST) rather than assuming one contiguous run: a real
+        // Windows 11 workstation's $MFT was in 7 fragments, and reading
+        // MftValidDataLength bytes from MftStartLcn captured only the first
+        // ~205k of 1.42M records followed by unrelated disk clusters.
         [StructLayout(LayoutKind.Sequential)]
         private struct NTFS_VOLUME_DATA_BUFFER
         {
@@ -5438,7 +5439,7 @@ namespace Forensicator
         // point-in-time-consistent $MFT instead of the live one — a
         // shadow copy device is itself openable and FSCTL-queryable the
         // same way a live volume is, no trailing "$MFT" name involved.
-        public static void CopyRawMft(string volumePath, string destinationPath)
+        public static int CopyRawMft(string volumePath, string destinationPath)
         {
             using (SafeFileHandle hVol = CreateFile(
                 volumePath, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
@@ -5461,33 +5462,230 @@ namespace Forensicator
                 try { volData = (NTFS_VOLUME_DATA_BUFFER)Marshal.PtrToStructure(gch.AddrOfPinnedObject(), typeof(NTFS_VOLUME_DATA_BUFFER)); }
                 finally { gch.Free(); }
 
-                long mftOffset = volData.MftStartLcn * volData.BytesPerCluster;
+                long cluster = volData.BytesPerCluster;
+                int recordSize = (int)volData.BytesPerFileRecordSegment;
                 long mftLength = volData.MftValidDataLength;
-                if (mftLength <= 0)
-                    throw new IOException("FSCTL_GET_NTFS_VOLUME_DATA returned a non-positive MftValidDataLength for " + volumePath);
+                if (mftLength <= 0 || cluster <= 0 || recordSize <= 0)
+                    throw new IOException("FSCTL_GET_NTFS_VOLUME_DATA returned invalid geometry for " + volumePath);
 
-                long newPos;
-                if (!SetFilePointerEx(hVol, mftOffset, out newPos, FILE_BEGIN))
-                    throw new IOException("SetFilePointerEx failed for volume " + volumePath + " (Win32 error " + Marshal.GetLastWin32Error() + ")");
+                // 1. Record 0 is the $MFT's own FILE record; its unnamed $DATA
+                //    attribute's run list says where every fragment of the
+                //    $MFT lives on the volume.
+                List<long[]> runs = ReadMftRuns(hVol, volData.MftStartLcn * cluster, recordSize, cluster, volumePath);
 
+                // 2. Copy the fragments in VCN order up to MftValidDataLength.
                 using (var destStream = File.Create(destinationPath))
                 {
                     byte[] buffer = new byte[4 * 1024 * 1024];
                     long remaining = mftLength;
-                    while (remaining > 0)
+                    foreach (long[] run in runs)
                     {
-                        uint toRead = (uint)Math.Min(remaining, buffer.Length);
-                        uint read;
-                        bool ok = ReadFile(hVol, buffer, toRead, out read, IntPtr.Zero);
-                        if (!ok)
-                            throw new IOException("ReadFile failed reading $MFT from volume " + volumePath + " (Win32 error " + Marshal.GetLastWin32Error() + ")");
-                        if (read == 0)
-                            break; // shouldn't happen before `remaining` hits 0, but don't spin forever if it does
+                        if (remaining <= 0) break;
+                        long runBytes = Math.Min(run[1] * cluster, remaining);
+                        if (run[0] < 0)
+                        {
+                            // Sparse run: no clusters on disk, reads as zeros.
+                            Array.Clear(buffer, 0, buffer.Length);
+                            for (long left = runBytes; left > 0; left -= Math.Min(left, buffer.Length))
+                                destStream.Write(buffer, 0, (int)Math.Min(left, buffer.Length));
+                        }
+                        else
+                        {
+                            long offset = run[0] * cluster;
+                            long done = 0;
+                            while (done < runBytes)
+                            {
+                                // Volume reads must be sector-aligned: read whole
+                                // clusters, write only what's needed.
+                                long want = Math.Min(buffer.Length, runBytes - done);
+                                int toRead = (int)(((want + cluster - 1) / cluster) * cluster);
+                                int read = ReadAt(hVol, offset + done, buffer, toRead, volumePath);
+                                if (read <= 0)
+                                    throw new IOException("ReadFile returned no data reading $MFT run at LCN " + run[0] + " on " + volumePath);
+                                int keep = (int)Math.Min(read, want);
+                                destStream.Write(buffer, 0, keep);
+                                done += keep;
+                            }
+                        }
+                        remaining -= runBytes;
+                    }
+                    if (remaining > 0)
+                        throw new IOException("$MFT run list covers " + (mftLength - remaining) + " of " + mftLength + " bytes on " + volumePath);
+                }
+                return runs.Count;
+            }
+        }
 
-                        destStream.Write(buffer, 0, (int)read);
-                        remaining -= read;
+        private static int ReadAt(SafeFileHandle hVol, long offset, byte[] buffer, int count, string volumePath)
+        {
+            long newPos;
+            if (!SetFilePointerEx(hVol, offset, out newPos, FILE_BEGIN))
+                throw new IOException("SetFilePointerEx failed for volume " + volumePath + " (Win32 error " + Marshal.GetLastWin32Error() + ")");
+            uint read;
+            if (!ReadFile(hVol, buffer, (uint)count, out read, IntPtr.Zero))
+                throw new IOException("ReadFile failed for volume " + volumePath + " (Win32 error " + Marshal.GetLastWin32Error() + ")");
+            return (int)read;
+        }
+
+        // Reads one FILE record at a byte offset and applies its update-
+        // sequence fixups (the last two bytes of every 512-byte stride hold
+        // the sequence number; the real bytes are in the update-sequence array).
+        private static byte[] ReadFileRecord(SafeFileHandle hVol, long offset, int recordSize, long cluster, string volumePath)
+        {
+            int toRead = (int)(((recordSize + cluster - 1) / cluster) * cluster);
+            byte[] buf = new byte[toRead];
+            if (ReadAt(hVol, offset, buf, toRead, volumePath) < recordSize)
+                throw new IOException("Short read of an $MFT FILE record on " + volumePath);
+            byte[] rec = new byte[recordSize];
+            Array.Copy(buf, rec, recordSize);
+            if (rec[0] != (byte)'F' || rec[1] != (byte)'I' || rec[2] != (byte)'L' || rec[3] != (byte)'E')
+                throw new IOException("No FILE signature at $MFT record offset " + offset + " on " + volumePath);
+            int usaOff = BitConverter.ToUInt16(rec, 4);
+            int usaCount = BitConverter.ToUInt16(rec, 6);
+            for (int i = 1; i < usaCount; i++)
+            {
+                int pos = i * 512 - 2;
+                if (pos + 2 > recordSize) break;
+                if (rec[pos] != rec[usaOff] || rec[pos + 1] != rec[usaOff + 1])
+                    throw new IOException("Update-sequence mismatch in $MFT record at offset " + offset + " on " + volumePath);
+                rec[pos] = rec[usaOff + 2 * i];
+                rec[pos + 1] = rec[usaOff + 2 * i + 1];
+            }
+            return rec;
+        }
+
+        // Decodes a non-resident attribute's mapping pairs into {lcn, clusters}
+        // (lcn -1 = sparse). Run offsets are signed deltas from the previous LCN.
+        private static List<long[]> DecodeRuns(byte[] rec, int attrOff, int attrLen)
+        {
+            var runs = new List<long[]>();
+            int pos = attrOff + BitConverter.ToUInt16(rec, attrOff + 0x20);
+            long lcn = 0;
+            while (pos < attrOff + attrLen && rec[pos] != 0)
+            {
+                int lenSize = rec[pos] & 0x0F, offSize = rec[pos] >> 4;
+                long length = 0;
+                for (int i = 0; i < lenSize; i++) length |= (long)rec[pos + 1 + i] << (8 * i);
+                if (offSize == 0)
+                {
+                    runs.Add(new long[] { -1, length });
+                }
+                else
+                {
+                    long delta = 0;
+                    for (int i = 0; i < offSize; i++) delta |= (long)rec[pos + 1 + lenSize + i] << (8 * i);
+                    if ((rec[pos + lenSize + offSize] & 0x80) != 0) delta -= 1L << (8 * offSize);
+                    lcn += delta;
+                    runs.Add(new long[] { lcn, length });
+                }
+                pos += 1 + lenSize + offSize;
+            }
+            return runs;
+        }
+
+        private static List<long[]> ReadMftRuns(SafeFileHandle hVol, long record0Offset, int recordSize, long cluster, string volumePath)
+        {
+            // Segments of the unnamed $DATA attribute keyed by starting VCN —
+            // normally just one, in record 0. A very fragmented $MFT spills its
+            // run list into extension records listed in record 0's
+            // $ATTRIBUTE_LIST; those records sit inside the $MFT itself, so
+            // they're located through the runs already known.
+            var segments = new SortedDictionary<long, List<long[]>>();
+            var extensionRecords = new List<long>();
+            byte[] rec0 = ReadFileRecord(hVol, record0Offset, recordSize, cluster, volumePath);
+            CollectDataRuns(rec0, segments, extensionRecords);
+
+            foreach (long recNo in extensionRecords)
+            {
+                long vcnByte = recNo * recordSize;
+                long lcnByte = -1, vcnStart = 0;
+                foreach (var seg in segments.Values)
+                    foreach (long[] run in seg)
+                    {
+                        long runBytes = run[1] * cluster;
+                        if (lcnByte < 0 && run[0] >= 0 && vcnByte >= vcnStart && vcnByte < vcnStart + runBytes)
+                            lcnByte = run[0] * cluster + (vcnByte - vcnStart);
+                        vcnStart += runBytes;
+                    }
+                if (lcnByte < 0)
+                    throw new IOException("$MFT extension record " + recNo + " lies outside the known runs on " + volumePath);
+                // Record offsets inside a cluster are record-aligned; read the
+                // containing cluster and slice the record out of it.
+                long clusterStart = (lcnByte / cluster) * cluster;
+                byte[] clusterBuf = ReadFileRecordRaw(hVol, clusterStart, (int)Math.Max(cluster, recordSize), volumePath);
+                byte[] ext = new byte[recordSize];
+                Array.Copy(clusterBuf, (int)(lcnByte - clusterStart), ext, 0, recordSize);
+                CollectDataRuns(ApplyFixups(ext, volumePath), segments, null);
+            }
+
+            var all = new List<long[]>();
+            foreach (var seg in segments.Values) all.AddRange(seg);
+            if (all.Count == 0)
+                throw new IOException("No $DATA run list found in $MFT record 0 on " + volumePath);
+            return all;
+        }
+
+        private static byte[] ReadFileRecordRaw(SafeFileHandle hVol, long offset, int count, string volumePath)
+        {
+            byte[] buf = new byte[count];
+            if (ReadAt(hVol, offset, buf, count, volumePath) < count)
+                throw new IOException("Short read at volume offset " + offset + " on " + volumePath);
+            return buf;
+        }
+
+        private static byte[] ApplyFixups(byte[] rec, string volumePath)
+        {
+            if (rec[0] != (byte)'F' || rec[1] != (byte)'I' || rec[2] != (byte)'L' || rec[3] != (byte)'E')
+                throw new IOException("No FILE signature in an $MFT extension record on " + volumePath);
+            int usaOff = BitConverter.ToUInt16(rec, 4);
+            int usaCount = BitConverter.ToUInt16(rec, 6);
+            for (int i = 1; i < usaCount; i++)
+            {
+                int pos = i * 512 - 2;
+                if (pos + 2 > rec.Length) break;
+                rec[pos] = rec[usaOff + 2 * i];
+                rec[pos + 1] = rec[usaOff + 2 * i + 1];
+            }
+            return rec;
+        }
+
+        private static void CollectDataRuns(byte[] rec, SortedDictionary<long, List<long[]>> segments, List<long> extensionRecords)
+        {
+            int off = BitConverter.ToUInt16(rec, 0x14);
+            while (off + 16 <= rec.Length)
+            {
+                uint type = BitConverter.ToUInt32(rec, off);
+                int len = (int)BitConverter.ToUInt32(rec, off + 4);
+                if (type == 0xFFFFFFFF || len < 16 || off + len > rec.Length) break;
+                bool nonResident = rec[off + 8] != 0;
+                int nameLen = rec[off + 9];
+                if (type == 0x80 && nameLen == 0 && nonResident)
+                {
+                    long lowVcn = BitConverter.ToInt64(rec, off + 0x10);
+                    if (!segments.ContainsKey(lowVcn)) segments[lowVcn] = DecodeRuns(rec, off, len);
+                }
+                else if (type == 0x20 && !nonResident && extensionRecords != null)
+                {
+                    // Resident $ATTRIBUTE_LIST: entries of {type, length, nameLen,
+                    // nameOff, startVcn, baseRef, id}; collect the records holding
+                    // later $DATA segments (startVcn > 0).
+                    int content = off + BitConverter.ToUInt16(rec, off + 0x14);
+                    int contentLen = (int)BitConverter.ToUInt32(rec, off + 0x10);
+                    int p = content;
+                    while (p + 26 <= content + contentLen)
+                    {
+                        uint eType = BitConverter.ToUInt32(rec, p);
+                        int eLen = BitConverter.ToUInt16(rec, p + 4);
+                        if (eLen == 0) break;
+                        int eNameLen = rec[p + 6];
+                        long startVcn = BitConverter.ToInt64(rec, p + 8);
+                        long recNo = BitConverter.ToInt64(rec, p + 16) & 0xFFFFFFFFFFFFL;
+                        if (eType == 0x80 && eNameLen == 0 && startVcn > 0 && recNo != 0 && !extensionRecords.Contains(recNo))
+                            extensionRecords.Add(recNo);
+                        p += eLen;
                     }
                 }
+                off += len;
             }
         }
     }
@@ -5513,12 +5711,19 @@ function Copy-RawMft {
             New-Item -ItemType Directory -Force -Path $destDir -ErrorAction SilentlyContinue | Out-Null
         }
 
-        [Forensicator.RawFileReader]::CopyRawMft($VolumePath, $DestinationPath)
+        # Returns the number of data runs copied — the $MFT is followed run by
+        # run, so a fragmented $MFT is still collected whole.
+        $mftRuns = [Forensicator.RawFileReader]::CopyRawMft($VolumePath, $DestinationPath)
 
-        Write-ForensicLog "[+] Collected $Label" -Level SUCCESS -Section "WINARTIFACTS" -Detail $DestinationPath
+        if(-not (Register-ArtifactOutput -Label $Label -SourcePath $VolumePath -DestinationPath $DestinationPath)){
+            return $false
+        }
+
+        Write-ForensicLog "[+] Collected $Label ($mftRuns data run(s))" -Level SUCCESS -Section "WINARTIFACTS" -Detail $DestinationPath
         return $true
     }
     catch {
+        Add-ArtifactManifestRecord -Label $Label -SourcePath $VolumePath -DestinationPath $DestinationPath -Status 'Failed' -Note $_.Exception.Message
         Write-ForensicLog "[!] Failed to collect $Label from volume $VolumePath" -Level WARN -Section "WINARTIFACTS" -Detail $_.Exception.Message
         return $false
     }
@@ -5544,10 +5749,15 @@ function Copy-RawUsnJrnl {
 
         [Forensicator.UsnJournalReader]::DumpRawRecords($VolumePath, $DestinationPath)
 
+        if(-not (Register-ArtifactOutput -Label $Label -SourcePath $VolumePath -DestinationPath $DestinationPath)){
+            return $false
+        }
+
         Write-ForensicLog "[+] Collected $Label" -Level SUCCESS -Section "WINARTIFACTS" -Detail $DestinationPath
         return $true
     }
     catch {
+        Add-ArtifactManifestRecord -Label $Label -SourcePath $VolumePath -DestinationPath $DestinationPath -Status 'Failed' -Note $_.Exception.Message
         Write-ForensicLog "[!] Failed to collect $Label from volume $VolumePath" -Level WARN -Section "WINARTIFACTS" -Detail $_.Exception.Message
         return $false
     }
@@ -5562,42 +5772,123 @@ function Copy-ForensicFile {
     param(
         [string]$SourcePath,
         [string]$DestinationPath,
-        [string]$Label
+        [string]$Label,
+        [switch]$Optional
     )
     try {
-        if (-not (Test-Path -LiteralPath $SourcePath)) {
-            Write-ForensicLog "[!] $Label not found at $SourcePath — skipping" -Level WARN -Section "WINARTIFACTS"
+        # Use .NET file APIs for VSS device paths. The PowerShell provider can
+        # report inconsistent results for \?\GLOBALROOT device paths even when
+        # the snapshot is valid. GetAttributes also preserves the actual error,
+        # which Test-Path hides by returning $false for both missing and denied.
+        try {
+            $sourceAttributes = [System.IO.File]::GetAttributes($SourcePath)
+            if (($sourceAttributes -band [System.IO.FileAttributes]::Directory) -ne 0) {
+                throw [System.IO.IOException]::new('Source path resolves to a directory, not a file')
+            }
+        }
+        catch [System.IO.FileNotFoundException] {
+            Add-ArtifactManifestRecord -Label $Label -SourcePath $SourcePath -DestinationPath $DestinationPath -Status 'Skipped' -Note $(if ($Optional) { 'Optional source file is not present in this snapshot' } else { 'Source file not found in snapshot' })
+            if ($Optional) {
+                Write-ForensicLog "[*] Optional artifact not present: $Label" -Level INFO -Section "WINARTIFACTS" -Detail $SourcePath
+            } else {
+                Write-ForensicLog "[!] $Label not found at $SourcePath — skipping" -Level WARN -Section "WINARTIFACTS"
+            }
+            return $false
+        }
+        catch [System.IO.DirectoryNotFoundException] {
+            Add-ArtifactManifestRecord -Label $Label -SourcePath $SourcePath -DestinationPath $DestinationPath -Status 'Skipped' -Note $(if ($Optional) { 'Optional source directory/file is not present in this snapshot' } else { 'Source directory/file not found in snapshot' })
+            if ($Optional) {
+                Write-ForensicLog "[*] Optional artifact path not present: $Label" -Level INFO -Section "WINARTIFACTS" -Detail $SourcePath
+            } else {
+                Write-ForensicLog "[!] $Label not found at $SourcePath — skipping" -Level WARN -Section "WINARTIFACTS"
+            }
+            return $false
+        }
+        $sourceItem = [System.IO.FileInfo]::new($SourcePath)
+        $sourceItem.Refresh()
+        if(-not $sourceItem.Exists){ throw [System.IO.FileNotFoundException]::new('Source disappeared or became unavailable after the initial probe', $SourcePath) }
+        $sourceHash = $null
+        try {
+            $sourceStream = [System.IO.File]::OpenRead($SourcePath)
+            $sha256 = [System.Security.Cryptography.SHA256]::Create()
+            try { $sourceHash = ([System.BitConverter]::ToString($sha256.ComputeHash($sourceStream))).Replace('-', '') }
+            finally { $sourceStream.Dispose(); $sha256.Dispose() }
+        }
+        catch { Write-ForensicLog "[!] Could not hash source for $Label before copy; destination will still be hashed" -Level WARN -Section "WINARTIFACTS" -Detail $_.Exception.Message }
+        if($sourceHash -and $script:ArtifactHashIndex.ContainsKey($sourceHash)){
+            $duplicate = $script:ArtifactHashIndex[$sourceHash]
+            Add-ArtifactManifestRecord -Label $Label -SourcePath $SourcePath -DestinationPath $DestinationPath -Status 'Deduplicated' -Sha256 $sourceHash -SizeBytes $sourceItem.Length -DuplicateOf $duplicate -SourceCreatedUtc $sourceItem.CreationTimeUtc.ToString('o') -SourceLastWriteUtc $sourceItem.LastWriteTimeUtc.ToString('o') -SourceLastAccessUtc $sourceItem.LastAccessTimeUtc.ToString('o') -SourceAttributes ([string]$sourceItem.Attributes)
+            Write-ForensicLog "[*] Deduplicated $Label" -Level INFO -Section "WINARTIFACTS" -Detail "Identical content already collected at $duplicate"
             return $false
         }
         $destDir = Split-Path -Parent $DestinationPath
         if ($destDir -and -not (Test-Path -LiteralPath $destDir)) {
             New-Item -ItemType Directory -Force -Path $destDir -ErrorAction SilentlyContinue | Out-Null
         }
-        Copy-Item -LiteralPath $SourcePath -Destination $DestinationPath -Force -ErrorAction Stop
+        if ($SourcePath.StartsWith('\\?\GLOBALROOT\', [System.StringComparison]::OrdinalIgnoreCase)) {
+            [System.IO.File]::Copy($SourcePath, $DestinationPath, $true)
+        } else {
+            Copy-Item -LiteralPath $SourcePath -Destination $DestinationPath -Force -ErrorAction Stop
+        }
 
-        # Copy-Item preserves the source's attributes — registry hives,
-        # their .LOG1/.LOG2 companions, NTUSER.DAT, and UsrClass.dat are
-        # all Hidden+System on a live install, so without this the copy
-        # inherits those flags too. That makes it invisible in Explorer
-        # by default (Hide protected operating system files) and liable
-        # to be silently skipped by any later Get-ChildItem that isn't
-        # passed -Force (e.g. the zip-packaging walk) — despite having
-        # genuinely been collected, as this function's own SUCCESS log
-        # line below correctly reports. Normalize to a plain file so it
-        # behaves like any other collected artifact downstream.
-        try {
-            [System.IO.File]::SetAttributes($DestinationPath, [System.IO.FileAttributes]::Normal)
+        # Preserve source timestamps on the output while documenting the
+        # original metadata separately in the collection manifest.
+        [System.IO.File]::SetCreationTimeUtc($DestinationPath, $sourceItem.CreationTimeUtc)
+        [System.IO.File]::SetLastWriteTimeUtc($DestinationPath, $sourceItem.LastWriteTimeUtc)
+        [System.IO.File]::SetLastAccessTimeUtc($DestinationPath, $sourceItem.LastAccessTimeUtc)
+        try { [System.IO.File]::SetAttributes($DestinationPath, [System.IO.FileAttributes]::Normal) }
+        catch { Write-ForensicLog "[!] Collected $Label but could not normalize output attributes" -Level WARN -Section "WINARTIFACTS" -Detail $_.Exception.Message }
+
+        $destItem = Get-Item -LiteralPath $DestinationPath -ErrorAction Stop
+        $destHash = (Get-FileHash -LiteralPath $DestinationPath -Algorithm SHA256 -ErrorAction Stop).Hash
+        if($sourceHash -and $sourceHash -ne $destHash){
+            Add-ArtifactManifestRecord -Label $Label -SourcePath $SourcePath -DestinationPath $DestinationPath -Status 'IntegrityMismatch' -Sha256 $destHash -SizeBytes $destItem.Length -SourceCreatedUtc $sourceItem.CreationTimeUtc.ToString('o') -SourceLastWriteUtc $sourceItem.LastWriteTimeUtc.ToString('o') -SourceLastAccessUtc $sourceItem.LastAccessTimeUtc.ToString('o') -SourceAttributes ([string]$sourceItem.Attributes) -OutputCreatedUtc $destItem.CreationTimeUtc.ToString('o') -OutputLastWriteUtc $destItem.LastWriteTimeUtc.ToString('o') -OutputAttributes ([string]$destItem.Attributes) -Note "Source SHA-256: $sourceHash"
+            Write-ForensicLog "[!] SHA-256 mismatch after copying $Label" -Level ERROR -Section "WINARTIFACTS" -Detail $DestinationPath
+            return $false
         }
-        catch {
-            Write-ForensicLog "[!] Collected $Label but could not clear its Hidden/System attributes — it may not appear in Explorer or be picked up by later packaging steps" -Level WARN -Section "WINARTIFACTS" -Detail $_.Exception.Message
-        }
+        $script:ArtifactHashIndex[$destHash] = $DestinationPath
+        Add-ArtifactManifestRecord -Label $Label -SourcePath $SourcePath -DestinationPath $DestinationPath -Status 'Collected' -Sha256 $destHash -SizeBytes $destItem.Length -SourceCreatedUtc $sourceItem.CreationTimeUtc.ToString('o') -SourceLastWriteUtc $sourceItem.LastWriteTimeUtc.ToString('o') -SourceLastAccessUtc $sourceItem.LastAccessTimeUtc.ToString('o') -SourceAttributes ([string]$sourceItem.Attributes) -OutputCreatedUtc $destItem.CreationTimeUtc.ToString('o') -OutputLastWriteUtc $destItem.LastWriteTimeUtc.ToString('o') -OutputAttributes ([string]$destItem.Attributes) -Note $(if($sourceHash){'Source and output SHA-256 verified'}else{'Output SHA-256 recorded; source hash unavailable'})
 
         Write-ForensicLog "[+] Collected $Label" -Level SUCCESS -Section "WINARTIFACTS" -Detail $DestinationPath
         return $true
     }
     catch {
-        Write-ForensicLog "[!] Failed to collect $Label from $SourcePath" -Level WARN -Section "WINARTIFACTS" -Detail $_.Exception.Message
+        Add-ArtifactManifestRecord -Label $Label -SourcePath $SourcePath -DestinationPath $DestinationPath -Status 'Failed' -Note $_.Exception.Message
+        $sourceParent = Split-Path -Parent $SourcePath
+        $parentExists = [System.IO.Directory]::Exists($sourceParent)
+        $fileExists = [System.IO.File]::Exists($SourcePath)
+        $snapshotContext = if ($script:CurrentForensicVssSnapshotId) { "SnapshotId=$script:CurrentForensicVssSnapshotId; " } else { '' }
+        Write-ForensicLog "[!] Failed to collect $Label from $SourcePath" -Level WARN -Section "WINARTIFACTS" -Detail "${snapshotContext}ParentDirectoryExists=$parentExists; SourceFileExists=$fileExists; $($_.Exception.Message)"
         return $false
+    }
+}
+
+function Copy-ForensicOptionalSidecars {
+    param(
+        [string]$SourceDirectory,
+        [string[]]$Names,
+        [string]$DestinationDirectory,
+        [string]$LabelSuffix = ''
+    )
+    $presentNames = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    try {
+        foreach($path in [System.IO.Directory]::GetFiles($SourceDirectory)){
+            [void]$presentNames.Add([System.IO.Path]::GetFileName($path))
+        }
+    }
+    catch {
+        Write-ForensicLog "[!] Could not enumerate optional sidecar directory $SourceDirectory" -Level WARN -Section 'WINARTIFACTS' -Detail $_.Exception.Message
+    }
+
+    foreach($name in $Names){
+        $source = Join-Path $SourceDirectory $name
+        $label = if($LabelSuffix){ "$name ($LabelSuffix)" } else { $name }
+        if($presentNames.Contains($name)){
+            Copy-ForensicFile -SourcePath $source -DestinationPath (Join-Path $DestinationDirectory $name) -Label $label | Out-Null
+        } else {
+            Add-ArtifactManifestRecord -Label $label -SourcePath $source -DestinationPath (Join-Path $DestinationDirectory $name) -Status 'Skipped' -Note 'Optional sidecar was not present in the enumerated source directory'
+            Write-ForensicLog "[*] Optional sidecar not present: $label" -Level INFO -Section 'WINARTIFACTS' -Detail $source
+        }
     }
 }
 
@@ -5615,13 +5906,16 @@ function Save-ForensicHive {
         $proc = Start-Process -FilePath "$env:SystemRoot\System32\reg.exe" -ArgumentList @('save', $KeyPath, $DestinationPath, '/y') -Wait -PassThru -NoNewWindow -ErrorAction Stop
 
         if ($proc.ExitCode -eq 0 -and (Test-Path -LiteralPath $DestinationPath)) {
+            Register-ArtifactOutput -Label $Label -SourcePath $KeyPath -DestinationPath $DestinationPath | Out-Null
             Write-ForensicLog "[+] Collected $Label (reg save)" -Level SUCCESS -Section "WINARTIFACTS" -Detail $DestinationPath
         }
         else {
+            Add-ArtifactManifestRecord -Label $Label -SourcePath $KeyPath -DestinationPath $DestinationPath -Status 'Failed' -Note "reg.exe save exit code $($proc.ExitCode)"
             Write-ForensicLog "[!] reg save returned exit code $($proc.ExitCode) for $Label" -Level WARN -Section "WINARTIFACTS"
         }
     }
     catch {
+        Add-ArtifactManifestRecord -Label $Label -SourcePath $KeyPath -DestinationPath $DestinationPath -Status 'Failed' -Note $_.Exception.Message
         Write-ForensicLog "[!] Failed to save $Label via reg.exe" -Level WARN -Section "WINARTIFACTS" -Detail $_.Exception.Message
     }
 }
@@ -5629,7 +5923,80 @@ function Save-ForensicHive {
 if($WINARTIFACTS){
 
     Write-ForensicLog ""
-    Write-ForensicLog "[*] Collecting Windows Artifact Analysis artifacts (Shimcache/Amcache, Prefetch, UserAssist/BAM, Autoruns, LNK/Jump Lists/Shellbags, `$MFT, `$UsnJrnl:`$J, SRUM, Defender quarantine, WER, Search database, Recycle Bin metadata, Notifications database, BITS, Windows Timeline, registry transaction logs)..." -Level INFO -Section "WINARTIFACTS"
+    Write-ForensicLog "[*] Collecting Windows Artifact Analysis and application artifacts (execution, registry, NTFS, SRUM, cloud metadata, security/remote-access logs, Notepad recovery state, and application-specific targets)..." -Level INFO -Section "WINARTIFACTS"
+
+    # A machine-readable record is maintained for every file collection
+    # attempt. Content hashes support integrity checking and deduplication;
+    # alternate source paths remain in the manifest even when identical bytes
+    # have already been collected.
+    $script:ArtifactManifest = [System.Collections.Generic.List[object]]::new()
+    $script:ArtifactHashIndex = @{}
+    $script:ArtifactManifestStart = Get-Date
+
+    function Add-ArtifactManifestRecord {
+        param(
+            [string]$Label,
+            [string]$SourcePath,
+            [string]$DestinationPath,
+            [string]$Status,
+            [string]$Sha256 = "",
+            [long]$SizeBytes = 0,
+            [string]$DuplicateOf = "",
+            [string]$SourceCreatedUtc = "",
+            [string]$SourceLastWriteUtc = "",
+            [string]$SourceLastAccessUtc = "",
+            [string]$SourceAttributes = "",
+            [string]$OutputCreatedUtc = "",
+            [string]$OutputLastWriteUtc = "",
+            [string]$OutputAttributes = "",
+            [string]$Note = ""
+        )
+        $script:ArtifactManifest.Add([PSCustomObject]@{
+            TimestampUtc = [DateTime]::UtcNow.ToString('o')
+            Label = $Label
+            SourcePath = $SourcePath
+            DestinationPath = $DestinationPath
+            Status = $Status
+            SizeBytes = $SizeBytes
+            SHA256 = $Sha256
+            DuplicateOf = $DuplicateOf
+            SourceCreatedUtc = $SourceCreatedUtc
+            SourceLastWriteUtc = $SourceLastWriteUtc
+            SourceLastAccessUtc = $SourceLastAccessUtc
+            SourceAttributes = $SourceAttributes
+            OutputCreatedUtc = $OutputCreatedUtc
+            OutputLastWriteUtc = $OutputLastWriteUtc
+            OutputAttributes = $OutputAttributes
+            Note = $Note
+        })
+    }
+
+    function Register-ArtifactOutput {
+        param([string]$Label, [string]$SourcePath, [string]$DestinationPath)
+        try {
+            if(-not (Test-Path -LiteralPath $DestinationPath -PathType Leaf)){
+                Add-ArtifactManifestRecord -Label $Label -SourcePath $SourcePath -DestinationPath $DestinationPath -Status 'Skipped' -Note 'Output file was not created'
+                return $false
+            }
+            $item = Get-Item -LiteralPath $DestinationPath -ErrorAction Stop
+            $hash = (Get-FileHash -LiteralPath $DestinationPath -Algorithm SHA256 -ErrorAction Stop).Hash
+            if($script:ArtifactHashIndex.ContainsKey($hash)){
+                $duplicate = $script:ArtifactHashIndex[$hash]
+                Remove-Item -LiteralPath $DestinationPath -Force -ErrorAction SilentlyContinue
+                Add-ArtifactManifestRecord -Label $Label -SourcePath $SourcePath -DestinationPath $DestinationPath -Status 'Deduplicated' -Sha256 $hash -SizeBytes $item.Length -DuplicateOf $duplicate -OutputCreatedUtc $item.CreationTimeUtc.ToString('o') -OutputLastWriteUtc $item.LastWriteTimeUtc.ToString('o') -OutputAttributes ([string]$item.Attributes)
+                Write-ForensicLog "[*] Deduplicated $Label" -Level INFO -Section 'WINARTIFACTS' -Detail "Identical content already collected at $duplicate"
+                return $false
+            }
+            $script:ArtifactHashIndex[$hash] = $DestinationPath
+            Add-ArtifactManifestRecord -Label $Label -SourcePath $SourcePath -DestinationPath $DestinationPath -Status 'Collected' -Sha256 $hash -SizeBytes $item.Length -OutputCreatedUtc $item.CreationTimeUtc.ToString('o') -OutputLastWriteUtc $item.LastWriteTimeUtc.ToString('o') -OutputAttributes ([string]$item.Attributes) -Note 'SHA-256 calculated from collected output'
+            return $true
+        }
+        catch {
+            Add-ArtifactManifestRecord -Label $Label -SourcePath $SourcePath -DestinationPath $DestinationPath -Status 'CollectedHashFailed' -Note $_.Exception.Message
+            Write-ForensicLog "[!] Collected $Label but could not hash it" -Level WARN -Section 'WINARTIFACTS' -Detail $_.Exception.Message
+            return $false
+        }
+    }
 
     $WinArtifactsRoot = "$PSScriptRoot\$env:COMPUTERNAME\artifacts\WindowsArtifacts"
     $RegistryOut     = "$WinArtifactsRoot\Registry"
@@ -5646,6 +6013,7 @@ if($WINARTIFACTS){
     $NotificationsOut = "$WinArtifactsRoot\Notifications"
     $BitsOut         = "$WinArtifactsRoot\BITS"
     $TimelineOut     = "$WinArtifactsRoot\Timeline"
+    $optional = $configData.winArtifacts
 
     foreach($dir in @($RegistryOut, $PrefetchOut, $LnkOut, $JumpListAutoOut, $JumpListCustOut, $NtfsOut, $SrumOut, $DefenderOut, $WerOut, $SearchOut, $RecycleBinOut, $NotificationsOut, $BitsOut, $TimelineOut)){
         New-Item -ItemType Directory -Force -Path $dir -ErrorAction SilentlyContinue | Out-Null
@@ -5655,14 +6023,24 @@ if($WINARTIFACTS){
     # LOCKED REGISTRY HIVES, $MFT, $UsnJrnl:$J, SRUDB.dat
     # ---------------------------------------------------------
     $vssShadow = New-ForensicVssSnapshot -Volume "$env:SystemDrive\"
+    $profileVssShadows = @{}
+    if($vssShadow){
+        foreach($profileVolume in @($users | ForEach-Object { [System.IO.Path]::GetPathRoot($_).TrimEnd('\') } | Where-Object { $_ -and $_ -ine $env:SystemDrive } | Select-Object -Unique)){
+            $profileShadow = New-ForensicVssSnapshot -Volume "$profileVolume\"
+            if($profileShadow){ $profileVssShadows[$profileVolume] = $profileShadow }
+        }
+    }
 
     if($vssShadow){
 
         $shadowRoot = $vssShadow.DeviceObject.TrimEnd('\')
+        $script:CurrentForensicVssSnapshotId = $vssShadow.ID
 
         Copy-ForensicFile -SourcePath "$shadowRoot\Windows\System32\config\SYSTEM"         -DestinationPath "$RegistryOut\SYSTEM"       -Label "SYSTEM hive"       | Out-Null
         Copy-ForensicFile -SourcePath "$shadowRoot\Windows\System32\config\SOFTWARE"       -DestinationPath "$RegistryOut\SOFTWARE"     -Label "SOFTWARE hive"     | Out-Null
         Copy-ForensicFile -SourcePath "$shadowRoot\Windows\System32\config\SECURITY"       -DestinationPath "$RegistryOut\SECURITY"     -Label "SECURITY hive"     | Out-Null
+        Copy-ForensicFile -SourcePath "$shadowRoot\Windows\System32\config\SAM"           -DestinationPath "$RegistryOut\SAM"         -Label "SAM hive"           | Out-Null
+        Copy-ForensicFile -SourcePath "$shadowRoot\Windows\System32\config\DEFAULT"       -DestinationPath "$RegistryOut\DEFAULT"     -Label "DEFAULT hive"       | Out-Null
         Copy-ForensicFile -SourcePath "$shadowRoot\Windows\appcompat\Programs\Amcache.hve" -DestinationPath "$RegistryOut\Amcache.hve"  -Label "Amcache.hve"       | Out-Null
 
         # Registry transaction logs — hold "dirty page" transactions not
@@ -5670,20 +6048,23 @@ if($WINARTIFACTS){
         # them (regipy's apply_transaction_logs) for a more complete/
         # accurate hive before parsing. Best-effort — a hive with no
         # pending transactions simply has no active .LOG1/.LOG2.
-        foreach($hiveLogName in @('SYSTEM.LOG1','SYSTEM.LOG2','SOFTWARE.LOG1','SOFTWARE.LOG2','SECURITY.LOG1','SECURITY.LOG2')){
-            Copy-ForensicFile -SourcePath "$shadowRoot\Windows\System32\config\$hiveLogName" `
-                               -DestinationPath "$RegistryOut\$hiveLogName" `
-                               -Label "$hiveLogName" | Out-Null
-        }
-        foreach($amcacheLogName in @('Amcache.hve.LOG1','Amcache.hve.LOG2')){
-            Copy-ForensicFile -SourcePath "$shadowRoot\Windows\appcompat\Programs\$amcacheLogName" `
-                               -DestinationPath "$RegistryOut\$amcacheLogName" `
-                               -Label "$amcacheLogName" | Out-Null
-        }
+        Copy-ForensicOptionalSidecars -SourceDirectory "$shadowRoot\Windows\System32\config" -Names @('SYSTEM.LOG1','SYSTEM.LOG2','SOFTWARE.LOG1','SOFTWARE.LOG2','SECURITY.LOG1','SECURITY.LOG2','SAM.LOG1','SAM.LOG2','DEFAULT.LOG1','DEFAULT.LOG2') -DestinationDirectory $RegistryOut
+        Copy-ForensicOptionalSidecars -SourceDirectory "$shadowRoot\Windows\appcompat\Programs" -Names @('Amcache.hve.LOG1','Amcache.hve.LOG2') -DestinationDirectory $RegistryOut
+        Copy-ForensicFile -SourcePath "$shadowRoot\`$LogFile" -DestinationPath "$NtfsOut\`$LogFile" -Label 'NTFS $LogFile' | Out-Null
 
         foreach($userPath in $users){
             $username       = Split-Path $userPath -Leaf
-            $shadowUserPath = $userPath -replace ('^' + [regex]::Escape($env:SystemDrive)), $shadowRoot
+            $profileVolume = [System.IO.Path]::GetPathRoot($userPath).TrimEnd('\')
+            $profileShadow = if($profileVolume -ieq $env:SystemDrive){ $vssShadow } else { $profileVssShadows[$profileVolume] }
+            if(-not $profileShadow){
+                Add-ArtifactManifestRecord -Label "Profile hives ($username)" -SourcePath $userPath -DestinationPath "$RegistryOut\$username" -Status 'Skipped' -Note "No VSS snapshot available for profile volume $profileVolume"
+                Write-ForensicLog "[!] Profile $username skipped: no VSS snapshot for volume $profileVolume" -Level WARN -Section 'WINARTIFACTS'
+                continue
+            }
+            $profileShadowRoot = $profileShadow.DeviceObject.TrimEnd('\')
+            $shadowUserPath = $userPath.Substring($profileVolume.Length).TrimStart('\')
+            $shadowUserPath = if($shadowUserPath){ "$profileShadowRoot\$shadowUserPath" } else { $profileShadowRoot }
+            $script:CurrentForensicVssSnapshotId = $profileShadow.ID
 
             Copy-ForensicFile -SourcePath "$shadowUserPath\NTUSER.DAT" `
                                -DestinationPath "$RegistryOut\$username\NTUSER.DAT" `
@@ -5695,16 +6076,8 @@ if($WINARTIFACTS){
 
             # Registry transaction logs for the per-profile hives — same
             # rationale as SYSTEM/SOFTWARE/SECURITY/Amcache.hve above.
-            foreach($profileLogName in @('NTUSER.DAT.LOG1','NTUSER.DAT.LOG2')){
-                Copy-ForensicFile -SourcePath "$shadowUserPath\$profileLogName" `
-                                   -DestinationPath "$RegistryOut\$username\$profileLogName" `
-                                   -Label "$profileLogName ($username)" | Out-Null
-            }
-            foreach($usrclassLogName in @('UsrClass.dat.LOG1','UsrClass.dat.LOG2')){
-                Copy-ForensicFile -SourcePath "$shadowUserPath\AppData\Local\Microsoft\Windows\$usrclassLogName" `
-                                   -DestinationPath "$RegistryOut\$username\$usrclassLogName" `
-                                   -Label "$usrclassLogName ($username)" | Out-Null
-            }
+            Copy-ForensicOptionalSidecars -SourceDirectory $shadowUserPath -Names @('NTUSER.DAT.LOG1','NTUSER.DAT.LOG2') -DestinationDirectory "$RegistryOut\$username" -LabelSuffix $username
+            Copy-ForensicOptionalSidecars -SourceDirectory "$shadowUserPath\AppData\Local\Microsoft\Windows" -Names @('UsrClass.dat.LOG1','UsrClass.dat.LOG2') -DestinationDirectory "$RegistryOut\$username" -LabelSuffix $username
 
             # Notification database — held open by the Notification
             # platform while Windows runs, same reason as UsrClass.dat
@@ -5734,11 +6107,10 @@ if($WINARTIFACTS){
             }
         }
 
-        # Windows Search database — held open by SearchIndexer.exe while
-        # Windows runs, same reason as the registry hives above.
-        # Windows.edb is the documented name; one secondary source
-        # mentions a Windows.db rename on some Windows 11 builds —
-        # unconfirmed, so both are attempted, best-effort.
+        # Windows Search databases — held open by SearchIndexer.exe while
+        # Windows runs, same reason as the registry hives above. Windows
+        # versions/builds may use different database layouts, so try the
+        # EDB and DB files, including the gather database, best-effort.
         Copy-ForensicFile -SourcePath "$shadowRoot\ProgramData\Microsoft\Search\Data\Applications\Windows\Windows.edb" `
                            -DestinationPath "$SearchOut\Windows.edb" `
                            -Label 'Windows Search database (Windows.edb)' | Out-Null
@@ -5746,6 +6118,23 @@ if($WINARTIFACTS){
         Copy-ForensicFile -SourcePath "$shadowRoot\ProgramData\Microsoft\Search\Data\Applications\Windows\Windows.db" `
                            -DestinationPath "$SearchOut\Windows.db" `
                            -Label 'Windows Search database (Windows.db)' | Out-Null
+
+        Copy-ForensicFile -SourcePath "$shadowRoot\ProgramData\Microsoft\Search\Data\Applications\Windows\Windows-gather.db" `
+                           -DestinationPath "$SearchOut\Windows-gather.db" `
+                           -Label 'Windows Search gather database (Windows-gather.db)' | Out-Null
+
+        $gatherWalPath = "$shadowRoot\ProgramData\Microsoft\Search\Data\Applications\Windows\Windows-gather.db-wal"
+        if(Test-Path -LiteralPath $gatherWalPath){
+            Copy-ForensicFile -SourcePath $gatherWalPath `
+                               -DestinationPath "$SearchOut\Windows-gather.db-wal" `
+                               -Label 'Windows Search gather database WAL (Windows-gather.db-wal)' | Out-Null
+        }
+        $gatherShmPath = "$shadowRoot\ProgramData\Microsoft\Search\Data\Applications\Windows\Windows-gather.db-shm"
+        if(Test-Path -LiteralPath $gatherShmPath){
+            Copy-ForensicFile -SourcePath $gatherShmPath `
+                               -DestinationPath "$SearchOut\Windows-gather.db-shm" `
+                               -Label 'Windows Search gather database shared memory (Windows-gather.db-shm)' | Out-Null
+        }
 
         # $MFT — resident NTFS metadata file at the volume root. Its named
         # open is blocked outright (see Copy-RawMft) — read via the
@@ -5782,6 +6171,8 @@ if($WINARTIFACTS){
         }
 
         Remove-ForensicVssSnapshot -Shadow $vssShadow
+        foreach($profileShadow in $profileVssShadows.Values){ Remove-ForensicVssSnapshot -Shadow $profileShadow }
+        $script:CurrentForensicVssSnapshotId = $null
     }
     else{
         Write-ForensicLog "[!] No VSS snapshot available — Amcache.hve, any offline user profile's hives, `$MFT, `$UsnJrnl:`$J, SRUDB.dat, and the BITS job database will likely NOT be collected" -Level WARN -Section "WINARTIFACTS"
@@ -5789,22 +6180,16 @@ if($WINARTIFACTS){
         Save-ForensicHive -KeyPath 'HKLM\SYSTEM'   -DestinationPath "$RegistryOut\SYSTEM"   -Label "SYSTEM hive"
         Save-ForensicHive -KeyPath 'HKLM\SOFTWARE' -DestinationPath "$RegistryOut\SOFTWARE" -Label "SOFTWARE hive"
         Save-ForensicHive -KeyPath 'HKLM\SECURITY' -DestinationPath "$RegistryOut\SECURITY" -Label "SECURITY hive"
+        Save-ForensicHive -KeyPath 'HKLM\SAM' -DestinationPath "$RegistryOut\SAM" -Label "SAM hive"
+        Save-ForensicHive -KeyPath 'HKU\.DEFAULT' -DestinationPath "$RegistryOut\DEFAULT" -Label "DEFAULT hive"
 
         # reg.exe save has no transaction-log concept of its own (it
         # exports an already-consistent snapshot) — the raw .LOG1/.LOG2
         # files on disk have no fallback trick either, attempted as a
         # plain copy anyway per "collect where accessible", same posture
         # as $MFT/$UsnJrnl below.
-        foreach($hiveLogName in @('SYSTEM.LOG1','SYSTEM.LOG2','SOFTWARE.LOG1','SOFTWARE.LOG2','SECURITY.LOG1','SECURITY.LOG2')){
-            Copy-ForensicFile -SourcePath "$env:SystemRoot\System32\config\$hiveLogName" `
-                               -DestinationPath "$RegistryOut\$hiveLogName" `
-                               -Label "$hiveLogName" | Out-Null
-        }
-        foreach($amcacheLogName in @('Amcache.hve.LOG1','Amcache.hve.LOG2')){
-            Copy-ForensicFile -SourcePath "$env:SystemRoot\appcompat\Programs\$amcacheLogName" `
-                               -DestinationPath "$RegistryOut\$amcacheLogName" `
-                               -Label "$amcacheLogName" | Out-Null
-        }
+        Copy-ForensicOptionalSidecars -SourceDirectory "$env:SystemRoot\System32\config" -Names @('SYSTEM.LOG1','SYSTEM.LOG2','SOFTWARE.LOG1','SOFTWARE.LOG2','SECURITY.LOG1','SECURITY.LOG2','SAM.LOG1','SAM.LOG2','DEFAULT.LOG1','DEFAULT.LOG2') -DestinationDirectory $RegistryOut
+        Copy-ForensicOptionalSidecars -SourceDirectory "$env:SystemRoot\appcompat\Programs" -Names @('Amcache.hve.LOG1','Amcache.hve.LOG2') -DestinationDirectory $RegistryOut
 
         $loadedSids = @()
         try {
@@ -5860,6 +6245,23 @@ if($WINARTIFACTS){
         Copy-ForensicFile -SourcePath "$env:ProgramData\Microsoft\Search\Data\Applications\Windows\Windows.db" `
                            -DestinationPath "$SearchOut\Windows.db" `
                            -Label 'Windows Search database (Windows.db)' | Out-Null
+
+        Copy-ForensicFile -SourcePath "$env:ProgramData\Microsoft\Search\Data\Applications\Windows\Windows-gather.db" `
+                           -DestinationPath "$SearchOut\Windows-gather.db" `
+                           -Label 'Windows Search gather database (Windows-gather.db)' | Out-Null
+
+        $gatherWalPath = "$env:ProgramData\Microsoft\Search\Data\Applications\Windows\Windows-gather.db-wal"
+        if(Test-Path -LiteralPath $gatherWalPath){
+            Copy-ForensicFile -SourcePath $gatherWalPath `
+                               -DestinationPath "$SearchOut\Windows-gather.db-wal" `
+                               -Label 'Windows Search gather database WAL (Windows-gather.db-wal)' | Out-Null
+        }
+        $gatherShmPath = "$env:ProgramData\Microsoft\Search\Data\Applications\Windows\Windows-gather.db-shm"
+        if(Test-Path -LiteralPath $gatherShmPath){
+            Copy-ForensicFile -SourcePath $gatherShmPath `
+                               -DestinationPath "$SearchOut\Windows-gather.db-shm" `
+                               -Label 'Windows Search gather database shared memory (Windows-gather.db-shm)' | Out-Null
+        }
 
         foreach($userPath in $users){
             $username = Split-Path $userPath -Leaf
@@ -6030,6 +6432,86 @@ if($WINARTIFACTS){
         Write-ForensicLog "[!] Defender quarantine collection failed" -Level WARN -Section "WINARTIFACTS" -Detail $_.Exception.Message
     }
 
+    # Historical registry copies: Windows.old and RegBack are fixed,
+    # predictable locations. Preserve provenance in directory names.
+    $historicalRoots = @(
+        @{ Path = "$env:SystemDrive\Windows.old\Windows\System32\config"; Label = 'Windows.old' },
+        @{ Path = "$env:SystemRoot\System32\config\RegBack"; Label = 'RegBack' }
+    )
+    foreach($root in $historicalRoots){
+        if(Test-Path -LiteralPath $root.Path){
+            foreach($hive in @('SYSTEM','SOFTWARE','SAM','SECURITY','DEFAULT')){
+                foreach($suffix in @('', '.LOG1', '.LOG2')){
+                    $src = Join-Path $root.Path "$hive$suffix"
+                    if(Test-Path -LiteralPath $src){
+                        Copy-ForensicFile -SourcePath $src -DestinationPath "$RegistryOut\Historical\$($root.Label)\$hive$suffix" -Label "historical $($root.Label) hive $hive$suffix" | Out-Null
+                    }
+                }
+            }
+        }
+    }
+    try {
+        foreach($restoreShadow in @(Get-CimInstance Win32_ShadowCopy -ErrorAction Stop | Where-Object { $_.DeviceObject -like "$env:SystemDrive*" })){
+            $restoreRoot = "$($restoreShadow.DeviceObject.TrimEnd('\'))\System Volume Information"
+            foreach($hiveFile in @(Get-ChildItem -LiteralPath $restoreRoot -Recurse -File -Force -ErrorAction SilentlyContinue | Where-Object { $_.Name -match '^_REGISTRY_(MACHINE|USER)_' })){
+                $relative = $hiveFile.FullName.Substring($restoreRoot.Length).TrimStart('\')
+                $shadowId = ([string]$restoreShadow.ID) -replace '[{}]',''
+                Copy-ForensicFile -SourcePath $hiveFile.FullName -DestinationPath "$RegistryOut\RestorePoints\$shadowId\$relative" -Label "restore-point registry hive $relative" | Out-Null
+            }
+        }
+    } catch {
+        Write-ForensicLog "[!] Restore-point registry hive enumeration failed" -Level WARN -Section "WINARTIFACTS" -Detail $_.Exception.Message
+    }
+
+    # WMI permanent subscriptions are a host persistence mechanism, not
+    # DC-specific. Keep a standalone artifact export for ordinary endpoints.
+    try {
+        New-Item -ItemType Directory -Force -Path "$WinArtifactsRoot\WMI" -ErrorAction Stop | Out-Null
+        $subscriptionData = [ordered]@{}
+        foreach($class in @('__EventFilter','__EventConsumer','__FilterToConsumerBinding')){
+            $subscriptionData[$class] = @(Get-CimInstance -Namespace root\subscription -ClassName $class -ErrorAction Stop |
+                Select-Object * -ExcludeProperty CimClass,CimInstanceProperties,CimSystemProperties)
+        }
+        $subscriptionData | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath "$WinArtifactsRoot\WMI\PermanentSubscriptions.json" -Encoding UTF8
+        Register-ArtifactOutput -Label 'WMI permanent event subscriptions' -SourcePath 'root\subscription (__EventFilter, __EventConsumer, __FilterToConsumerBinding)' -DestinationPath "$WinArtifactsRoot\WMI\PermanentSubscriptions.json" | Out-Null
+        Write-ForensicLog "[+] Exported WMI permanent event subscriptions" -Level SUCCESS -Section "WINARTIFACTS"
+    } catch {
+        Write-ForensicLog "[!] WMI permanent subscription export failed" -Level WARN -Section "WINARTIFACTS" -Detail $_.Exception.Message
+    }
+
+    if($optional.collect_wbem_repository -eq $true){
+        $wbemRoot = "$env:SystemRoot\System32\wbem\Repository"
+        if(Test-Path -LiteralPath $wbemRoot){
+            foreach($file in @(Get-ChildItem -LiteralPath $wbemRoot -Recurse -File -Force -ErrorAction SilentlyContinue)){
+                $rel = $file.FullName.Substring($wbemRoot.Length).TrimStart('\')
+                Copy-ForensicFile -SourcePath $file.FullName -DestinationPath "$WinArtifactsRoot\WMI\Repository\$rel" -Label "WBEM repository file $rel" | Out-Null
+            }
+        }
+    }
+
+    # Non-system local NTFS volumes are opt-in: acquiring a VSS snapshot
+    # per volume has operational and storage impact. Preserve volume label
+    # and drive letter in the output hierarchy.
+    if($optional.collect_additional_ntfs_volumes -eq $true){
+        foreach($volume in @(Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3" -ErrorAction SilentlyContinue | Where-Object { $_.DeviceID -ne $env:SystemDrive })){
+            $fs = Get-CimInstance Win32_Volume -Filter "DriveLetter='$($volume.DeviceID)'" -ErrorAction SilentlyContinue
+            if($fs -and $fs.FileSystem -eq 'NTFS'){
+                $volumeTag = "$($volume.DeviceID.TrimEnd(':'))_$($volume.VolumeName -replace '[^\w.-]','_')"
+                $shadow = New-ForensicVssSnapshot -Volume "$($volume.DeviceID)\"
+                if($shadow){
+                    $device = $shadow.DeviceObject.TrimEnd('\')
+                    Copy-RawMft -VolumePath $device -DestinationPath "$NtfsOut\Volumes\$volumeTag\`$MFT" -Label "$($volume.DeviceID) `$MFT" | Out-Null
+                    Copy-RawUsnJrnl -VolumePath $device -DestinationPath "$NtfsOut\Volumes\$volumeTag\`$J" -Label "$($volume.DeviceID) `$UsnJrnl:`$J" | Out-Null
+                    Remove-ForensicVssSnapshot -Shadow $shadow
+                } else {
+                    Copy-RawMft -VolumePath "\\.\$($volume.DeviceID)" -DestinationPath "$NtfsOut\Volumes\$volumeTag\`$MFT" -Label "$($volume.DeviceID) `$MFT" | Out-Null
+                    Copy-RawUsnJrnl -VolumePath "\\.\$($volume.DeviceID)" -DestinationPath "$NtfsOut\Volumes\$volumeTag\`$J" -Label "$($volume.DeviceID) `$UsnJrnl:`$J" | Out-Null
+                }
+            }
+        }
+    }
+
+
     # ---------------------------------------------------------
     # WINDOWS ERROR REPORTING — reports/crash metadata + dumps, size-
     # capped (crash dumps can run into the GBs, unlike every other file
@@ -6053,18 +6535,59 @@ if($WINARTIFACTS){
         # over the configured size cap instead of copying it.
         param([string]$SourcePath, [string]$DestinationPath, [string]$Label, [int]$MaxSizeMb)
         try {
-            if (-not (Test-Path -LiteralPath $SourcePath)) { return $false }
-            $sizeMb = (Get-Item -LiteralPath $SourcePath).Length / 1MB
+            if (-not (Test-Path -LiteralPath $SourcePath)) {
+                Add-ArtifactManifestRecord -Label $Label -SourcePath $SourcePath -DestinationPath $DestinationPath -Status 'Skipped' -Note 'Source path not found or inaccessible'
+                return $false
+            }
+            $sizeItem = Get-Item -LiteralPath $SourcePath -ErrorAction Stop
+            $sizeMb = $sizeItem.Length / 1MB
             if ($sizeMb -gt $MaxSizeMb) {
+                Add-ArtifactManifestRecord -Label $Label -SourcePath $SourcePath -DestinationPath $DestinationPath -Status 'Skipped' -SizeBytes $sizeItem.Length -SourceCreatedUtc $sizeItem.CreationTimeUtc.ToString('o') -SourceLastWriteUtc $sizeItem.LastWriteTimeUtc.ToString('o') -SourceLastAccessUtc $sizeItem.LastAccessTimeUtc.ToString('o') -SourceAttributes ([string]$sizeItem.Attributes) -Note "File size exceeds configured cap of $MaxSizeMb MB"
                 Write-ForensicLog "[!] $Label is $([math]::Round($sizeMb,1)) MB, exceeds werCrashDumps.max_dump_size_mb ($MaxSizeMb) — skipping" -Level WARN -Section "WINARTIFACTS"
                 return $false
             }
         }
         catch {
+            Add-ArtifactManifestRecord -Label $Label -SourcePath $SourcePath -DestinationPath $DestinationPath -Status 'Failed' -Note $_.Exception.Message
             Write-ForensicLog "[!] Could not check size of $Label — skipping" -Level WARN -Section "WINARTIFACTS" -Detail $_.Exception.Message
             return $false
         }
         return Copy-ForensicFile -SourcePath $SourcePath -DestinationPath $DestinationPath -Label $Label
+    }
+
+    # Optional, bounded/high-volume artifacts. Disabled by default to keep
+    # routine triage predictable; caps are per-file, not total-case limits.
+    if($optional.collect_memory_files -eq $true){
+        $cap = 1024
+        if($optional.memory_file_max_size_mb -match '^\d+$' -and [int]$optional.memory_file_max_size_mb -gt 0){ $cap = [int]$optional.memory_file_max_size_mb }
+        foreach($name in @('pagefile.sys','hiberfil.sys','swapfile.sys')){
+            $src = Join-Path $env:SystemDrive $name
+            Copy-ForensicFileSizeChecked -SourcePath $src -DestinationPath (Join-Path "$NtfsOut\Memory" $name) -Label "memory-backed system file $name" -MaxSizeMb $cap | Out-Null
+        }
+    }
+
+    if($optional.collect_recycle_payloads -eq $true){
+        $cap = 100
+        if($optional.recycle_payload_max_size_mb -match '^\d+$' -and [int]$optional.recycle_payload_max_size_mb -gt 0){ $cap = [int]$optional.recycle_payload_max_size_mb }
+        $root = "$env:SystemDrive\`$Recycle.Bin"
+        foreach($sid in @(Get-ChildItem -LiteralPath $root -Directory -Force -ErrorAction SilentlyContinue)){
+            foreach($rf in @(Get-ChildItem -LiteralPath $sid.FullName -Filter '$R*' -File -Force -ErrorAction SilentlyContinue)){
+                Copy-ForensicFileSizeChecked -SourcePath $rf.FullName -DestinationPath "$RecycleBinOut\$($sid.Name)\$($rf.Name)" -Label "Recycle Bin payload $($rf.Name)" -MaxSizeMb $cap | Out-Null
+            }
+        }
+    }
+
+    # Defender's operational history is distinct from quarantine: it records
+    # detections/remediation metadata and can be useful even when quarantine is empty.
+    foreach($defenderDir in @("$env:ProgramData\Microsoft\Windows Defender\Scans\History\Service\DetectionHistory",
+                               "$env:ProgramData\Microsoft\Windows Defender\Support")){
+        if(Test-Path -LiteralPath $defenderDir){
+            $leaf = Split-Path -Leaf $defenderDir
+            foreach($f in @(Get-ChildItem -LiteralPath $defenderDir -Recurse -File -Force -ErrorAction SilentlyContinue)){
+                $rel = $f.FullName.Substring($defenderDir.Length).TrimStart('\')
+                Copy-ForensicFile -SourcePath $f.FullName -DestinationPath "$DefenderOut\$leaf\$rel" -Label "Defender $leaf artifact $rel" | Out-Null
+            }
+        }
     }
 
     try {
@@ -6136,6 +6659,126 @@ if($WINARTIFACTS){
         Write-ForensicLog "[!] Recycle Bin metadata collection failed" -Level WARN -Section "WINARTIFACTS" -Detail $_.Exception.Message
     }
 
+    # ---------------------------------------------------------
+    # APPLICATION ARTIFACTS — cloud sync metadata, third-party
+    # security/remote-access logs, and recoverable text-editor state.
+    # Cloud targets deliberately collect client metadata/logs, not synced
+    # user documents or Files-On-Demand content.
+    # ---------------------------------------------------------
+    $appArtifactConfig = $configData.applicationArtifacts
+    if($null -eq $appArtifactConfig -or $appArtifactConfig.enabled -ne $false){
+        $appMaxFileMb = 64
+        $appMaxTotalMb = 512
+        if($appArtifactConfig.max_file_size_mb -match '^\d+$' -and [int]$appArtifactConfig.max_file_size_mb -gt 0){ $appMaxFileMb = [int]$appArtifactConfig.max_file_size_mb }
+        if($appArtifactConfig.max_total_size_mb -match '^\d+$' -and [int]$appArtifactConfig.max_total_size_mb -gt 0){ $appMaxTotalMb = [int]$appArtifactConfig.max_total_size_mb }
+        $appBytesCollected = [long]0
+        $appTargets = [System.Collections.Generic.List[object]]::new()
+
+        if($null -eq $appArtifactConfig -or $appArtifactConfig.collect_cloud_storage_metadata -ne $false){
+            foreach($target in @(
+                # general.keystore (one per logs\<folder>) holds the AES key
+                # OneDrive uses to obfuscate paths/URLs/accounts in the .odl
+                # logs beside it — Core uses it to de-obfuscate them.
+                @{ Name='OneDrive metadata'; Paths=@('%LOCALAPPDATA%\Microsoft\OneDrive\settings','%LOCALAPPDATA%\Microsoft\OneDrive\logs'); Patterns=@('*.ini','*.dat','*.odl','*.log','*.json','general.keystore') },
+                @{ Name='Dropbox metadata and logs'; Paths=@('%LOCALAPPDATA%\Dropbox\logs','%APPDATA%\Dropbox\logs'); Patterns=@('*.log','*.txt','*.json','*.db') },
+                @{ Name='Google Drive metadata and logs'; Paths=@('%LOCALAPPDATA%\Google\DriveFS\Logs','%LOCALAPPDATA%\Google\DriveFS'); Patterns=@('*.log','*.json','*.db') }
+            )){ $appTargets.Add($target) }
+        }
+
+        if($null -eq $appArtifactConfig -or $appArtifactConfig.collect_security_product_logs -ne $false){
+            foreach($target in @(
+                @{ Name='CrowdStrike logs'; Paths=@('%PROGRAMDATA%\CrowdStrike\Logs'); Patterns=@('*.log','*.txt','*.json','*.xml') },
+                @{ Name='SentinelOne logs'; Paths=@('%PROGRAMDATA%\Sentinel\Logs','%PROGRAMDATA%\SentinelOne\Logs'); Patterns=@('*.log','*.txt','*.json','*.xml') },
+                @{ Name='Sophos logs'; Paths=@('%PROGRAMDATA%\Sophos\AutoUpdate\Logs','%PROGRAMDATA%\Sophos\Endpoint Defense\Logs','%PROGRAMDATA%\Sophos\Health\Logs'); Patterns=@('*.log','*.txt','*.json','*.xml') },
+                @{ Name='ESET logs'; Paths=@('%PROGRAMDATA%\ESET\ESET Security\Logs'); Patterns=@('*.dat','*.log','*.txt','*.xml') },
+                @{ Name='Malwarebytes logs'; Paths=@('%PROGRAMDATA%\Malwarebytes\MBAMService\Logs'); Patterns=@('*.log','*.txt','*.xml') },
+                @{ Name='Bitdefender logs'; Paths=@('%PROGRAMDATA%\Bitdefender\Desktop\Engines\Logs'); Patterns=@('*.log','*.txt','*.xml') },
+                @{ Name='McAfee Endpoint Security logs'; Paths=@('%PROGRAMDATA%\McAfee\Endpoint Security\Logs'); Patterns=@('*.log','*.txt','*.xml') },
+                @{ Name='Trend Micro logs'; Paths=@('%PROGRAMDATA%\Trend Micro\AMSP\Debug'); Patterns=@('*.log','*.txt','*.xml') }
+            )){ $appTargets.Add($target) }
+        }
+
+        if($null -eq $appArtifactConfig -or $appArtifactConfig.collect_remote_access_logs -ne $false){
+            foreach($target in @(
+                @{ Name='AnyDesk logs and connection traces'; Paths=@('%APPDATA%\AnyDesk','%PROGRAMDATA%\AnyDesk'); Patterns=@('*.trace','*.log','*.txt','*.conf') },
+                @{ Name='TeamViewer logs'; Paths=@('%APPDATA%\TeamViewer','%PROGRAMDATA%\TeamViewer\Logs','%PROGRAMFILES%\TeamViewer\Logs','%PROGRAMFILES(X86)%\TeamViewer\Logs'); Patterns=@('*.log','*.txt','Connections*.txt') },
+                @{ Name='ScreenConnect logs'; Paths=@('%PROGRAMDATA%\ScreenConnect\App_Data\Logs','%PROGRAMFILES(X86)%\ScreenConnect Client\App_Data\Logs'); Patterns=@('*.log','*.txt','*.json') },
+                @{ Name='RustDesk logs'; Paths=@('%APPDATA%\RustDesk\log','%PROGRAMDATA%\RustDesk\log'); Patterns=@('*.log','*.txt') },
+                @{ Name='Splashtop logs'; Paths=@('%PROGRAMDATA%\Splashtop\Logs'); Patterns=@('*.log','*.txt','*.json') },
+                @{ Name='LogMeIn logs'; Paths=@('%PROGRAMDATA%\LogMeIn\Logs'); Patterns=@('*.log','*.txt') }
+            )){ $appTargets.Add($target) }
+        }
+
+        if($null -eq $appArtifactConfig -or $appArtifactConfig.collect_notepad_sessions -ne $false){
+            foreach($target in @(
+                @{ Name='Windows Notepad unsaved sessions'; Paths=@('%LOCALAPPDATA%\Packages\Microsoft.WindowsNotepad_8wekyb3d8bbwe\LocalState\TabState','%LOCALAPPDATA%\Packages\Microsoft.WindowsNotepad_8wekyb3d8bbwe\LocalState\UnsavedFiles'); Patterns=@('*') },
+                @{ Name='Notepad++ unsaved backups'; Paths=@('%APPDATA%\Notepad++\backup'); Patterns=@('*') },
+                @{ Name='Notepad++ session metadata'; Paths=@('%APPDATA%\Notepad++'); Patterns=@('session.xml','config.xml') }
+            )){ $appTargets.Add($target) }
+        }
+
+        # Local application targets are configurable so site-specific EDR,
+        # VPN, backup, collaboration, and line-of-business applications can
+        # be added without editing the collector. Each item has name, paths,
+        # optional file_patterns, and optional max_file_size_mb properties.
+        foreach($customTarget in @($appArtifactConfig.custom_targets)){
+            if($customTarget -and $customTarget.name -and $customTarget.paths){
+                $patterns = @('*')
+                if($customTarget.file_patterns){ $patterns = @($customTarget.file_patterns) }
+                $appTargets.Add(@{ Name=[string]$customTarget.name; Paths=@($customTarget.paths); Patterns=$patterns; MaxFileMb=$customTarget.max_file_size_mb })
+            }
+        }
+
+        foreach($target in $appTargets){
+            $safeTargetName = ($target.Name -replace '[^A-Za-z0-9._-]','_')
+            foreach($pathTemplate in $target.Paths){
+                $isUserPath = ([string]$pathTemplate -match '%USERPROFILE%|%APPDATA%|%LOCALAPPDATA%')
+                $profilePaths = if($isUserPath){ @($users) } else { @('') }
+                foreach($userPath in $profilePaths){
+                    $resolvedPath = [string]$pathTemplate
+                    if($userPath){
+                        $resolvedPath = $resolvedPath.Replace('%USERPROFILE%', [string]$userPath)
+                        $resolvedPath = $resolvedPath.Replace('%APPDATA%', (Join-Path $userPath 'AppData\Roaming'))
+                        $resolvedPath = $resolvedPath.Replace('%LOCALAPPDATA%', (Join-Path $userPath 'AppData\Local'))
+                    }
+                    $resolvedPath = [Environment]::ExpandEnvironmentVariables($resolvedPath)
+                    $userLabel = if($userPath){ Split-Path $userPath -Leaf } else { 'System' }
+                    $targetOut = Join-Path (Join-Path "$WinArtifactsRoot\ApplicationArtifacts" $safeTargetName) $userLabel
+                    if(-not (Test-Path -LiteralPath $resolvedPath)){
+                        Add-ArtifactManifestRecord -Label $target.Name -SourcePath $resolvedPath -DestinationPath $targetOut -Status 'Skipped' -Note 'Configured application artifact path not present'
+                        continue
+                    }
+                    $files = @(Get-ChildItem -Path $resolvedPath -File -Recurse -Force -ErrorAction SilentlyContinue | Where-Object {
+                        $candidate = $_
+                        @($target.Patterns | Where-Object { $candidate.Name -like $_ }).Count -gt 0
+                    })
+                    if($files.Count -eq 0){
+                        Add-ArtifactManifestRecord -Label $target.Name -SourcePath $resolvedPath -DestinationPath $targetOut -Status 'Skipped' -Note 'No files matched configured patterns'
+                        continue
+                    }
+                    foreach($file in $files){
+                        $fileCapMb = $appMaxFileMb
+                        if($target.MaxFileMb -match '^\d+$' -and [int]$target.MaxFileMb -gt 0){ $fileCapMb = [int]$target.MaxFileMb }
+                        $relative = $file.FullName.Substring($resolvedPath.TrimEnd('\').Length).TrimStart('\')
+                        $destination = Join-Path $targetOut $relative
+                        if($file.Length -gt ($fileCapMb * 1MB)){
+                            Add-ArtifactManifestRecord -Label $target.Name -SourcePath $file.FullName -DestinationPath $destination -Status 'Skipped' -SizeBytes $file.Length -SourceCreatedUtc $file.CreationTimeUtc.ToString('o') -SourceLastWriteUtc $file.LastWriteTimeUtc.ToString('o') -SourceLastAccessUtc $file.LastAccessTimeUtc.ToString('o') -SourceAttributes ([string]$file.Attributes) -Note "File exceeds per-file cap of $fileCapMb MB"
+                            continue
+                        }
+                        if($appBytesCollected + $file.Length -gt ($appMaxTotalMb * 1MB)){
+                            Add-ArtifactManifestRecord -Label $target.Name -SourcePath $file.FullName -DestinationPath $destination -Status 'Skipped' -SizeBytes $file.Length -SourceCreatedUtc $file.CreationTimeUtc.ToString('o') -SourceLastWriteUtc $file.LastWriteTimeUtc.ToString('o') -SourceLastAccessUtc $file.LastAccessTimeUtc.ToString('o') -SourceAttributes ([string]$file.Attributes) -Note "Application artifact collection reached total cap of $appMaxTotalMb MB"
+                            continue
+                        }
+                        if(Copy-ForensicFile -SourcePath $file.FullName -DestinationPath $destination -Label $target.Name){
+                            $appBytesCollected += $file.Length
+                        }
+                    }
+                }
+            }
+        }
+        Write-ForensicLog "[*] Application artifact collection finished" -Level INFO -Section 'WINARTIFACTS' -Detail "Copied $([math]::Round($appBytesCollected/1MB,1)) MB; per-file cap $appMaxFileMb MB; total cap $appMaxTotalMb MB"
+    }
+
     # BITS job database (qmgr0.dat/qmgr1.dat/qmgr.db — whichever exist)
     # was already collected above, through the VSS shadow when one was
     # available, alongside SRUDB.dat — see that section instead of here;
@@ -6144,6 +6787,37 @@ if($WINARTIFACTS){
     # Windows is running. Pair with the Microsoft-Windows-Bits-Client/
     # Operational event channel (collected under -EVTX) for job-level
     # context.
+
+    # Export both machine-readable formats. The manifest records attempted
+    # paths as well as successful copies, skips, failures, integrity mismatches,
+    # and content duplicates; summary counts make incomplete collection visible.
+    try {
+        $manifestRoot = Join-Path $WinArtifactsRoot 'CollectionManifest'
+        New-Item -ItemType Directory -Force -Path $manifestRoot -ErrorAction Stop | Out-Null
+        $manifestCsv = Join-Path $manifestRoot 'artifact-collection-manifest.csv'
+        $manifestJson = Join-Path $manifestRoot 'artifact-collection-manifest.json'
+        $manifestSummaryPath = Join-Path $manifestRoot 'artifact-collection-summary.json'
+        @($script:ArtifactManifest) | Export-Csv -LiteralPath $manifestCsv -NoTypeInformation -Encoding UTF8
+        @($script:ArtifactManifest) | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $manifestJson -Encoding UTF8
+        $statusCounts = @{}
+        foreach($entry in $script:ArtifactManifest){
+            if(-not $statusCounts.ContainsKey($entry.Status)){ $statusCounts[$entry.Status] = 0 }
+            $statusCounts[$entry.Status]++
+        }
+        [PSCustomObject]@{
+            CollectionStartUtc = $script:ArtifactManifestStart.ToUniversalTime().ToString('o')
+            CollectionEndUtc = [DateTime]::UtcNow.ToString('o')
+            HashAlgorithm = 'SHA256'
+            TotalRecords = $script:ArtifactManifest.Count
+            StatusCounts = $statusCounts
+            ManifestCsv = $manifestCsv
+            ManifestJson = $manifestJson
+        } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $manifestSummaryPath -Encoding UTF8
+        Write-ForensicLog "[+] Artifact manifest exported" -Level SUCCESS -Section 'WINARTIFACTS' -Detail "Collected: $($statusCounts['Collected']); skipped: $($statusCounts['Skipped']); deduplicated: $($statusCounts['Deduplicated']); failed: $($statusCounts['Failed']); integrity mismatches: $($statusCounts['IntegrityMismatch'])"
+    }
+    catch {
+        Write-ForensicLog "[!] Artifact manifest export failed" -Level ERROR -Section 'WINARTIFACTS' -Detail $_.Exception.Message
+    }
 
     Write-ForensicLog "[!] Done" -Level SUCCESS -Section "WINARTIFACTS" -Detail "Windows Artifact Analysis collection complete"
 }
@@ -6186,17 +6860,67 @@ if($RANSOMWARE){
     ) | ForEach-Object { [void]$excludedEntropyExtensions.Add($_) }
 
     # ---------------------------------------------------------
-    # RANSOMWARE EXTENSIONS from config
+    # RANSOMWARE FILENAME PATTERNS — fetch only when no local list exists,
+    # so operators can supply/update the text file themselves.
+    # The upstream file uses wildcard filename patterns (usually *.ext),
+    # not a plain extension-per-line format.
     # ---------------------------------------------------------
-    $ransomExtensionSet = [System.Collections.Generic.HashSet[string]]::new(
-        [System.StringComparer]::OrdinalIgnoreCase
-    )
-
-    if($null -ne $configData -and $configData.PSObject.Properties["Ransomeware_Extensions"]){
-        $configData.Ransomeware_Extensions |
-            ForEach-Object { [void]$ransomExtensionSet.Add($_) }
-        Write-ForensicLog "[*] Loaded $($ransomExtensionSet.Count) ransomware extension(s) from config" -Level INFO -Section "RANSOMWARE_SCAN" -Detail "Source: $($ransomExtensionSet.Count) extensions from config"
+    $ransomExtensionFile = "$PSScriptRoot\Forensicator-Share\ransomware_extensions.txt"
+    $ransomExtensionSources = @()
+    if($null -ne $configData -and $configData.PSObject.Properties["ransomware_extension_source"]){
+        $ransomExtensionSources = @($configData.ransomware_extension_source | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
     }
+    $feedTemp = "$env:TEMP\ransomware_extensions_$(New-Guid).txt"
+    $feedFetched = $false
+    if(-not (Test-Path -LiteralPath $ransomExtensionFile)){
+        try {
+            $shareDir = Split-Path -Parent $ransomExtensionFile
+            New-Item -ItemType Directory -Force -Path $shareDir -ErrorAction Stop | Out-Null
+            if($ransomExtensionSources.Count -gt 0 -and
+               (Save-MergedThreatIntelFeed -Sources $ransomExtensionSources -OutputPath $feedTemp -Section "RANSOMWARE_SCAN" -TimeoutSec 60)){
+                $candidatePatterns = @(Get-Content -LiteralPath $feedTemp -ErrorAction Stop |
+                    ForEach-Object { $_.Trim() } |
+                    Where-Object { $_ -and -not $_.StartsWith('#') -and $_ -match '^[A-Za-z0-9*?.!@_+\-\[\]{}$]+$' } |
+                    Select-Object -Unique)
+                if($candidatePatterns.Count -ge 50){
+                    Move-Item -LiteralPath $feedTemp -Destination $ransomExtensionFile -Force
+                    $feedFetched = $true
+                } else {
+                    Write-ForensicLog "[!] Ransomware extension feed returned too few valid patterns; no list will be used" -Level WARN -Section "RANSOMWARE_SCAN" -Detail "Validated patterns: $($candidatePatterns.Count)"
+                }
+            }
+        } catch {
+            Write-ForensicLog "[!] Could not download ransomware extension feed" -Level WARN -Section "RANSOMWARE_SCAN" -Detail $_.Exception.Message
+        } finally {
+            Remove-Item -LiteralPath $feedTemp -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    $ransomExtensionSuffixes = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    $ransomExtensionCompoundSuffixes = [System.Collections.Generic.List[string]]::new()
+    $ransomExtensionWildcardSuffixes = [System.Collections.Generic.List[string]]::new()
+    $ransomFilenameWildcardRegexes = [System.Collections.Generic.List[regex]]::new()
+    if(Test-Path -LiteralPath $ransomExtensionFile){
+        foreach($patternLine in @(Get-Content -LiteralPath $ransomExtensionFile -ErrorAction SilentlyContinue)){
+            $patternLine = $patternLine.Trim()
+            if(-not $patternLine -or $patternLine.StartsWith('#')){ continue }
+            if($patternLine.StartsWith('*.') -and $patternLine.Length -gt 2){
+                $suffixPattern = $patternLine.Substring(1)
+                if($suffixPattern.IndexOfAny([char[]]'*?') -lt 0){
+                    if($suffixPattern.Substring(1).Contains('.')){
+                        $ransomExtensionCompoundSuffixes.Add($suffixPattern)
+                    } else {
+                        [void]$ransomExtensionSuffixes.Add($suffixPattern)
+                    }
+                } else {
+                    $ransomExtensionWildcardSuffixes.Add('(?i)' + [regex]::Escape($suffixPattern).Replace('\*','.*').Replace('\?','.'))
+                }
+            } else {
+                $ransomFilenameWildcardRegexes.Add([regex]::new('(?i)^' + [regex]::Escape($patternLine).Replace('\*','.*').Replace('\?','.') + '$', [System.Text.RegularExpressions.RegexOptions]::CultureInvariant, [timespan]::FromMilliseconds(25)))
+            }
+        }
+    }
+    Write-ForensicLog "[*] Loaded $($ransomExtensionSuffixes.Count + $ransomExtensionCompoundSuffixes.Count + $ransomExtensionWildcardSuffixes.Count + $ransomFilenameWildcardRegexes.Count) ransomware filename pattern(s)" -Level INFO -Section "RANSOMWARE_SCAN" -Detail "List: $ransomExtensionFile | Downloaded this run: $feedFetched"
 
     # ---------------------------------------------------------
     # RANSOM NOTE NAMES
@@ -6436,7 +7160,24 @@ if($RANSOMWARE){
             }
 
             # Ransomware extension check
-            if($ransomExtensionSet.Count -gt 0 -and $ransomExtensionSet.Contains($ext)){
+            $ransomPatternMatched = $false
+            $ransomPatternMatched = $ransomExtensionSuffixes.Contains($ext)
+            if(-not $ransomPatternMatched){
+                foreach($suffix in $ransomExtensionCompoundSuffixes){
+                    if($file.Name.EndsWith($suffix, [System.StringComparison]::OrdinalIgnoreCase)){ $ransomPatternMatched = $true; break }
+                }
+            }
+            if(-not $ransomPatternMatched){
+                foreach($patternRegex in $ransomExtensionWildcardSuffixes){
+                    if($file.Name -match $patternRegex){ $ransomPatternMatched = $true; break }
+                }
+            }
+            if(-not $ransomPatternMatched){
+                foreach($patternRegex in $ransomFilenameWildcardRegexes){
+                    if($patternRegex.IsMatch($file.Name)){ $ransomPatternMatched = $true; break }
+                }
+            }
+            if($ransomPatternMatched){
                 $RansomExtFiles += [PSCustomObject]@{
                     File      = $file.FullName
                     Extension = $ext
@@ -6812,7 +7553,10 @@ if ($EVTX) {
     "Microsoft-Windows-TaskScheduler/Operational",
     "Microsoft-Windows-WMI-Activity/Operational",
     "Microsoft-Windows-Bits-Client/Operational",
-    "Microsoft-Windows-TerminalServices-RemoteConnectionManager/Operational"
+    "Microsoft-Windows-TerminalServices-RemoteConnectionManager/Operational",
+    "Directory Service",
+    "DFS Replication",
+    "DNS Server"
   )
   $LogChannels = $DefaultLogChannels
   if($null -ne $configData -and $configData.PSObject.Properties["logChannels"] -and $null -ne $configData.logChannels.channels){
@@ -6871,6 +7615,18 @@ if ($EVTX) {
 
     $safeChannelName = ($channel -replace '[\\/:*?"<>|]', '_')
     $channelOutFile  = Join-Path $LogChannelsOut "$safeChannelName.log"
+
+    # Preserve the complete native channel database as well as the bounded
+    # XML view above. Core channels already have raw exports in the root.
+    if($channel -notin @('System','Security','Application')){
+      $rawOut = Join-Path $LogChannelsOut "$safeChannelName.evtx"
+      & wevtutil.exe epl $channel $rawOut 2>$null
+      if($LASTEXITCODE -eq 0){
+        Write-ForensicLog "[+] Exported raw EVTX channel '$channel'" -Level SUCCESS -Section "EVENTLOGS" -Detail $rawOut
+      } else {
+        Write-ForensicLog "[!] Raw EVTX export failed for channel '$channel' (exit $LASTEXITCODE)" -Level WARN -Section "EVENTLOGS"
+      }
+    }
 
     try {
       $channelEvents |
@@ -8784,6 +9540,7 @@ if($IsDomainController){
     Write-ForensicLog "[!] Domain Controller detected — running Active Directory checks" -Level SUCCESS -Section "AD" -Detail "Detection method: $($ADDetection.Method)"
 
     New-Item -ItemType Directory -Force -Path "$PSScriptRoot\$env:COMPUTERNAME\investigation\ad" | Out-Null
+    $ADArtifactsRoot = "$PSScriptRoot\$env:COMPUTERNAME\investigation\ad"
 
     # ---------------------------------------------------------------------
     # AD.0 — Domain Controller overview
@@ -8896,7 +9653,7 @@ if($IsDomainController){
         Write-ForensicLog "[i] No ad.sysvol_suspicious_keywords configured in config.json — SYSVOL files are still collected and listed, but none will be flagged by keyword" -Level INFO -Section "AD"
     }
 
-    $sysvolExtensions = @('*.bat','*.ps1','*.vbs','*.exe','*.dll','*.cmd','*.js')
+    $sysvolExtensions = @('*.bat','*.ps1','*.psm1','*.psd1','*.vbs','*.vbe','*.wsf','*.hta','*.exe','*.dll','*.cmd','*.js','*.xml')
     if($null -ne $adConfig -and $null -ne $adConfig.sysvol_scan_extensions){
         $configuredExtensions = ConvertTo-ConfigStringArray $adConfig.sysvol_scan_extensions
         if($configuredExtensions.Count -gt 0){ $sysvolExtensions = $configuredExtensions }
@@ -8965,6 +9722,342 @@ if($IsDomainController){
         [void]$sb.Append("<tr><td colspan='6' style='text-align:center;color:#27ae60;'>No scripts found under SYSVOL Policies/Scripts/Startup/Shutdown/Logon/Logoff</td></tr>")
     }
     $AD_SysvolFragment = $sb.ToString()
+
+    # ---------------------------------------------------------------------
+    # AD.2a — GPO/SYSVOL inventory, integrity, and legacy password checks
+    # GPO settings are split between AD (GPC) and SYSVOL (GPT); inventory
+    # both. Never emit the cpassword value itself into the report.
+    # ---------------------------------------------------------------------
+    Write-ForensicLog "[*] Building Group Policy and SYSVOL forensic inventory" -Level INFO -Section "AD"
+    $gpoRows = [System.Collections.Generic.List[object]]::new()
+    $gpoAclRows = [System.Collections.Generic.List[object]]::new()
+    $sysvolArtifactRows = [System.Collections.Generic.List[object]]::new()
+    $gppPasswordRows = [System.Collections.Generic.List[object]]::new()
+    $ADSysvolCollectionRoot = "$PSScriptRoot\$env:COMPUTERNAME\artifacts\ActiveDirectory\SYSVOL"
+    New-Item -ItemType Directory -Force -Path $ADSysvolCollectionRoot -ErrorAction SilentlyContinue | Out-Null
+    $AD_GPOFragment = "<tr><td colspan='6'>GPO inventory unavailable</td></tr>"
+    $AD_ACLFragment = "<tr><td colspan='5'>AD ACL review unavailable</td></tr>"
+    $AD_GPPPasswordFragment = "<tr><td colspan='3'>No Group Policy Preferences cpassword entries detected</td></tr>"
+    try {
+        Add-Type -AssemblyName System.DirectoryServices -ErrorAction SilentlyContinue
+        $gpoBase = [ADSI]"LDAP://CN=Policies,CN=System,$adDomainDN"
+        $gpoSearcher = New-Object System.DirectoryServices.DirectorySearcher($gpoBase)
+        $gpoSearcher.Filter = '(objectClass=groupPolicyContainer)'
+        $gpoSearcher.PageSize = 500
+        [void]$gpoSearcher.PropertiesToLoad.AddRange(@('displayName','name','gPCFileSysPath','versionNumber','whenChanged','distinguishedName'))
+        $gpoResults = $gpoSearcher.FindAll()
+        foreach($gpoResult in $gpoResults){
+            $p = $gpoResult.Properties
+            $gpoName = if($p['displayname'].Count){ [string]$p['displayname'][0] } else { [string]$p['name'][0] }
+            $gptIni = "$sysvolPath\Policies\$([string]$p['name'][0])\GPT.INI"
+            $gptVersion = ''
+            if(Test-Path -LiteralPath $gptIni){
+                $gptVersionLine = Get-Content -LiteralPath $gptIni -ErrorAction SilentlyContinue | Where-Object { $_ -match '^Version\s*=' } | Select-Object -First 1
+                if($gptVersionLine){ $gptVersion = ($gptVersionLine -replace '^Version\s*=\s*','').Trim() }
+            }
+            $adVersion = if($p['versionnumber'].Count){ [string]$p['versionnumber'][0] } else { '' }
+            $gpoRows.Add([PSCustomObject]@{
+                Name = $gpoName
+                Guid = [string]$p['name'][0]
+                SysvolPath = if($p['gpcfilesyspath'].Count){ [string]$p['gpcfilesyspath'][0] } else { '' }
+                Version = $adVersion
+                GPTVersion = $gptVersion
+                VersionMatch = if($gptVersion -and $adVersion){ ($adVersion -eq $gptVersion) } else { $false }
+                WhenChanged = if($p['whenchanged'].Count){ [string]$p['whenchanged'][0] } else { '' }
+                DistinguishedName = if($p['distinguishedname'].Count){ [string]$p['distinguishedname'][0] } else { $gpoResult.Path }
+            })
+            try {
+                $de = $gpoResult.GetDirectoryEntry()
+                $acl = $de.ObjectSecurity
+                foreach($ace in $acl.GetAccessRules($true,$true,[System.Security.Principal.NTAccount])){
+                    $rights = [int]$ace.ActiveDirectoryRights
+                    $writeMask = [int]([System.DirectoryServices.ActiveDirectoryRights]::GenericAll -bor
+                        [System.DirectoryServices.ActiveDirectoryRights]::GenericWrite -bor
+                        [System.DirectoryServices.ActiveDirectoryRights]::WriteDacl -bor
+                        [System.DirectoryServices.ActiveDirectoryRights]::WriteOwner -bor
+                        [System.DirectoryServices.ActiveDirectoryRights]::WriteProperty -bor
+                        [System.DirectoryServices.ActiveDirectoryRights]::CreateChild -bor
+                        [System.DirectoryServices.ActiveDirectoryRights]::DeleteChild)
+                    if($ace.AccessControlType -eq [System.Security.AccessControl.AccessControlType]::Allow -and ($rights -band $writeMask) -ne 0){
+                        $gpoAclRows.Add([PSCustomObject]@{
+                            Object = $gpoName
+                            DistinguishedName = [string]$de.Properties['distinguishedName'].Value
+                            Principal = [string]$ace.IdentityReference
+                            Rights = [string]$ace.ActiveDirectoryRights
+                            Inherited = [bool]$ace.IsInherited
+                            Review = 'Potential write/control right; validate principal and intended GPO delegation'
+                        })
+                    }
+                }
+                $de.Dispose()
+            } catch {
+                Write-ForensicLog "[!] Could not inspect security descriptor for GPO '$gpoName'" -Level WARN -Section "AD" -Detail $_.Exception.Message
+            }
+            $gpoSysvolDirectory = "$sysvolPath\Policies\$([string]$p['name'][0])"
+            if(Test-Path -LiteralPath $gpoSysvolDirectory){
+                try {
+                    $fsAcl = Get-Acl -LiteralPath $gpoSysvolDirectory -ErrorAction Stop
+                    $fsWriteMask = [int]([System.Security.AccessControl.FileSystemRights]::Write -bor
+                        [System.Security.AccessControl.FileSystemRights]::Modify -bor
+                        [System.Security.AccessControl.FileSystemRights]::FullControl -bor
+                        [System.Security.AccessControl.FileSystemRights]::Delete -bor
+                        [System.Security.AccessControl.FileSystemRights]::ChangePermissions -bor
+                        [System.Security.AccessControl.FileSystemRights]::TakeOwnership)
+                    foreach($rule in $fsAcl.Access){
+                        if($rule.AccessControlType -eq [System.Security.AccessControl.AccessControlType]::Allow -and (([int]$rule.FileSystemRights -band $fsWriteMask) -ne 0)){
+                            $gpoAclRows.Add([PSCustomObject]@{
+                                Object = "SYSVOL GPO files: $gpoName"
+                                DistinguishedName = $gpoSysvolDirectory
+                                Principal = [string]$rule.IdentityReference
+                                Rights = [string]$rule.FileSystemRights
+                                Inherited = [bool]$rule.IsInherited
+                                Review = 'Potential SYSVOL write permission; validate principal and intended delegation'
+                            })
+                        }
+                    }
+                } catch {
+                    Write-ForensicLog "[!] Could not inspect SYSVOL ACL for GPO '$gpoName'" -Level WARN -Section "AD" -Detail $_.Exception.Message
+                }
+            }
+        }
+        $gpoResults.Dispose()
+        $gpoSearcher.Dispose()
+    } catch {
+        Write-ForensicLog "[!] GPO directory inventory failed" -Level WARN -Section "AD" -Detail $_.Exception.Message
+    }
+
+    # Hash and inventory all policy files (not just executable/script types).
+    # File hashing is bounded per file via config; metadata is always retained.
+    $sysvolHashCapMb = 10
+    $sysvolCollectCapMb = 25
+    $sysvolCollectTotalCapMb = 500
+    $sysvolCollectedBytes = [long]0
+    if($null -ne $adConfig -and $null -ne $adConfig.sysvol_hash_max_file_mb){
+        $parsedCap = 0
+        if([int]::TryParse([string]$adConfig.sysvol_hash_max_file_mb,[ref]$parsedCap) -and $parsedCap -gt 0){ $sysvolHashCapMb = $parsedCap }
+    }
+    if($null -ne $adConfig -and $null -ne $adConfig.sysvol_collect_max_file_mb){
+        $parsedCollectCap = 0
+        if([int]::TryParse([string]$adConfig.sysvol_collect_max_file_mb,[ref]$parsedCollectCap) -and $parsedCollectCap -gt 0){ $sysvolCollectCapMb = $parsedCollectCap }
+    }
+    if($null -ne $adConfig -and $null -ne $adConfig.sysvol_collect_max_total_mb){
+        $parsedTotalCap = 0
+        if([int]::TryParse([string]$adConfig.sysvol_collect_max_total_mb,[ref]$parsedTotalCap) -and $parsedTotalCap -gt 0){ $sysvolCollectTotalCapMb = $parsedTotalCap }
+    }
+    $gpoFileRoots = @("$sysvolPath\Policies", "$sysvolPath\Scripts") | Where-Object { Test-Path -LiteralPath $_ }
+    foreach($fileRoot in $gpoFileRoots){
+        foreach($file in @(Get-ChildItem -LiteralPath $fileRoot -Recurse -File -Force -ErrorAction SilentlyContinue)){
+            $sha256 = ''
+            if($file.Length -le ($sysvolHashCapMb * 1MB)){
+                try { $sha256 = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256 -ErrorAction Stop).Hash } catch {}
+            }
+            $sysvolArtifactRows.Add([PSCustomObject]@{
+                Name = $file.Name
+                FullPath = $file.FullName
+                RelativePath = $file.FullName.Substring($sysvolPath.Length).TrimStart('\')
+                SizeBytes = $file.Length
+                LastWriteTimeUtc = $file.LastWriteTimeUtc.ToString('o')
+                SHA256 = $sha256
+                HashSkippedOverCap = ($file.Length -gt ($sysvolHashCapMb * 1MB))
+            })
+            if($file.Length -le ($sysvolCollectCapMb * 1MB) -and ($sysvolCollectedBytes + $file.Length) -le ($sysvolCollectTotalCapMb * 1MB)){
+                $relative = $file.FullName.Substring($sysvolPath.Length).TrimStart('\')
+                $destination = Join-Path $ADSysvolCollectionRoot $relative
+                try {
+                    $destinationDir = Split-Path -Parent $destination
+                    New-Item -ItemType Directory -Force -Path $destinationDir -ErrorAction Stop | Out-Null
+                    Copy-Item -LiteralPath $file.FullName -Destination $destination -Force -ErrorAction Stop
+                    $sysvolCollectedBytes += [long]$file.Length
+                } catch {
+                    Write-ForensicLog "[!] Could not collect SYSVOL file $relative" -Level WARN -Section "AD" -Detail $_.Exception.Message
+                }
+            } elseif($file.Length -gt ($sysvolCollectCapMb * 1MB)){
+                Write-ForensicLog "[!] SYSVOL file exceeds per-file collection cap; inventory retained without copying" -Level WARN -Section "AD" -Detail "$($file.FullName) ($([math]::Round($file.Length/1MB,1)) MB > $sysvolCollectCapMb MB)"
+            } else {
+                Write-ForensicLog "[!] SYSVOL total collection cap reached; remaining files inventoried but not copied" -Level WARN -Section "AD" -Detail "$sysvolCollectTotalCapMb MB total cap"
+            }
+            if($file.Extension -ieq '.xml' -and $file.Length -le 5MB){
+                try {
+                    $xmlText = Get-Content -LiteralPath $file.FullName -Raw -ErrorAction Stop
+                    if($xmlText -match '(?i)\bcpassword\s*='){
+                        $gppPasswordRows.Add([PSCustomObject]@{
+                            File = $file.FullName
+                            LastWriteTimeUtc = $file.LastWriteTimeUtc.ToString('o')
+                            Finding = 'GPP cpassword attribute present (value intentionally omitted)'
+                        })
+                    }
+                } catch {}
+            }
+        }
+    }
+    if($gpoRows.Count){ $gpoRows | Export-Csv -LiteralPath "$ADArtifactsRoot\gpo-inventory.csv" -NoTypeInformation -Encoding UTF8 }
+    if($sysvolArtifactRows.Count){ $sysvolArtifactRows | Export-Csv -LiteralPath "$ADArtifactsRoot\sysvol-file-inventory.csv" -NoTypeInformation -Encoding UTF8 }
+    if($gpoAclRows.Count){ $gpoAclRows | Export-Csv -LiteralPath "$ADArtifactsRoot\gpo-write-acl-review.csv" -NoTypeInformation -Encoding UTF8 }
+    if($gppPasswordRows.Count){ $gppPasswordRows | Export-Csv -LiteralPath "$ADArtifactsRoot\gpp-cpassword-findings.csv" -NoTypeInformation -Encoding UTF8 }
+    if($gpoRows.Count){
+        $sb = New-Object System.Text.StringBuilder
+        foreach($row in $gpoRows){ $versionStyle = if($row.GPTVersion -and -not $row.VersionMatch){" style='background-color:#3a1a1a;'"}else{''}; [void]$sb.Append("<tr$versionStyle><td>$(Encode-Cell $row.Name)</td><td>$(Encode-Cell $row.Guid)</td><td>$(Encode-Cell $row.Version)</td><td>$(Encode-Cell $row.GPTVersion)</td><td>$(Encode-Cell $row.WhenChanged)</td><td>$(Encode-Cell $row.SysvolPath)</td></tr>") }
+        $AD_GPOFragment = $sb.ToString()
+    }
+    if($gpoAclRows.Count){
+        $sb = New-Object System.Text.StringBuilder
+        foreach($row in $gpoAclRows){ [void]$sb.Append("<tr><td>$(Encode-Cell $row.Object)</td><td>$(Encode-Cell $row.Principal)</td><td>$(Encode-Cell $row.Rights)</td><td>$(Encode-Cell $row.Inherited)</td><td>$(Encode-Cell $row.Review)</td></tr>") }
+        $AD_ACLFragment = $sb.ToString()
+    }
+    if($gppPasswordRows.Count){
+        $sb = New-Object System.Text.StringBuilder
+        foreach($row in $gppPasswordRows){ [void]$sb.Append("<tr style='background-color:#3a1a1a;'><td>$(Encode-Cell $row.File)</td><td>$(Encode-Cell $row.LastWriteTimeUtc)</td><td>$(Encode-Cell $row.Finding)</td></tr>") }
+        $AD_GPPPasswordFragment = $sb.ToString()
+    }
+    Write-ForensicLog "[+] GPO/SYSVOL inventory complete" -Level SUCCESS -Section "AD" -Detail "GPOs: $($gpoRows.Count); files inventoried: $($sysvolArtifactRows.Count); cpassword files: $($gppPasswordRows.Count); candidate write ACEs: $($gpoAclRows.Count)"
+
+    # ---------------------------------------------------------------------
+    # AD.2b — Forest trusts, replication health, DNS zones, and key ACLs
+    # ---------------------------------------------------------------------
+    $adTrustRows = [System.Collections.Generic.List[object]]::new()
+    $adReplicationText = [System.Collections.Generic.List[string]]::new()
+    $adDnsZoneRows = [System.Collections.Generic.List[object]]::new()
+    $adCriticalAclRows = [System.Collections.Generic.List[object]]::new()
+    try {
+        $trustBase = [ADSI]"LDAP://CN=System,$adDomainDN"
+        $trustSearcher = New-Object System.DirectoryServices.DirectorySearcher($trustBase)
+        $trustSearcher.Filter = '(objectClass=trustedDomain)'
+        $trustSearcher.PageSize = 500
+        [void]$trustSearcher.PropertiesToLoad.AddRange(@('trustPartner','trustDirection','trustType','whenChanged','distinguishedName'))
+        foreach($tr in $trustSearcher.FindAll()){
+            $p = $tr.Properties
+            $adTrustRows.Add([PSCustomObject]@{
+                Partner = if($p['trustpartner'].Count){ [string]$p['trustpartner'][0] } else { '' }
+                Direction = if($p['trustdirection'].Count){ [string]$p['trustdirection'][0] } else { '' }
+                Type = if($p['trusttype'].Count){ [string]$p['trusttype'][0] } else { '' }
+                WhenChanged = if($p['whenchanged'].Count){ [string]$p['whenchanged'][0] } else { '' }
+                DistinguishedName = if($p['distinguishedname'].Count){ [string]$p['distinguishedname'][0] } else { '' }
+            })
+        }
+        $trustSearcher.Dispose()
+    } catch { Write-ForensicLog "[!] Trust inventory failed" -Level WARN -Section "AD" -Detail $_.Exception.Message }
+
+    try {
+        $repOutput = & repadmin.exe replsummary 2>&1
+        $adReplicationText.Add('### repadmin replsummary')
+        foreach($line in $repOutput){ $adReplicationText.Add([string]$line) }
+    } catch { $adReplicationText.Add("repadmin replsummary failed: $($_.Exception.Message)") }
+    try {
+        $repOutput = & repadmin.exe showrepl $env:COMPUTERNAME /csv 2>&1
+        $adReplicationText.Add("### repadmin showrepl $env:COMPUTERNAME /csv")
+        foreach($line in $repOutput){ $adReplicationText.Add([string]$line) }
+    } catch { $adReplicationText.Add("repadmin showrepl failed: $($_.Exception.Message)") }
+    if($adReplicationText.Count){ $adReplicationText | Set-Content -LiteralPath "$ADArtifactsRoot\replication-health.txt" -Encoding UTF8 }
+
+    try {
+        if(Get-Command Get-DnsServerZone -ErrorAction SilentlyContinue){
+            foreach($zone in @(Get-DnsServerZone -ErrorAction Stop)){
+                $adDnsZoneRows.Add([PSCustomObject]@{ ZoneName=$zone.ZoneName; ZoneType=[string]$zone.ZoneType; IsDsIntegrated=[bool]$zone.IsDsIntegrated; IsReverseLookupZone=[bool]$zone.IsReverseLookupZone; DynamicUpdate=[string]$zone.DynamicUpdate })
+            }
+        } elseif(Get-Command dnscmd.exe -ErrorAction SilentlyContinue){
+            foreach($line in @(& dnscmd.exe /enumzones 2>&1)){ $adDnsZoneRows.Add([PSCustomObject]@{ RawOutput=[string]$line }) }
+        }
+    } catch { Write-ForensicLog "[!] DNS zone inventory failed" -Level WARN -Section "AD" -Detail $_.Exception.Message }
+
+    # Review write/control ACEs on especially sensitive directory objects.
+    $criticalDns = @(
+        $adDomainDN,
+        "CN=AdminSDHolder,CN=System,$adDomainDN"
+    )
+    try {
+        $dcOuSearch = New-Object System.DirectoryServices.DirectorySearcher([ADSI]"LDAP://$adDomainDN")
+        $dcOuSearch.Filter = '(&(objectCategory=organizationalUnit)(ou=Domain Controllers))'
+        [void]$dcOuSearch.PropertiesToLoad.Add('distinguishedName')
+        foreach($ou in $dcOuSearch.FindAll()){ if($ou.Properties['distinguishedname'].Count){ $criticalDns += [string]$ou.Properties['distinguishedname'][0] } }
+        $dcOuSearch.Dispose()
+    } catch {}
+    foreach($targetDn in $criticalDns){
+        try {
+            $entry = [ADSI]"LDAP://$targetDn"
+            $security = $entry.ObjectSecurity
+            foreach($ace in $security.GetAccessRules($true,$true,[System.Security.Principal.NTAccount])){
+                $rights = [int]$ace.ActiveDirectoryRights
+                $riskMask = [int]([System.DirectoryServices.ActiveDirectoryRights]::GenericAll -bor [System.DirectoryServices.ActiveDirectoryRights]::GenericWrite -bor [System.DirectoryServices.ActiveDirectoryRights]::WriteDacl -bor [System.DirectoryServices.ActiveDirectoryRights]::WriteOwner -bor [System.DirectoryServices.ActiveDirectoryRights]::WriteProperty)
+                if($ace.AccessControlType -eq [System.Security.AccessControl.AccessControlType]::Allow -and ($rights -band $riskMask) -ne 0){
+                    $adCriticalAclRows.Add([PSCustomObject]@{ Object=$targetDn; Principal=[string]$ace.IdentityReference; Rights=[string]$ace.ActiveDirectoryRights; Inherited=[bool]$ace.IsInherited })
+                }
+            }
+            $entry.Dispose()
+        } catch { Write-ForensicLog "[!] Could not inspect ACL on $targetDn" -Level WARN -Section "AD" -Detail $_.Exception.Message }
+    }
+    if($adTrustRows.Count){ $adTrustRows | Export-Csv -LiteralPath "$ADArtifactsRoot\trust-inventory.csv" -NoTypeInformation -Encoding UTF8 }
+    if($adDnsZoneRows.Count){ $adDnsZoneRows | Export-Csv -LiteralPath "$ADArtifactsRoot\dns-zone-inventory.csv" -NoTypeInformation -Encoding UTF8 }
+    if($adCriticalAclRows.Count){ $adCriticalAclRows | Export-Csv -LiteralPath "$ADArtifactsRoot\critical-object-acl-review.csv" -NoTypeInformation -Encoding UTF8 }
+
+    # ---------------------------------------------------------------------
+    # AD.2c — enterprise AD CS configuration plus local CA audit events
+    # ---------------------------------------------------------------------
+    $adcsInstalled = [bool](Get-Service CertSvc -ErrorAction SilentlyContinue)
+    $adcsTemplateRows = [System.Collections.Generic.List[object]]::new()
+    $adcsAuthorityRows = [System.Collections.Generic.List[object]]::new()
+    $adcsEventRows = [System.Collections.Generic.List[object]]::new()
+    try {
+            $configurationDn = "CN=Configuration,$adForestDN"
+            $caBase = [ADSI]"LDAP://CN=Enrollment Services,CN=Public Key Services,CN=Services,$configurationDn"
+            $caSearcher = New-Object System.DirectoryServices.DirectorySearcher($caBase)
+            $caSearcher.Filter = '(objectClass=pKIEnrollmentService)'
+            [void]$caSearcher.PropertiesToLoad.AddRange(@('cn','dNSHostName','certificateTemplates','whenChanged','distinguishedName'))
+            foreach($ca in $caSearcher.FindAll()){
+                $p=$ca.Properties
+                $adcsAuthorityRows.Add([PSCustomObject]@{ Name=if($p['cn'].Count){[string]$p['cn'][0]}else{''}; Host=if($p['dnshostname'].Count){[string]$p['dnshostname'][0]}else{''}; Templates=(@($p['certificatetemplates']) -join ';'); WhenChanged=if($p['whenchanged'].Count){[string]$p['whenchanged'][0]}else{''}; DistinguishedName=if($p['distinguishedname'].Count){[string]$p['distinguishedname'][0]}else{''} })
+            }
+            $caSearcher.Dispose()
+            $templateBase = [ADSI]"LDAP://CN=Certificate Templates,CN=Public Key Services,CN=Services,$configurationDn"
+            $templateSearcher = New-Object System.DirectoryServices.DirectorySearcher($templateBase)
+            $templateSearcher.Filter = '(objectClass=pKICertificateTemplate)'
+            $templateSearcher.PageSize = 500
+            [void]$templateSearcher.PropertiesToLoad.AddRange(@('cn','displayName','msPKI-Certificate-Name-Flag','msPKI-Enrollment-Flag','msPKI-Private-Key-Flag','pKIExtendedKeyUsage','whenChanged','distinguishedName'))
+            foreach($template in $templateSearcher.FindAll()){
+                $p=$template.Properties
+                $templateName = if($p['displayname'].Count){[string]$p['displayname'][0]}elseif($p['cn'].Count){[string]$p['cn'][0]}else{''}
+                $templateDn = if($p['distinguishedname'].Count){[string]$p['distinguishedname'][0]}else{''}
+                $adcsTemplateRows.Add([PSCustomObject]@{ Name=$templateName; NameFlags=if($p['mspki-certificate-name-flag'].Count){[string]$p['mspki-certificate-name-flag'][0]}else{''}; EnrollmentFlags=if($p['mspki-enrollment-flag'].Count){[string]$p['mspki-enrollment-flag'][0]}else{''}; PrivateKeyFlags=if($p['mspki-private-key-flag'].Count){[string]$p['mspki-private-key-flag'][0]}else{''}; EKUs=(@($p['pkiextendedkeyusage']) -join ';'); WhenChanged=if($p['whenchanged'].Count){[string]$p['whenchanged'][0]}else{''}; DistinguishedName=$templateDn })
+                try {
+                    $templateEntry = $template.GetDirectoryEntry()
+                    foreach($ace in $templateEntry.ObjectSecurity.GetAccessRules($true,$true,[System.Security.Principal.NTAccount])){
+                        $rights = [int]$ace.ActiveDirectoryRights
+                        $templateRiskMask = [int]([System.DirectoryServices.ActiveDirectoryRights]::GenericAll -bor [System.DirectoryServices.ActiveDirectoryRights]::GenericWrite -bor [System.DirectoryServices.ActiveDirectoryRights]::WriteDacl -bor [System.DirectoryServices.ActiveDirectoryRights]::WriteOwner -bor [System.DirectoryServices.ActiveDirectoryRights]::WriteProperty -bor [System.DirectoryServices.ActiveDirectoryRights]::ExtendedRight)
+                        if($ace.AccessControlType -eq [System.Security.AccessControl.AccessControlType]::Allow -and ($rights -band $templateRiskMask) -ne 0){
+                            $adCriticalAclRows.Add([PSCustomObject]@{ Object="AD CS template: $templateName ($templateDn)"; Principal=[string]$ace.IdentityReference; Rights=[string]$ace.ActiveDirectoryRights; Inherited=[bool]$ace.IsInherited })
+                        }
+                    }
+                    $templateEntry.Dispose()
+                } catch { Write-ForensicLog "[!] Could not inspect ACL on AD CS template '$templateName'" -Level WARN -Section "AD" -Detail $_.Exception.Message }
+            }
+            $templateSearcher.Dispose()
+    } catch { Write-ForensicLog "[!] AD CS LDAP inventory failed" -Level WARN -Section "AD" -Detail $_.Exception.Message }
+    if($adcsInstalled){
+        try {
+            foreach($evt in @(Get-ForensicWinEvent -LogName Security -ProviderName Microsoft-Windows-Security-Auditing -Id @(4886,4887,4888) -MaxEvents 2000)){
+                $adcsEventRows.Add([PSCustomObject]@{ Time=Format-ForensicEventTime $evt.TimeCreated; EventId=$evt.Id; RecordId=$evt.RecordId; Xml=$evt.ToXml() })
+            }
+        } catch { Write-ForensicLog "[!] AD CS audit event collection failed" -Level WARN -Section "AD" -Detail $_.Exception.Message }
+        if($adcsEventRows.Count){ $adcsEventRows | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath "$ADArtifactsRoot\adcs-audit-events.json" -Encoding UTF8 }
+    }
+    if($adcsAuthorityRows.Count){ $adcsAuthorityRows | Export-Csv -LiteralPath "$ADArtifactsRoot\adcs-authorities.csv" -NoTypeInformation -Encoding UTF8 }
+    if($adcsTemplateRows.Count){ $adcsTemplateRows | Export-Csv -LiteralPath "$ADArtifactsRoot\adcs-templates.csv" -NoTypeInformation -Encoding UTF8 }
+    if($adCriticalAclRows.Count){ $adCriticalAclRows | Export-Csv -LiteralPath "$ADArtifactsRoot\critical-object-acl-review.csv" -NoTypeInformation -Encoding UTF8 }
+    Write-ForensicLog "[*] AD CS role detected: $adcsInstalled; authorities: $($adcsAuthorityRows.Count); templates: $($adcsTemplateRows.Count); issuance events: $($adcsEventRows.Count)" -Level INFO -Section "AD"
+
+    # 4662 can provide directory-access evidence, but only if suitable
+    # Directory Service Access auditing and object SACLs were configured.
+    $adDsAccessRows = [System.Collections.Generic.List[object]]::new()
+    try {
+        foreach($evt in @(Get-ForensicWinEvent -LogName Security -ProviderName Microsoft-Windows-Security-Auditing -Id 4662 -MaxEvents 2000)){
+            $adDsAccessRows.Add([PSCustomObject]@{ Time=Format-ForensicEventTime $evt.TimeCreated; EventId=$evt.Id; RecordId=$evt.RecordId; Xml=$evt.ToXml() })
+        }
+    } catch { Write-ForensicLog "[!] Directory Service Access event collection failed" -Level WARN -Section "AD" -Detail $_.Exception.Message }
+    if($adDsAccessRows.Count){ $adDsAccessRows | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath "$ADArtifactsRoot\directory-service-access-4662.json" -Encoding UTF8 }
+    $AD_DSAccessStatus = if($adDsAccessRows.Count){
+        "Collected $($adDsAccessRows.Count) event(s); full XML: investigation\ad\directory-service-access-4662.json"
+    } else {
+        "No 4662 events returned. Directory Service Access auditing and matching SACLs must be configured for these events to exist."
+    }
 
     # ---------------------------------------------------------------------
     # AD.3 — Privileged group membership
@@ -9517,6 +10610,39 @@ if($IsDomainController){
     }
     $AD_SuspiciousProcFragment = $sb.ToString()
 
+    $AD_TrustFragment = "<tr><td colspan='4'>No trust objects found or LDAP query unavailable</td></tr>"
+    if($adTrustRows.Count){
+        $sb = New-Object System.Text.StringBuilder
+        foreach($row in $adTrustRows){ [void]$sb.Append("<tr><td>$(Encode-Cell $row.Partner)</td><td>$(Encode-Cell $row.Direction)</td><td>$(Encode-Cell $row.Type)</td><td>$(Encode-Cell $row.WhenChanged)</td></tr>") }
+        $AD_TrustFragment = $sb.ToString()
+    }
+    $AD_DnsFragment = "<tr><td colspan='3'>DNS Server module unavailable or no zones returned</td></tr>"
+    if($adDnsZoneRows.Count){
+        $sb = New-Object System.Text.StringBuilder
+        foreach($row in $adDnsZoneRows){ [void]$sb.Append("<tr><td>$(Encode-Cell $row.ZoneName)</td><td>$(Encode-Cell $row.ZoneType)</td><td>$(Encode-Cell $row.IsDsIntegrated)</td></tr>") }
+        $AD_DnsFragment = $sb.ToString()
+    }
+    $AD_CriticalACLFragment = "<tr><td colspan='4'>No candidate write/control ACEs returned; this is not a definitive clean bill of health</td></tr>"
+    if($adCriticalAclRows.Count){
+        $sb = New-Object System.Text.StringBuilder
+        foreach($row in $adCriticalAclRows){ [void]$sb.Append("<tr><td>$(Encode-Cell $row.Object)</td><td>$(Encode-Cell $row.Principal)</td><td>$(Encode-Cell $row.Rights)</td><td>$(Encode-Cell $row.Inherited)</td></tr>") }
+        $AD_CriticalACLFragment = $sb.ToString()
+    }
+    $AD_ADCSFragment = if($adcsInstalled){
+        if($adcsAuthorityRows.Count){
+            $sb = New-Object System.Text.StringBuilder
+            foreach($row in $adcsAuthorityRows){ [void]$sb.Append("<tr><td>$(Encode-Cell $row.Name)</td><td>$(Encode-Cell $row.Host)</td><td>$(Encode-Cell $row.Templates)</td><td>$(Encode-Cell $row.WhenChanged)</td></tr>") }
+            $sb.ToString()
+        } else { "<tr><td colspan='4'>Certificate Services detected, but no enterprise CA objects were returned</td></tr>" }
+    } else { "<tr><td colspan='4'>AD CS Certification Authority service not installed on this DC</td></tr>" }
+    $AD_ADCSStatus = "Installed: $adcsInstalled | authorities: $($adcsAuthorityRows.Count) | templates: $($adcsTemplateRows.Count) | request/issue events: $($adcsEventRows.Count)"
+    $AD_ReplicationFragment = "<tr><td>No repadmin output. Check that repadmin.exe is installed and accessible.</td></tr>"
+    if($adReplicationText.Count){
+        $sb = New-Object System.Text.StringBuilder
+        foreach($line in ($adReplicationText | Select-Object -First 80)){ [void]$sb.Append("<tr><td><pre>$(Encode-Cell $line)</pre></td></tr>") }
+        $AD_ReplicationFragment = $sb.ToString()
+    }
+
     # ---------------------------------------------------------------------
     # Build sidebar entry + full view section
     # ---------------------------------------------------------------------
@@ -9691,6 +10817,63 @@ if($IsDomainController){
         <tbody id="ad-suspicious-proc-tbody">$AD_SuspiciousProcFragment</tbody>
       </table>
     </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">🗂 Group Policy Inventory <span class="panel-count">$($gpoRows.Count)</span></div></div>
+    <div class="tbl-wrap">
+      <table class="std">
+        <thead><tr><th>GPO</th><th>GUID</th><th>AD Version</th><th>GPT Version</th><th>AD Changed</th><th>SYSVOL Path</th></tr></thead>
+        <tbody>$AD_GPOFragment</tbody>
+      </table>
+    </div>
+    <div class="kv-list">
+      <div class="kv-list-row"><div class="kv-list-k">SYSVOL files inventoried</div><div class="kv-list-v">$($sysvolArtifactRows.Count); SHA-256 cap $sysvolHashCapMb MB/file; collection caps $sysvolCollectCapMb MB/file and $sysvolCollectTotalCapMb MB total; copied $([math]::Round($sysvolCollectedBytes/1MB,1)) MB</div></div>
+      <div class="kv-list-row"><div class="kv-list-k">Full file inventory</div><div class="kv-list-v">artifacts\ActiveDirectory\SYSVOL and investigation\ad\sysvol-file-inventory.csv</div></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">⚠ Group Policy Preferences Password Artifacts <span class="panel-count">$($gppPasswordRows.Count)</span></div></div>
+    <div class="tbl-wrap"><table class="std"><thead><tr><th>File</th><th>Last Modified (UTC)</th><th>Finding</th></tr></thead><tbody>$AD_GPPPasswordFragment</tbody></table></div>
+  </div>
+
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">🔐 Candidate GPO Write Permissions</div></div>
+      <div class="tbl-wrap"><table class="std"><thead><tr><th>GPO</th><th>Principal</th><th>Rights</th><th>Inherited</th><th>Review</th></tr></thead><tbody>$AD_ACLFragment</tbody></table></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">🛡 Candidate Critical-Object Write Permissions</div></div>
+      <div class="tbl-wrap"><table class="std"><thead><tr><th>Object DN</th><th>Principal</th><th>Rights</th><th>Inherited</th></tr></thead><tbody>$AD_CriticalACLFragment</tbody></table></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">📜 AD CS Certificate Authorities <span class="panel-count">$($adcsAuthorityRows.Count)</span></div></div>
+    <div class="kv-list"><div class="kv-list-row"><div class="kv-list-k">Collection status</div><div class="kv-list-v">$AD_ADCSStatus</div></div></div>
+    <div class="tbl-wrap"><table class="std"><thead><tr><th>CA</th><th>Host</th><th>Published Templates</th><th>Changed</th></tr></thead><tbody>$AD_ADCSFragment</tbody></table></div>
+  </div>
+
+  <div class="grid-2">
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">🔗 Domain Trusts</div></div>
+      <div class="tbl-wrap"><table class="std"><thead><tr><th>Partner</th><th>Direction</th><th>Type</th><th>Changed</th></tr></thead><tbody>$AD_TrustFragment</tbody></table></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">🌐 DNS Zones</div></div>
+      <div class="tbl-wrap"><table class="std"><thead><tr><th>Zone</th><th>Type</th><th>AD Integrated</th></tr></thead><tbody>$AD_DnsFragment</tbody></table></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">🔄 AD Replication Health (repadmin)</div></div>
+    <div class="tbl-wrap"><table class="std"><tbody>$AD_ReplicationFragment</tbody></table></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">🧾 Directory Service Access Audit (4662)</div></div>
+    <div class="kv-list"><div class="kv-list-row"><div class="kv-list-k">Status</div><div class="kv-list-v">$AD_DSAccessStatus</div></div></div>
   </div>
 
 </div><!-- /ad -->
@@ -12500,7 +13683,7 @@ $ExtrasArtifactsFragment = @(
   (New-ExtrasArtifactRow -Label 'IIS Logs'                    -Folder 'artifacts\IISLogs'          -Patterns @('*.log')),
   (New-ExtrasArtifactRow -Label 'TomCat Logs'                 -Folder 'artifacts\TomCatLogs'       -Patterns @('*.log')),
   (New-ExtrasArtifactRow -Label 'Log4j Findings'              -Folder 'artifacts\LOG4J'       -Patterns @('*.txt')),
-  (New-ExtrasArtifactRow -Label 'Windows Artifact Analysis'   -Folder 'artifacts\WindowsArtifacts' -Patterns @('*.pf','*.lnk','*.hve','SYSTEM','SOFTWARE','SECURITY','NTUSER.DAT','UsrClass.dat','*.automaticDestinations-ms','*.customDestinations-ms','$mft','$j','srudb.dat','wpndatabase.db','appdb.dat','windows.edb','windows.db','qmgr*.dat','qmgr.db','*.dmp','$i*','activitiescache.db','*.log1','*.log2'))
+  (New-ExtrasArtifactRow -Label 'Windows Artifact Analysis'   -Folder 'artifacts\WindowsArtifacts' -Patterns @('*.pf','*.lnk','*.hve','SYSTEM','SOFTWARE','SECURITY','NTUSER.DAT','UsrClass.dat','*.automaticDestinations-ms','*.customDestinations-ms','$mft','$j','srudb.dat','wpndatabase.db','appdb.dat','windows.edb','windows.db','windows-gather.db','windows-gather.db-wal','windows-gather.db-shm','qmgr*.dat','qmgr.db','*.dmp','$i*','activitiescache.db','*.log1','*.log2'))
 
   
 ) -join "`n"
