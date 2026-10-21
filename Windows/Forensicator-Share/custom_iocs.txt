@@ -31,6 +31,3 @@
 #   https://www.virustotal.com/
 #   https://isc.sans.edu/
 # ============================================================
-
-https://meet.google.com
-10.0.0.131
