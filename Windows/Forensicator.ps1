@@ -13415,7 +13415,7 @@ $CaseSummaryNarrative = Get-ForensicatorCaseSummaryNarrative -CaseSummary $CaseS
 Write-ForensicLog "[*] Investigation Summary computed" -Level INFO -Section "CASE_SUMMARY" -Detail "Score: $($CaseSummary.OverallScore)/100 ($($CaseSummary.OverallLevel)) | Findings: $($CaseSummary.TotalFindings) | Correlated: $($CaseSummary.Correlated) | Narrative source: $($CaseSummaryNarrative.Source)"
 
 # Persisted alongside the other structured findings so Forensicator
-# Enterprise can ingest the same rollup, not just the HTML report.
+# Core can ingest the same rollup, not just the HTML report.
 try {
     $caseSummaryExport = [ordered]@{
         overall_score      = $CaseSummary.OverallScore
@@ -17652,7 +17652,7 @@ Pop-Location
 
 
 ################################################################################################################################
-## INVESTIGATION ARCHIVE (Forensicator Enterprise upload)  ###################################################################
+## INVESTIGATION ARCHIVE (Forensicator Core upload)  ###################################################################
 ################################################################################################################################
 
 $HostFolder          = "$PSScriptRoot\$env:COMPUTERNAME"
@@ -17708,7 +17708,7 @@ https://docs.forensicator.io
         Write-Host -ForegroundColor Cyan "Investigation archive created."
         Write-Host ""
         Write-Host -ForegroundColor Cyan "Tip: This archive can be uploaded to"
-        Write-Host -ForegroundColor Cyan "Forensicator Enterprise for automated analysis."
+        Write-Host -ForegroundColor Cyan "Forensicator Core for automated analysis."
         Write-Host ""
     }
     catch {

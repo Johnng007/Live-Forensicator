@@ -1030,7 +1030,7 @@ write_structured_log() {
 }
 
 ##########################################################
-# Per-check JSON output (for Forensicator Enterprise)
+# Per-check JSON output (for Forensicator Core)
 ##########################################################
 
 # Escape a string for safe embedding inside a JSON double-quoted value
@@ -1152,7 +1152,7 @@ FINDINGJSON
 # Generate all per-check finding JSON files
 generate_findings_json() {
     set +e
-    cyan "[*] Generating per-check finding JSONs for Forensicator Enterprise..."
+    cyan "[*] Generating per-check finding JSONs for Forensicator Core..."
 
     # --- NETWORK ---
     write_finding_json "network" "ip-addresses" "Network Interface Configuration" \
@@ -1368,7 +1368,7 @@ generate_findings_json() {
     set -e
 }
 
-# Zip all finding JSONs for Forensicator Enterprise upload
+# Zip all finding JSONs for Forensicator Core upload
 zip_findings() {
     set +e
     local inv_dir
@@ -3074,5 +3074,5 @@ echo  "      MEDIUM     : ${F_DETECTION_MEDIUM:-0}"
 echo  "      LOW        : ${F_DETECTION_LOW:-0}"
 green "[!] ============================================================"
 green "[!]  Open $Hostname/index.html in a browser to view results"
-green "[!]  Upload ${Hostname}_findings.zip to Forensicator Enterprise"
+green "[!]  Upload ${Hostname}_findings.zip to Forensicator Core"
 green "[!] ============================================================"

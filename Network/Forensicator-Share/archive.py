@@ -30,10 +30,10 @@ Archive   : investigation.zip
 SHA256    : {sha256}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Forensicator Enterprise
+Forensicator Core
 
 The investigation archive can be uploaded to
-Forensicator Enterprise for:
+Forensicator Core for:
 
  • Network device configuration analysis
  • IOC enrichment

@@ -595,7 +595,7 @@ write_structured_log() {
 }
 
 ##########################################################
-# Per-check JSON output (for Forensicator Enterprise)
+# Per-check JSON output (for Forensicator Core)
 ##########################################################
 
 json_escape() {
@@ -711,7 +711,7 @@ FINDINGJSON
 
 generate_findings_json() {
     set +e
-    cyan "[*] Generating per-check finding JSONs for Forensicator Enterprise..."
+    cyan "[*] Generating per-check finding JSONs for Forensicator Core..."
 
     # --- NETWORK ---
     write_finding_json "network" "ip-addresses" "Network Interface Configuration" \
@@ -960,7 +960,7 @@ PYEOF
 
 # Zip the entire investigation folder (full category-folder structure, not
 # just the flat finding-JSONs zip from zip_findings()), hash it, and drop a
-# Readme pointing at Forensicator Enterprise -- mirrors the Windows
+# Readme pointing at Forensicator Core -- mirrors the Windows
 # Investigation Archive feature.
 create_investigation_archive() {
     set +e
@@ -1015,10 +1015,10 @@ Archive   : investigation.zip
 SHA256    : ${archive_hash}
 
 -----------------------------------------------
-Forensicator Enterprise
+Forensicator Core
 
 The investigation archive can be uploaded to
-Forensicator Enterprise for:
+Forensicator Core for:
 
  * Log Analysis
  * IOC enrichment
@@ -1035,7 +1035,7 @@ README
     green "[!] Investigation archive created: ${archive_zip} (SHA256: ${archive_hash})"
     echo ""
     cyan "Tip: This archive can be uploaded to"
-    cyan "Forensicator Enterprise for automated analysis."
+    cyan "Forensicator Core for automated analysis."
     echo ""
     set -e
 }
@@ -2608,6 +2608,6 @@ echo  "      MEDIUM     : ${MEDIUM_COUNT:-0}"
 echo  "      LOW        : ${LOW_COUNT:-0}"
 green "[!] ============================================================"
 green "[!]  Open $Hostname/index.html in a browser to view results"
-green "[!]  Upload $Hostname/investigation.zip (see $Hostname/Readme.txt) to Forensicator Enterprise"
-green "[!]  Upload ${Hostname}_findings.zip to Forensicator Enterprise"
+green "[!]  Upload $Hostname/investigation.zip (see $Hostname/Readme.txt) to Forensicator Core"
+green "[!]  Upload ${Hostname}_findings.zip to Forensicator Core"
 green "[!] ============================================================"

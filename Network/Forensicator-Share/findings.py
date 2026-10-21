@@ -127,7 +127,7 @@ def write_finding_json(finding: Dict[str, Any], output_root: Path) -> Path:
     <output_root>/<hostname>/investigation/<category>/<check_name>-finding.json
     — same layout convention as the Linux/macOS collectors, so an
     operator zipping <hostname>/investigation/ produces an archive
-    Forensicator Enterprise ingests exactly the same way.
+    Forensicator Core ingests exactly the same way.
     """
     host_label = finding["host"]["hostname"] or finding["host"]["ip"] or "unknown-host"
     category = finding["category"]
