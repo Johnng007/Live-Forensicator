@@ -94,6 +94,10 @@ chmod +x Forensicator.sh
 # Basic execution
 ./Forensicator.sh
 
+# Raw artifact collection for Forensicator Core (run as root): files, logs,
+# process table and filesystem timeline, with a SHA-256 manifest
+sudo ./Forensicator.sh -A
+
 # Help
 ./Forensicator.sh --usage
 
@@ -245,6 +249,7 @@ Requires `python3` (no other dependency — HTTP calls go through Python's own s
 
 ### 🚀 Extended Features
 
+* Raw artifact collection (`-A`) for Forensicator Core's Host Artifacts upload — see below
 * Network tracing (PCAP)
 * RAM acquisition
 * Browser history analysis
@@ -263,11 +268,40 @@ Forensicator generates:
 * Timeline-based investigation data
 * Per-check JSON findings for Forensicator Enterprise
 
+### Raw artifacts (`-A`)
+
+`-A` copies the artifacts themselves into `<host>/artifacts/LinuxArtifacts/`, ready to upload to Forensicator Core (**Host Artifacts → Upload → Collector folder**, picking the host folder):
+
+| Folder | Contents |
+|---|---|
+| `Files/<absolute path>` | Raw copies at their real path, timestamps and modes preserved: accounts (`passwd`, `shadow`, `group`, `sudoers`, `sudoers.d`), PAM, SSH server config, every user's shell/app histories, `authorized_keys`, `known_hosts` and startup files, cron/at, systemd units and drop-ins, `ld.so.preload`, module/udev/sysctl/APT hooks, `wtmp`/`btmp`/`utmp`, and the logs listed in `raw_log_globs` (with rotations) |
+| `Commands/` | Sockets, listeners, interfaces, routes, firewall, mounts, sysctl, loaded modules, packages, services, timers, eBPF programs, Docker containers, immutable files (`lsattr`), symlinks found in collected locations, kernel banner |
+| `Processes/` | `processes.tsv` (PID, parent, user, start time, executable, SHA-256, cwd, command line) and `recovered/` — executables still running but deleted from disk, recovered from `/proc/<pid>/exe` |
+| `Timeline/bodyfile.txt` | TSK bodyfile (MACB times) of `raw_bodyfile_paths`, capped at `raw_bodyfile_max_entries` |
+| `Logs/journal.log` | systemd journal for the last `raw_journal_days` days |
+| `CollectionManifest/` | Every acquisition (Collected / Skipped / Failed) with the SHA-256 of each collected file — Core verifies each upload against it |
+
+Run it as root: without root, `shadow`, other users' homes and some processes are missing (the manifest records that the collection is partial). Volatile data — processes and sockets — is read before any file is copied, and with `-r` memory is captured first. Core parses the artifacts into records and runs its Linux detection rules on them; the logs go to Log Analysis in the same case.
+
+Settings in `config.json`: `raw_max_file_mb`, `raw_log_globs`, `raw_journal_days`, `raw_bodyfile_paths`, `raw_bodyfile_max_entries`, plus `persistence_days_back` (the systemd detection's lookback).
+
 ---
 
 ## ✨ Changelog
 
 ```bash
+v4.3.0
+- NEW: -A / --artifacts raw artifact collection with a SHA-256 CollectionManifest, for Forensicator Core's Host Artifacts upload.
+- NEW: Recovers executables of processes running from deleted binaries; login history from wtmp/btmp where last/lastb are no longer installed (Ubuntu 26.04, Debian 13).
+- CHANGE: Memory capture (-r) now runs first, before the packet capture and the rest of the collection.
+- FIX: -z/--update called a function that didn't exist; it now checks for a newer version and updates a git checkout.
+- FIX: -d/--decrypt and -z deleted the previous collection folder; an earlier collection is now moved aside, never deleted.
+- FIX: The -t timeline filter returned nothing for traditional syslog timestamps; it now handles RFC 3164, RFC 3339 and auditd records, rotated and .gz logs, honours -logdir/-log, and also exports the journal.
+- FIX: Collection could stop silently part-way: every check re-enabled exit-on-error for the rest of the run.
+- FIX: Detections tuned — brute force and log clearing read auth.log, secure or the journal; systemd persistence uses a real lookback; shared libraries are flagged only in unusual locations; listeners on loopback no longer count as non-standard ports; process-in-temp uses the real executable path; timestomping ignores unmodified package files; PATH checks follow symlinks.
+- FIX: IOC matching — executables are matched as whole words, and everyday system binaries (bash, ssh, sudo, cron, ...) were removed from the list; ".*" patterns in suspicious_SH_commands now work as patterns.
+- FIX: Ransomware extensions are read from Ransomware_Extensions only; Sigma rules scoped to a service (cron, sshd, ...) only match that service's log lines; wrong motd persistence paths corrected.
+
 v4.1.6
 - NEW: Sigma rule engine sourced from real SigmaHQ community rules, evaluated against auditd and journald.
 - NEW: 25-rule detection engine (previously 20) — added deleted-binary execution, kernel taint, credential-file timestomping, and PATH-hijack checks.

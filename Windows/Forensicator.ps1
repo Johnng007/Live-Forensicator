@@ -5212,9 +5212,9 @@ $DownloadFinding | ConvertTo-Json -Depth 10 | Out-File $DownloadJsonOutputPath -
 ###########################################################################################################
 #region  WINDOWS ARTIFACTS (WinArtifacts) — Shimcache/Amcache, Prefetch, UserAssist/BAM, Autoruns, LNK/Jump Lists/Shellbags, $MFT/$UsnJrnl, SRUM, Defender quarantine, WER, Search, RecycleBin, Notifications, BITS, Timeline, registry transaction logs
 ###########################################################################################################
-# Collects the RAW files Forensicator-Core's "Windows Artifact Analysis" feature parses server-side
+# Collects the RAW files Forensicator-Core's "Host Artifacts" feature parses server-side
 # (regipy for registry hives, pyscca for Prefetch, LnkParse3 for LNK/Jump Lists) for later upload via
-# /windows-artifacts/upload — this section does not parse or interpret any of it itself. Opt-in via
+# /host-artifacts/upload — this section does not parse or interpret any of it itself. Opt-in via
 # -WINARTIFACTS, same reasoning as -RAM/-PCAP being opt-in (VSS overhead, potentially large files).
 #
 # Also collects a few NTFS/SRUM-level artifacts Core's upload page has no dedicated parser for yet

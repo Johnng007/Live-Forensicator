@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # Live Forensicator Bash Script
-# Coded by Ebuka John Onyejegbu
 
 # Make all relative paths (./config.json, ./Forensicator-Share/*, output dirs)
 # resolve against the script's own location rather than the caller's CWD.
@@ -25,7 +24,8 @@ PRUNE_PATHS=(-path /proc -o -path /sys -o -path /dev -o -path /run)
 
 # Defining parameters
 usage() {
-    echo "Usage: $0 [-p|--pcap] [-r|--ram] [-s|--ransom] [-w|--weblogs] [-b|--browser] [-t|--timeline START_DATE END_DATE] [-log|--logfiles LOG_FILES] [-logdir|--logdir LOG_DIR] [-e|--encrypt] [-d|--decrypt] [-u|--usage] [-z|--update] [-name|--name NAME] [-case|--case CASE] [-title|--title TITLE] [-loc|--location LOCATION] [-device|--device DEVICE]"
+    echo "Usage: $0 [-A|--artifacts] [-p|--pcap] [-r|--ram] [-s|--ransom] [-w|--weblogs] [-b|--browser] [-t|--timeline START_DATE END_DATE] [-log|--logfiles LOG_FILES] [-logdir|--logdir LOG_DIR] [-e|--encrypt] [-d|--decrypt] [-u|--usage] [-z|--update] [-name|--name NAME] [-case|--case CASE] [-title|--title TITLE] [-loc|--location LOCATION] [-device|--device DEVICE]"
+    echo "  -A, --artifacts       Collect raw Linux artifacts (files, logs, process table, timeline) with a SHA-256 manifest, for Forensicator Core's Host Artifacts upload"
     echo "  -p, --pcap            Record network traffic for 60 seconds and save as a pcap file"
     echo "  -r, --ram             Extract the system RAM"
     echo "  -s, --ransom          Check filesystem for ransomware encrypted files"
@@ -52,8 +52,10 @@ usage() {
 create_directory(){
     WORKDIR=$(hostname)
     if [ -d "$WORKDIR" ]; then
-        echo "Removing $WORKDIR"
-        rm -rf "$WORKDIR"
+        # Never delete an earlier collection -- it may be the only copy.
+        local previous="${WORKDIR}.previous-$(date -r "$WORKDIR" +%Y%m%dT%H%M%S 2>/dev/null || date +%Y%m%dT%H%M%S)"
+        echo "Moving the previous collection aside: $previous"
+        mv "$WORKDIR" "$previous" || { echo "Could not move $WORKDIR aside -- stopping"; exit 1; }
     elif [ -f "$WORKDIR" ]; then
         echo "File with this name already exists, not a directory."
         exit
@@ -66,8 +68,6 @@ create_directory(){
         return 1
     fi
 }
-
-create_directory
 
 # define working hostname
 Hostname=$(hostname)
@@ -125,10 +125,15 @@ read_first_available_config_array() {
 }
 
 # Search captured content for IOC matches and write normalized hits to disk.
+# match_mode: "word" matches an indicator only as a whole word (executable
+# names -- "nc" must not match "sync"); "text" matches it as a substring, or
+# as an extended regex when it contains ".*" (several suspicious_SH_commands
+# entries are patterns such as "echo .* > /etc/ld.so.preload").
 write_ioc_matches() {
     local key_spec="$1"
     local output_file="$2"
-    shift 2
+    local match_mode="$3"
+    shift 3
     local sources=("$@")
     local indicator
     local source_name
@@ -145,7 +150,14 @@ write_ioc_matches() {
             while IFS= read -r line; do
                 printf '%s|%s|%s\n' "$indicator" "$source_name" "$line" >>"$output_file"
                 match_found=1
-            done < <(printf '%s\n' "$source_data" | grep -iF -- "$indicator")
+            done < <(
+                if [[ "$match_mode" == "word" ]]; then
+                    printf '%s\n' "$source_data" | grep -iwF -- "$indicator"
+                elif [[ "$indicator" == *".*"* ]]; then
+                    printf '%s\n' "$source_data" | grep -iE -- "$indicator"
+                else
+                    printf '%s\n' "$source_data" | grep -iF -- "$indicator"
+                fi)
         done
     done < <(IFS='|' read -r -a keys <<< "$key_spec"; read_first_available_config_array "${keys[@]}")
 
@@ -156,6 +168,9 @@ write_ioc_matches() {
     fi
 }
 
+
+# Raw artifact acquisition (-A), see Forensicator-Share/linux_artifacts.sh
+source "$SCRIPT_DIR/Forensicator-Share/linux_artifacts.sh"
 
 # Getting version info
 MyVersion=$(<version.txt)
@@ -285,6 +300,19 @@ CheckForUpdates() {
     fi
 }
 
+# -z/--update: check for a newer release, and pull it when this copy is a
+# git checkout of the collector repository. Otherwise point at the release.
+update() {
+    local repo_root
+    repo_root=$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null)
+    if [[ -n "$repo_root" ]]; then
+        cyan "[*] Updating this git checkout ($repo_root)"
+        git -C "$repo_root" pull --ff-only && green "[!] Updated" || yellow "[!] git pull failed -- update manually"
+    else
+        cyan "[!] Download the latest release from https://github.com/$repoOwner/$repoName"
+    fi
+}
+
 # Call the function to check for updates
 CheckForUpdates
 
@@ -344,6 +372,53 @@ weblogs() {
         green "Nginx logs extracted and copied"
     else
         cyan "Looks like there are no NGINX webservers"
+    fi
+}
+
+# Decode a utmp-format file (wtmp/btmp) when last/lastb aren't installed
+# (Ubuntu 26.04 and Debian 13 ship neither). Linux struct utmp is 384 bytes:
+# type, pid, line[32], id[4], user[32], host[256], exit, session, tv_sec,
+# tv_usec, addr_v6[16], unused[20].
+dump_utmp_file() {
+    local file="$1"
+    [[ -r "$file" ]] || return 1
+    command -v python3 >/dev/null 2>&1 || return 1
+    python3 - "$file" <<'UTMPEOF'
+import socket, struct, sys, time
+TYPES = {1: "RUN_LVL", 2: "BOOT", 5: "INIT", 6: "LOGIN", 7: "USER", 8: "DEAD"}
+fmt = "<hxxi32s4s32s256shhiii4I20x"
+size = struct.calcsize(fmt)
+data = open(sys.argv[1], "rb").read()
+rows = []
+for off in range(0, len(data) - size + 1, size):
+    t, pid, line, _id, user, host, _e1, _e2, _sess, sec, _usec, a0, a1, a2, a3 = struct.unpack_from(fmt, data, off)
+    if t not in TYPES:
+        continue
+    dec = lambda b: b.split(bytes(1), 1)[0].decode("utf-8", "replace")
+    addr = ""
+    if a0 and not (a1 or a2 or a3):
+        addr = socket.inet_ntop(socket.AF_INET, struct.pack("<I", a0))
+    elif a0 or a1 or a2 or a3:
+        addr = socket.inet_ntop(socket.AF_INET6, struct.pack("<4I", a0, a1, a2, a3))
+    when = time.strftime("%Y-%m-%d %H:%M:%S %z", time.localtime(sec))
+    rows.append(f"{when}  {TYPES[t]:<7} {dec(user):<12} {dec(line):<10} {dec(host)} {addr}".rstrip())
+print("\n".join(reversed(rows)) if rows else "No records in " + sys.argv[1])
+UTMPEOF
+}
+
+# True when a package owns the file and its content still matches the
+# package database (dpkg --verify / rpm -V report nothing for it).
+package_file_unmodified() {
+    local f="$1" pkg
+    if command -v dpkg >/dev/null 2>&1; then
+        pkg=$(dpkg -S "$f" 2>/dev/null | head -1 | cut -d: -f1)
+        [[ -n "$pkg" ]] || return 1
+        ! dpkg --verify "$pkg" 2>/dev/null | grep -qF " $f"
+    elif command -v rpm >/dev/null 2>&1; then
+        rpm -qf "$f" >/dev/null 2>&1 || return 1
+        ! rpm -Vf "$f" 2>/dev/null | grep -qF " $f"
+    else
+        return 1
     fi
 }
 
@@ -433,8 +508,18 @@ ransom() {
         exit 1
     fi
 
-    # Read the file extensions from the JSON file
-    Ransomware_Extensions=($(grep -o '"\.[^"]*"' "$json_file" | tr -d '"'))
+    # Read the file extensions from config.json's Ransomware_Extensions key only
+    # (grepping every quoted ".xxx" string also picked up unrelated values such
+    # as new_files_excluded_dir_names' ".git"/".venv").
+    Ransomware_Extensions=()
+    while IFS= read -r ext; do
+        [[ -n "$ext" ]] && Ransomware_Extensions+=("$ext")
+    done < <(read_config_array "Ransomware_Extensions")
+    if [[ ${#Ransomware_Extensions[@]} -eq 0 ]]; then
+        echo "No Ransomware_Extensions configured in $json_file" >"$(hostname)/RANSOM_MALICIOUS/$(hostname)_ransom.txt"
+        green "[!] Done"
+        return 0
+    fi
 
     # Define the output directory and file
 
@@ -450,7 +535,6 @@ ransom() {
 # to config-driven search paths (never a full "/" walk) with a config-driven
 # lookback window and excluded directory names.
 new_files_check() {
-    set +e
     cyan "[*] Checking for recently modified executables"
 
     local days_back
@@ -498,7 +582,6 @@ new_files_check() {
     fi
 
     green "[!] Done"
-    set -e
 }
 
 # Function to check config-driven Linux IOCs in collected process and persistence data
@@ -513,11 +596,13 @@ ioc_checks() {
     write_ioc_matches \
         "suspicious_executables" \
         "$IOC_EXECUTABLES_FILE" \
+        word \
         F_ps F_services F_systemctl F_cron2 F_p1 F_p2 F_p3 F_p4 F_p5 F_p6 F_p7 F_p8 F_p9
 
     write_ioc_matches \
         "suspicious_SH_commands|suspicious_PS_commands" \
         "$IOC_SHELL_COMMANDS_FILE" \
+        text \
         F_ps F_cron2 F_p1 F_p2 F_p3 F_p4 F_p5 F_p6 F_p7 F_p8 F_p9 F_bashrc
 
     F_suspicious_exec_hits=$(cat "$IOC_EXECUTABLES_FILE")
@@ -528,7 +613,6 @@ ioc_checks() {
 
 # Function to hash check running process executables
 hash_check() {
-    set +e
     mkdir -p "$(hostname)/DETECTIONS"
     local outfile="$(hostname)/DETECTIONS/hash_matches.txt"
     : >"$outfile"
@@ -579,7 +663,6 @@ hash_check() {
     if [[ ${#hash_files[@]} -eq 0 ]]; then
         echo "No hash list files available (feed download failed and no custom hash file found)" >"$outfile"
         green "[!] Hash check done (no hash lists found)"
-        set -e
         return 0
     fi
 
@@ -605,12 +688,10 @@ hash_check() {
         echo "No hash matches found" >"$outfile"
     fi
     green "[!] Hash check done"
-    set -e
 }
 
 # Function to check browser history CSV files for malicious URLs/IOCs
 browser_ioc_check() {
-    set +e
     mkdir -p "$(hostname)/DETECTIONS"
     local outfile="$(hostname)/DETECTIONS/browser_ioc_matches.txt"
     : >"$outfile"
@@ -646,14 +727,12 @@ browser_ioc_check() {
     if [[ ! -d "$history_dir" ]]; then
         echo "No browsing history directory found" >"$outfile"
         green "[!] Browser IOC check done (no history directory)"
-        set -e
         return 0
     fi
 
     if [[ ${#ioc_files[@]} -eq 0 ]]; then
         echo "No IOC list files found in Forensicator-Share/ (feed download failed and no custom IOC file found)" >"$outfile"
         green "[!] Browser IOC check done (no IOC lists found)"
-        set -e
         return 0
     fi
 
@@ -674,12 +753,10 @@ browser_ioc_check() {
         echo "No browser IOC matches found" >"$outfile"
     fi
     green "[!] Browser IOC check done"
-    set -e
 }
 
 # Detection engine - 25 rules
 run_detections() {
-    set +e
     mkdir -p "$(hostname)/DETECTIONS"
     local findings_file="$(hostname)/DETECTIONS/findings.csv"
     echo "severity,mitre_technique,category,description,evidence" >"$findings_file"
@@ -717,7 +794,19 @@ run_detections() {
 
     # Rule 2: Executables running from suspicious temp dirs
     local tmp_exe_hits
-    tmp_exe_hits=$(echo "$F_ps" | grep -E ' (/tmp/|/dev/shm/|/var/tmp/)' 2>/dev/null | head -5)
+    # The executable's own path (/proc/<pid>/exe), not just a command line
+    # that mentions /tmp somewhere in its arguments.
+    tmp_exe_hits=""
+    local exe_link exe_target exe_pid
+    for exe_link in /proc/[0-9]*/exe; do
+        exe_target=$(readlink "$exe_link" 2>/dev/null) || continue
+        case "$exe_target" in
+            /tmp/*|/var/tmp/*|/dev/shm/*)
+                exe_pid=${exe_link#/proc/}; exe_pid=${exe_pid%/exe}
+                tmp_exe_hits+="PID=${exe_pid} EXE=${exe_target} CMDLINE=$(tr '\0' ' ' < "/proc/${exe_pid}/cmdline" 2>/dev/null)"$'\n' ;;
+        esac
+    done
+    tmp_exe_hits=$(printf '%s' "$tmp_exe_hits" | head -5)
     if [[ -n "$tmp_exe_hits" ]]; then
         add_finding "HIGH" "T1059" "Execution from Temp" "Process executing from suspicious temporary directory" "$(echo "$tmp_exe_hits" | head -1 | tr '\n' ' ')"
     fi
@@ -759,23 +848,32 @@ run_detections() {
 
     # Rule 8: Brute force - >10 failed logins from same IP
     local brute_hits
-    brute_hits=$(grep -iE 'failed|failure|invalid' /var/log/auth.log 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | sort | uniq -c | sort -rn | awk '$1>10 {print $0}' | head -5)
+    brute_hits=$(printf '%s\n' "$F_auth_raw" | grep -iE 'failed|failure|invalid' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | sort | uniq -c | sort -rn | awk '$1>10 {print $0}' | head -5)
     if [[ -n "$brute_hits" ]]; then
-        add_finding "HIGH" "T1110.001" "Brute Force" "More than 10 failed login attempts from same IP detected in auth.log" "$(echo "$brute_hits" | head -1)"
+        add_finding "HIGH" "T1110.001" "Brute Force" "More than 10 failed login attempts from the same IP in the authentication log" "$(echo "$brute_hits" | head -1)"
     fi
 
-    # Rule 9: Custom systemd unit files
+    # Rule 9: systemd units created or changed recently (lookback window from
+    # config.json's persistence_days_back -- "newer than /etc/passwd" said
+    # nothing, since that file changes whenever anyone changes a password).
+    local persist_days
+    persist_days=$(read_config_array "persistence_days_back" | head -1)
+    [[ -z "$persist_days" || ! "$persist_days" =~ ^[0-9]+$ ]] && persist_days=30
     local systemd_custom
-    systemd_custom=$(find /etc/systemd/system/ -maxdepth 1 -name "*.service" -newer /etc/passwd 2>/dev/null | head -5)
+    systemd_custom=$(find /etc/systemd/system /usr/local/lib/systemd/system /etc/systemd/user /root/.config/systemd/user /home/*/.config/systemd/user \
+        -maxdepth 2 -type f \( -name "*.service" -o -name "*.timer" -o -name "*.conf" \) -mtime -"$persist_days" 2>/dev/null | head -5)
     if [[ -n "$systemd_custom" ]]; then
-        add_finding "MEDIUM" "T1543.002" "Systemd Persistence" "Custom systemd unit file(s) detected in /etc/systemd/system/" "$(echo "$systemd_custom" | head -1)"
+        add_finding "MEDIUM" "T1543.002" "Systemd Persistence" "systemd unit or drop-in created or changed in the last ${persist_days} days" "$(echo "$systemd_custom" | head -1)"
     fi
 
     # Rule 10: Log clearing commands in auth logs
     local logclear_hits
-    logclear_hits=$(grep -iE 'rm.*\.log|truncate|> /var/log|shred' /var/log/auth.log 2>/dev/null | head -5)
+    # sudo logs every command it runs (COMMAND=...) to the auth log; shell
+    # histories show the rest.
+    logclear_hits=$( { printf '%s\n' "$F_auth_raw" | grep -i 'COMMAND='; printf '%b\n' "$F_bash_history"; } \
+        | grep -iE '(^|[;&|[:space:]])(rm|shred|truncate)([[:space:]]+(-[^[:space:]]+|[0-9]+[KMG]?))*[[:space:]]+[^[:space:]]*(/var/log/|_history([[:space:]]|$))|(^|[^>0-9&])>[[:space:]]*/var/log/|journalctl[^;|]*--vacuum|history[[:space:]]+-c|unset[[:space:]]+HISTFILE|HISTFILE=/dev/null' | head -5)
     if [[ -n "$logclear_hits" ]]; then
-        add_finding "HIGH" "T1070.002" "Log Clearing" "Log clearing command detected in auth logs" "$(echo "$logclear_hits" | head -1 | tr '\n' ' ')"
+        add_finding "HIGH" "T1070.002" "Log Clearing" "Log or history clearing command found in the authentication log or a shell history" "$(echo "$logclear_hits" | head -1 | tr '\n' ' ')"
     fi
 
     # Rule 11: Docker container escape via volume mount
@@ -801,9 +899,15 @@ run_detections() {
 
     # Rule 14: Services on non-standard ports (ports above 1024 that are not common)
     local nonstandard_ports
-    nonstandard_ports=$(echo "$F_ss2" | grep LISTEN | grep -oE ':[0-9]+' | grep -oE '[0-9]+' | awk '$1>1024 && $1!=3306 && $1!=5432 && $1!=8080 && $1!=8443 && $1!=27017 {print $1}' | sort -u | head -5)
+    # Only listeners reachable from the network: loopback-bound ones can't
+    # be a remote backdoor and made this fire on almost every server.
+    nonstandard_ports=$(echo "$F_ss2" | awk '$1=="LISTEN" {
+            addr=$4; port=addr; sub(/.*:/, "", port); host=addr; sub(/:[^:]*$/, "", host)
+            if (host ~ /^(127\.|\[?::1\]?$|localhost)/) next
+            if (port+0 > 1024 && port != 3306 && port != 5432 && port != 8080 && port != 8443 && port != 27017) print port
+        }' | sort -un | head -5)
     if [[ -n "$nonstandard_ports" ]]; then
-        add_finding "MEDIUM" "T1049" "Non-Standard Ports" "Services listening on non-standard ports detected" "$(echo "$nonstandard_ports" | tr '\n' ' ')"
+        add_finding "LOW" "T1049" "Non-Standard Ports" "Services listening on non-standard ports on a non-loopback address" "$(echo "$nonstandard_ports" | tr '\n' ' ')"
     fi
 
     # Rule 15: /etc/ld.so.preload exists and non-empty
@@ -827,11 +931,14 @@ run_detections() {
         add_finding "HIGH" "T1574" "LD_PRELOAD in Process" "LD_PRELOAD or LD_LIBRARY_PATH set in running process environment" "$(echo "$ldpreload_hits" | head -1)"
     fi
 
-    # Rule 18: .so files newer than /etc/passwd
+    # Rule 18: shared libraries where none belong -- temp dirs, home dirs,
+    # /etc (the usual drop points for an LD_PRELOAD or injected library). A
+    # whole-disk "newer than /etc/passwd" walk mostly found package updates.
     local new_so_files
-    new_so_files=$(find / -name "*.so" -newer /etc/passwd -not -path "/proc/*" -not -path "/sys/*" 2>/dev/null | head -5)
+    new_so_files=$(find /tmp /var/tmp /dev/shm /etc /root /home -xdev \( -name "*.so" -o -name "*.so.[0-9]*" \) -type f 2>/dev/null \
+        | grep -vE '/(\.cache|\.local/lib|\.local/share|\.vscode[^/]*|\.cargo|\.rustup|\.npm|\.nvm|node_modules|site-packages|\.mozilla|\.config/[^/]+/(Extensions|extensions))/' | head -5)
     if [[ -n "$new_so_files" ]]; then
-        add_finding "LOW" "T1070.006" "New Shared Libraries" "Shared library (.so) files newer than /etc/passwd found" "$(echo "$new_so_files" | head -1)"
+        add_finding "MEDIUM" "T1574.006" "Shared Library in Unusual Location" "Shared library (.so) found in a temp, home or /etc directory" "$(echo "$new_so_files" | head -1)"
     fi
 
     # Rule 19: SSH port forwarding in process list
@@ -878,7 +985,6 @@ run_detections() {
     F_DETECTION_TOTAL=$((F_DETECTION_CRITICAL + F_DETECTION_HIGH + F_DETECTION_MEDIUM + F_DETECTION_LOW))
     F_DETECTION_FILE="$findings_file"
     green "[!] Detection engine complete: $F_DETECTION_TOTAL findings ($F_DETECTION_CRITICAL critical, $F_DETECTION_HIGH high, $F_DETECTION_MEDIUM medium, $F_DETECTION_LOW low)"
-    set -e
 }
 
 # Recompute F_DETECTION_* totals from the final findings.csv, since both the
@@ -900,7 +1006,6 @@ recompute_detection_totals() {
 # data) and journald (near-universal). Requires python3; skips cleanly and
 # loudly if it isn't present — the rest of the collection is unaffected.
 run_sigma_detections() {
-    set +e
     cyan "[*] Running Sigma detection engine (Linux ruleset)"
 
     local python_bin=""
@@ -912,14 +1017,12 @@ run_sigma_detections() {
 
     if [[ -z "$python_bin" ]]; then
         echo "[!] Sigma engine skipped: python3 not found on this system"
-        set -e
         return 0
     fi
 
     local rules_file="$SCRIPT_DIR/Forensicator-Share/rules/linux/sigma_rules.json"
     if [[ ! -f "$rules_file" ]]; then
         echo "[!] Sigma engine skipped: rules file not found ($rules_file)"
-        set -e
         return 0
     fi
 
@@ -947,12 +1050,10 @@ run_sigma_detections() {
     fi
 
     recompute_detection_totals
-    set -e
 }
 
 # Function to write metadata JSON
 write_metadata_json() {
-    set +e
     mkdir -p "$(hostname)/investigation"
     local meta_file="$(hostname)/investigation/metadata.json"
     local os_version
@@ -996,12 +1097,10 @@ write_metadata_json() {
 }
 METAEOF
     green "[!] Metadata JSON written"
-    set -e
 }
 
 # Function to write structured logs
 write_structured_log() {
-    set +e
     mkdir -p "$(hostname)/LOGS"
     local log_file="$(hostname)/LOGS/${Hostname}_structured.csv"
     local findings_log="$(hostname)/LOGS/${Hostname}_findings_only.csv"
@@ -1026,7 +1125,6 @@ write_structured_log() {
 
     echo "${ts},INFO,summary,Total detections: ${F_DETECTION_TOTAL:-0} (CRITICAL:${F_DETECTION_CRITICAL:-0} HIGH:${F_DETECTION_HIGH:-0} MEDIUM:${F_DETECTION_MEDIUM:-0} LOW:${F_DETECTION_LOW:-0})" >>"$log_file"
     green "[!] Structured logs written"
-    set -e
 }
 
 ##########################################################
@@ -1151,7 +1249,6 @@ FINDINGJSON
 
 # Generate all per-check finding JSON files
 generate_findings_json() {
-    set +e
     cyan "[*] Generating per-check finding JSONs for Forensicator Core..."
 
     # --- NETWORK ---
@@ -1365,12 +1462,10 @@ generate_findings_json() {
         "run_detections()" "HIGH" "${det_evidence}"
 
     green "[!] Per-check finding JSONs written to $(hostname)/investigation/"
-    set -e
 }
 
 # Zip all finding JSONs for Forensicator Core upload
 zip_findings() {
-    set +e
     local inv_dir
     inv_dir="$(hostname)/investigation"
     local zip_out="${Hostname}_findings.zip"
@@ -1394,12 +1489,10 @@ PYEOF
     else
         yellow "[!] zip/python3 not found — skipping zip (JSONs in ${inv_dir})"
     fi
-    set -e
 }
 
 # Function to encrypt artifacts
 encrypt_artifacts() {
-    set +e
     local tarball="${Hostname}_artifacts.tar.gz"
     local encrypted="${Hostname}_artifacts.tar.gz.forensicator"
     local keyfile="${Hostname}_key.txt"
@@ -1421,12 +1514,10 @@ encrypt_artifacts() {
     else
         green "[!] Encryption failed - keeping unencrypted archive: $tarball"
     fi
-    set -e
 }
 
 # Function to decrypt artifacts
 decrypt_artifacts() {
-    set +e
     local encrypted_file="$1"
     local keyfile="${encrypted_file%.forensicator}"
     keyfile="${keyfile%.tar.gz}_key.txt"
@@ -1453,59 +1544,96 @@ decrypt_artifacts() {
     else
         echo "Decryption failed. Wrong password or corrupted file."
     fi
-    set -e
 }
 
 # Function to extract system logs within a timeline.
+#
+# Lines are kept when their own timestamp falls inside START_DATE..END_DATE.
+# Both syslog timestamp styles are understood -- traditional "Oct 25 10:00:01"
+# (no year: taken as the current year, or the previous one for a month later
+# than this month) and ISO/RFC 3339 "2026-10-25T10:00:01..." -- by turning each
+# into a sortable YYYYMMDDHHMMSS key. Lines without a timestamp of their own
+# (continuations) follow the line before them. Times are compared as written
+# in the log (local time on most systems). Plain awk only, no gawk extensions.
 timeline() {
 
     cyan "[*] Collecting timeline logs"
 
-    # Default values
-    LOG_DIR="/var/log"
+    # -logdir / -log override these defaults.
+    LOG_DIR="${LOG_DIR:-/var/log}"
+    if [[ ${#LOG_FILES[@]} -eq 0 ]]; then
+        LOG_FILES=("auth.log" "secure" "syslog" "messages" "kern.log" "audit/audit.log")
+    fi
     OUTPUT_DIR="./$(hostname)/timeline_logs"
-    LOG_FILES=("auth.log" "syslog" "kern.log" "messages")
-    TIMELINE=0
-
-    # Validate date format function
-    validate_date() {
-        date -d "$1" "+%Y-%m-%d %H:%M:%S" &>/dev/null
-        if [[ $? -ne 0 ]]; then
-            echo "Invalid date format: $1"
-            usage
-        fi
-    }
-
-    # Create output directory for extracted logs
     mkdir -p "$OUTPUT_DIR"
 
-    # Function to extract logs
-    extract_logs() {
-        local file=$1
-        local start_date=$2
-        local end_date=$3
+    local start_key end_key
+    start_key=$(date -d "$START_DATE" +%Y%m%d%H%M%S)
+    end_key=$(date -d "$END_DATE" +%Y%m%d%H%M%S)
 
-        if [[ $TIMELINE -eq 1 ]]; then
-            awk -v start="$start_date" -v end="$end_date" \
-                '$0 >= start && $0 <= end' "$file" >"${OUTPUT_DIR}/$(basename $file)"
-        else
-            cp "$file" "$OUTPUT_DIR"
-        fi
+    extract_logs() {
+        local file="$1" out="$2" reader="cat"
+        [[ "$file" == *.gz ]] && reader="zcat"
+        $reader "$file" 2>/dev/null | awk -v start="$start_key" -v end="$end_key" \
+            -v startep="$(date -d "$START_DATE" +%s)" -v endep="$(date -d "$END_DATE" +%s)" \
+            -v year="$(date +%Y)" -v month="$(date +%m)" '
+            BEGIN {
+                split("Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec", m, " ")
+                for (i = 1; i <= 12; i++) mon[m[i]] = sprintf("%02d", i)
+                keep = 0
+            }
+            {
+                key = ""
+                if (match($0, /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9][T ][0-9][0-9]:[0-9][0-9]:[0-9][0-9]/)) {
+                    t = substr($0, 1, 19)
+                    key = substr(t,1,4) substr(t,6,2) substr(t,9,2) substr(t,12,2) substr(t,15,2) substr(t,18,2)
+                } else if (($1 in mon) && $2 ~ /^[0-9]+$/ && $3 ~ /^[0-9][0-9]:[0-9][0-9]:[0-9][0-9]$/) {
+                    y = (mon[$1] > month) ? year - 1 : year
+                    key = y mon[$1] sprintf("%02d", $2) substr($3,1,2) substr($3,4,2) substr($3,7,2)
+                } else if (match($0, /msg=audit\([0-9]+/)) {
+                    key = "audit"   # auditd: epoch seconds, handled below
+                    ep = substr($0, RSTART + 10, RLENGTH - 10) + 0
+                }
+                if (key == "audit") {
+                    keep = (ep >= startep && ep <= endep)
+                } else if (key != "") {
+                    keep = (key >= start && key <= end)
+                }
+                if (keep) print
+            }' >"$out"
+        [[ -s "$out" ]] || rm -f "$out"
     }
 
-    # Extract logs from log directories
+    local log_file f out found
     for log_file in "${LOG_FILES[@]}"; do
-        if [[ -f "${LOG_DIR}/${log_file}" ]]; then
-            echo "Extracting logs from ${LOG_DIR}/${log_file}..."
-            extract_logs "${LOG_DIR}/${log_file}" "$START_DATE" "$END_DATE"
-        else
-            echo "Log file ${log_file} does not exist in ${LOG_DIR}"
-        fi
+        found=0
+        # The live file plus its rotations (name.1, name.2.gz, ...).
+        for f in "${LOG_DIR}/${log_file}" "${LOG_DIR}/${log_file}".[0-9]*; do
+            [[ -f "$f" ]] || continue
+            found=1
+            out="${OUTPUT_DIR}/$(echo "${f#${LOG_DIR}/}" | tr '/' '_')"
+            out="${out%.gz}"
+            echo "Extracting ${f}..."
+            extract_logs "$f" "$out"
+        done
+        [[ $found -eq 0 ]] && echo "Log file ${log_file} does not exist in ${LOG_DIR}"
     done
+
+    # journald-only systems keep nothing in /var/log text files.
+    if command -v journalctl >/dev/null 2>&1; then
+        echo "Exporting the systemd journal for the same window..."
+        $SUDO journalctl --no-pager -o short-iso --since "$START_DATE" --until "$END_DATE" \
+            >"${OUTPUT_DIR}/journal.log" 2>/dev/null
+        [[ -s "${OUTPUT_DIR}/journal.log" ]] || rm -f "${OUTPUT_DIR}/journal.log"
+    fi
 
     green "[!] Done"
 
 }
+
+# Set by -logdir / -log; timeline() falls back to its defaults when empty.
+LOG_DIR=""
+LOG_FILES=()
 
 # Setting Operator Details
 NAME=""
@@ -1562,8 +1690,8 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         -z|--update)
-            RUN_UPDATE=1
-            shift
+            update
+            exit 0
             ;;
         -u|--usage)
             usage
@@ -1586,6 +1714,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -H|--hashcheck)
             RUN_HASHCHECK=1
+            shift
+            ;;
+        -A|--artifacts)
+            RUN_ARTIFACTS=1
             shift
             ;;
         -e|--encrypt)
@@ -1635,15 +1767,21 @@ if [[ -z "$NAME" || -z "$CASE" || -z "$TITLE" || -z "$LOCATION" || -z "$DEVICE" 
     usage
 fi
 
+# Created only now, after option parsing: -d/--decrypt and -z/--update exit
+# above without collecting, and must not touch an existing collection.
+create_directory
+
 # Execute functions only if required details are provided
-if [[ $RUN_PCAP ]]; then
-    pcap
-fi
-if [[ $RUN_UPDATE ]]; then
-    update
-fi
+# Order of volatility: memory first, then the raw collection (which reads
+# processes and sockets before anything else), then the 60-second capture.
 if [[ $RUN_RAM ]]; then
     ram
+fi
+if [[ $RUN_ARTIFACTS ]]; then
+    raw_artifacts
+fi
+if [[ $RUN_PCAP ]]; then
+    pcap
 fi
 if [[ $RUN_WEBLOGS ]]; then
     weblogs
@@ -1851,7 +1989,15 @@ for f in "${F_cred_files[@]}"; do
     f_ctime=$(stat -c '%z' "$f" 2>/dev/null)
     f_flag=""
     if [[ -n "$f_mtime_epoch" && -n "$f_ctime_epoch" ]] && (( f_ctime_epoch - f_mtime_epoch > 60 )); then
-        f_flag=" [POSSIBLE TIMESTOMP: ctime ~$((f_ctime_epoch - f_mtime_epoch))s newer than mtime]"
+        # Package installs set mtime from the package and ctime to the
+        # install time, so an unmodified package file always looks like
+        # this. Only flag files the package manager says were changed (or
+        # that no package owns, like passwd/shadow/group).
+        if package_file_unmodified "$f"; then
+            f_flag=" [ctime newer than mtime: unmodified package file, set at install]"
+        else
+            f_flag=" [POSSIBLE TIMESTOMP: ctime ~$((f_ctime_epoch - f_mtime_epoch))s newer than mtime]"
+        fi
     fi
     F_cred_file_timeline+="${f} | mtime=${f_mtime} | ctime=${f_ctime}${f_flag}"$'\n'
 done
@@ -1889,7 +2035,17 @@ echo "$F_lsof" >>./$(hostname)/OTHER/open_files.txt
 
 # Get lastlog
 #F_lastlog=$(lastlog)
-F_last2=$(last -Faiwx)
+# util-linux's last/lastb were dropped by newer distros (Debian 13+) in
+# favour of wtmpdb, which keeps the login history in /var/lib/wtmpdb.
+if command -v last >/dev/null 2>&1; then
+    F_last2=$(last -Faiwx 2>/dev/null)
+elif command -v wtmpdb >/dev/null 2>&1; then
+    F_last2=$(wtmpdb last 2>/dev/null)
+elif [[ -r /var/log/wtmp ]]; then
+    F_last2=$(dump_utmp_file /var/log/wtmp)
+else
+    F_last2="No login history found (no last, no wtmpdb, no readable /var/log/wtmp)"
+fi
 
 # what is loaded
 F_lsmod=$(lsmod)
@@ -1926,7 +2082,7 @@ F_path_ww=""
 IFS=':' read -ra F_path_dirs <<< "$PATH"
 for path_dir in "${F_path_dirs[@]}"; do
     [[ -d "$path_dir" ]] || continue
-    path_dir_perm=$(stat -c '%a' "$path_dir" 2>/dev/null)
+    path_dir_perm=$(stat -L -c '%a' "$path_dir" 2>/dev/null)
     if [[ -n "$path_dir_perm" && "${path_dir_perm: -1}" =~ [2367] ]]; then
         F_path_ww+="WRITABLE_DIR: ${path_dir} (mode ${path_dir_perm})"$'\n'
     fi
@@ -1971,10 +2127,10 @@ F_p2=$(ls -la /etc/incron.d/* 2>/dev/null)
 F_p3=$(ls -la /etc/init.d/* 2>/dev/null)
 F_p4=$(ls -la /etc/rc*.d/* 2>/dev/null)
 F_p5=$(ls -la /etc/systemd/system/* 2>/dev/null)
-F_p6=$(ls -la /etc/update.d/* 2>/dev/null)
+F_p6=$(ls -la /etc/update-motd.d/* 2>/dev/null)
 F_p7=$(ls -la /var/spool/cron/* 2>/dev/null)
 F_p8=$(ls -la /var/spool/incron/* 2>/dev/null)
-F_p9=$(ls -la /var/run/motd.d/* 2>/dev/null)
+F_p9=$(ls -la /etc/motd.d/* /run/motd.d/* /usr/lib/motd.d/* 2>/dev/null)
 
 #Authlogs (distro-independent: Debian uses auth.log, RHEL/Fedora uses secure, fallback to journalctl)
 #
@@ -2006,13 +2162,31 @@ if [[ -z "$F_authlogs" ]]; then
 fi
 echo "$F_authlogs" >./$(hostname)/OTHER/AuthLogs.txt
 
+# Unfiltered authentication log for the detection rules (brute force, log
+# clearing via sudo): auth.log on Debian/Ubuntu, secure on RHEL/Fedora, the
+# journal's auth-related identifiers on journald-only systems.
+F_auth_raw=""
+if [[ -r /var/log/auth.log ]]; then
+    F_auth_raw=$(cat /var/log/auth.log 2>/dev/null)
+elif [[ -r /var/log/secure ]]; then
+    F_auth_raw=$(cat /var/log/secure 2>/dev/null)
+elif command -v journalctl >/dev/null 2>&1; then
+    F_auth_raw=$($SUDO journalctl --no-pager -t sshd -t sudo -t su -t login -t systemd-logind --since "-30 days" 2>/dev/null)
+fi
+
 ioc_checks
 
 green "[!] Done"
 
 # Additional Linux artifacts
 cyan "[*] Collecting additional Linux artifacts"
-F_lastb=$(lastb -Faiwx 2>/dev/null | head -200)
+if command -v lastb >/dev/null 2>&1; then
+    F_lastb=$(lastb -Faiwx 2>/dev/null | head -200)
+elif [[ -r /var/log/btmp ]]; then
+    F_lastb=$(dump_utmp_file /var/log/btmp | head -200)
+else
+    F_lastb="No failed-login records (no lastb, no readable /var/log/btmp; see the authentication log)"
+fi
 F_who=$(who -a 2>/dev/null)
 F_journalctl=$(journalctl -n 500 --no-pager 2>/dev/null)
 F_sshconfig=$(cat /etc/ssh/sshd_config 2>/dev/null)
@@ -2332,7 +2506,6 @@ build_report_fragments() {
 }
 
 generate_report_html() {
-    set +e
     cyan "[*] Generating single-page HTML report..."
 
     local _rd; _rd="$(hostname)/reports"
@@ -3027,7 +3200,6 @@ document.addEventListener('DOMContentLoaded', function() {
 VIEWS
 
     green "[!] Report: ${_rd}/index.html"
-    set -e
 }
 
 

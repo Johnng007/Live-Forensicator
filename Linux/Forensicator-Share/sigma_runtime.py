@@ -222,6 +222,28 @@ def fetch_auditd_events(days_back, max_events):
 # journald event source
 # ----------------------------------------------------------------------
 
+# Sigma "service" -> the syslog identifiers / process names that service logs
+# under. A rule with a service only applies to that service's log lines
+# (e.g. "Modifying Crontab" looks for REPLACE in cron's own log -- applied to
+# every journal line it matched AppArmor's "profile_replace"). "syslog" and
+# unknown services keep matching any line.
+SERVICE_IDENTIFIERS = {
+    "cron": ("cron", "crond", "crontab", "anacron"),
+    "sshd": ("sshd", "sshd-session", "sshd-auth"),
+    "vsftpd": ("vsftpd",),
+    "clamav": ("clamd", "freshclam", "clamav", "clamscan"),
+    "guacamole": ("guacd", "guacamole"),
+}
+
+
+def service_matches(service, fields):
+    names = SERVICE_IDENTIFIERS.get((service or "").lower())
+    if not names:
+        return True
+    ident = (fields.get("SyslogIdentifier") or fields.get("Comm") or "").lower()
+    return any(ident == n or ident.startswith(n + "[") or ident.startswith(n + "-") for n in names)
+
+
 def fetch_journald_events(days_back, max_events):
     if not shutil_which("journalctl"):
         return None
@@ -308,6 +330,8 @@ def main():
             scanned += len(journald_events)
             for rule in by_source.get("journald", []):
                 for fields, raw_text in journald_events:
+                    if not service_matches(rule.get("service"), fields):
+                        continue
                     if evaluate(rule["condition"], fields, raw_text):
                         matches.append((rule, fields, raw_text))
 

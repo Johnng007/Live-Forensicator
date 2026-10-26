@@ -42,7 +42,7 @@ Key capabilities include:
 
 | Collector output | Collected with | Core section |
 |---|---|---|
-| `artifacts\` (the whole folder) | `-WINARTIFACTS` | **Windows Artifact Analysis** → *Collector folder* mode. Each file is routed to its parser by path and verified against the SHA-256 in `WindowsArtifacts\CollectionManifest\`. LOG4J, GPResult, and RAM-triage extras from the same folder are picked up too. |
+| `artifacts\` (the whole folder) | `-WINARTIFACTS` | **Host Artifacts** → *Upload* → *Collector folder* mode. Each file is routed to its parser by path and verified against the SHA-256 in `WindowsArtifacts\CollectionManifest\`. LOG4J, GPResult, and RAM-triage extras from the same folder are picked up too. |
 | `artifacts\EVTX\*.evtx` and `artifacts\EVTX\LogChannels\*.log` | `-EVTX` | **Log Analysis**. Upload either the raw `.evtx` or the single-line Event XML. Built-in decoders cover Security, Sysmon, PowerShell, Defender, Task Scheduler, WMI-Activity, BITS-Client, RDP, and the AD/DNS channels. |
 | `artifacts\RAM\<HOSTNAME>.raw` | `-RAM` | **RAM Analysis** (Volatility3) |
 | `artifacts\PCAP\<HOSTNAME>.pcapng` | Network tracing | **PCAP Analysis** |
@@ -227,7 +227,7 @@ Automatically detected and enabled only when SharePoint Server is present:
 
 ### 🗃️ Windows Artifact Analysis (opt-in, `-WINARTIFACTS`)
 
-Raw artifact files for upload to Forensicator Core's Windows Artifact Analysis feature — this collects the files themselves, not a summary:
+Raw artifact files for upload to Forensicator Core's Host Artifacts feature (*Upload → Collector folder*) — this collects the files themselves, not a summary:
 
 * Registry hives — `SYSTEM`, `SOFTWARE`, `SAM`, `SECURITY`, `DEFAULT`, `Amcache.hve`, and every user profile's `NTUSER.DAT`/`UsrClass.dat` (Shimcache, Amcache, UserAssist, BAM/DAM, Autoruns, Shellbags)
 * Registry transaction logs — each hive's own `.LOG1`/`.LOG2` files ("dirty page" transactions not yet flushed into the hive itself), collected alongside it; Forensicator Core replays them for a more complete/accurate hive before parsing
