@@ -25,6 +25,7 @@ import subprocess
 import argparse
 import datetime
 import shutil
+import collections
 
 
 _REGEX_CACHE = {}
@@ -114,30 +115,39 @@ def load_rules(path, min_level):
     return [r for r in rules if LEVEL_RANK.get(r["level"], 3) >= min_rank]
 
 
-def resolve_timeout_cmd(seconds):
-    if shutil.which("timeout"):
-        return ["timeout", str(seconds)]
-    if shutil.which("gtimeout"):
-        return ["gtimeout", str(seconds)]
-    return []
-
-
 def fetch_unified_log_events(days_back, max_events, cmd_timeout_seconds):
+    """Up to max_events unified-log entries (the latest read) from the last days_back days.
+
+    Streamed and bounded: a day of unified log runs to millions of entries,
+    which must not all be held in memory. Each entry's Image is the process
+    that wrote it. CommandLine stays empty: the log message is free text
+    written by that process, not its command line, and matching rules
+    against it raised findings whenever a message merely mentioned a
+    command. Rules that need a command line or a file name therefore do
+    not fire here.
+    """
     if not shutil.which("log"):
         return None
 
     since_dt = datetime.datetime.now() - datetime.timedelta(days=days_back)
     since = since_dt.strftime("%Y-%m-%d %H:%M:%S")
-    prefix = resolve_timeout_cmd(cmd_timeout_seconds)
-    cmd = prefix + ["log", "show", "--style", "ndjson", "--start", since]
+    cmd = ["log", "show", "--style", "ndjson", "--start", since]
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=cmd_timeout_seconds + 30)
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, errors="replace")
     except Exception:
         return None
 
-    lines = proc.stdout.splitlines()
-    if max_events:
-        lines = lines[-max_events:]
+    deadline = datetime.datetime.now() + datetime.timedelta(seconds=cmd_timeout_seconds)
+    lines = collections.deque(maxlen=max_events or None)
+    try:
+        for line in proc.stdout:
+            lines.append(line)
+            if datetime.datetime.now() > deadline:
+                break
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+        proc.wait()
 
     result = []
     for line in lines:
@@ -145,13 +155,14 @@ def fetch_unified_log_events(days_back, max_events, cmd_timeout_seconds):
             rec = json.loads(line)
         except json.JSONDecodeError:
             continue
-        message = rec.get("eventMessage", "")
+        if not isinstance(rec, dict):
+            continue
         fields = {
             "Image": rec.get("processImagePath"),
-            "CommandLine": rec.get("eventMessage"),
+            "CommandLine": None,
             "TargetFilename": None,
         }
-        result.append((fields, str(message)))
+        result.append((fields, str(rec.get("eventMessage", ""))))
     return result
 
 
@@ -183,9 +194,15 @@ def main():
     unified_log_available = events is not None
     if events:
         scanned = len(events)
+        # One finding per rule and process image, not one per log entry.
+        seen = set()
         for rule in rules:
             for fields, raw_text in events:
+                key = (rule.get("id") or rule["title"], fields.get("Image"))
+                if key in seen:
+                    continue
                 if evaluate(rule["condition"], fields, raw_text):
+                    seen.add(key)
                     matches.append((rule, fields, raw_text))
 
     file_exists = os.path.isfile(args.output) and os.path.getsize(args.output) > 0

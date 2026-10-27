@@ -55,11 +55,15 @@ Apple restricts real process-creation telemetry (comparable to Linux `auditd` or
 For additional capabilities:
 
 ```bash
-osxpmem / avml  → RAM acquisition 
+osxpmem         → RAM acquisition (bundled; Intel Macs only, see below)
 python3         → Sigma rule engine, Forensicator AI, and the zip/investigation-archive fallback if `zip` is unavailable
 ```
 
 > Forensicator works without these, but functionality may be limited.
+
+> `python3` comes with the Xcode Command Line Tools (`xcode-select --install`). Without them, `/usr/bin/python3` is only a stub that opens an install dialog on the screen; Forensicator detects this and skips the Python steps instead of running it.
+
+> **RAM on macOS:** the bundled osxpmem works by loading its own kernel extension, so it only works on Intel Macs that still allow third-party kernel extensions (SIP permitting them, and the extension approved under Privacy & Security). Memory acquisition is not possible this way on Apple Silicon; `-r` then records why in `RAM/ram_extraction_error.txt` rather than failing silently.
 
 ---
 
@@ -107,13 +111,17 @@ chmod +x forensicator.sh
 # Hash check running process executables against the malware hash feed
 ./forensicator.sh -H
 
-# RAM capture (requires osxpmem or avml)
+# RAM capture (osxpmem, Intel Macs only)
 ./forensicator.sh -r
 
-# Encrypt collected artifacts (AES-256)
+# Encrypt collected artifacts (AES-256): leaves <hostname>_artifacts.tar.gz.forensicator
+# and <hostname>_key.txt, and removes the unencrypted output
 ./forensicator.sh -e
 
-# Check GitHub for a newer version
+# Decrypt (the key file is picked up when it sits next to the encrypted file)
+./forensicator.sh -d <hostname>_artifacts.tar.gz.forensicator
+
+# Update this copy (git pull when it is a git checkout) and exit
 ./forensicator.sh -z
 
 # Combined execution
@@ -129,7 +137,8 @@ chmod +x forensicator.sh
 
 * Run the script with `sudo`/as root for full visibility (many checks — TCC database, other users' SSH keys, PATH-hijack scan, package integrity — require it)
 * Grant your terminal **Full Disk Access** (System Settings → Privacy & Security → Full Disk Access) or several collectors will silently come back empty
-* You can find all extracted artifacts in the script's working directory — open `<hostname>/reports/index.html` to navigate the findings
+* You can find all extracted artifacts in the script's working directory — open `<hostname>/reports/index.html` to navigate the findings. An earlier collection of the same host is moved aside to `<hostname>.previous-<time>`, never deleted
+* Per-user artifacts (launch agents, shell history and startup files, browser history, TCC, quarantine events, recent files) are read from every home folder, not only the account running the script
 * IOC lists, hash/URL feed sources, and Sigma engine settings are configurable via `config.json`
 * Operator-maintained hash/IOC lists (`Forensicator-Share/custom_hashes.txt`, `Forensicator-Share/custom_iocs.txt`) are never overwritten by the auto-download feed refresh
 
@@ -169,10 +178,10 @@ Requires `python3` (no other dependency — HTTP calls go through Python's own s
 ### 👤 User & Account Data
 
 * Active sessions & login history (successful and failed)
-* Local user accounts, admin/wheel group membership
+* Local user accounts from Directory Services (including accounts created with `dscl`/`sysadminctl`, which `/etc/passwd` never lists), admin/wheel group membership
 * SSH authorized keys
-* Login items
-* Credential-file tampering timeline (mtime vs. ctime — flags forged modification times)
+* Login and background items (Background Task Management, `sfltool dumpbtm`, macOS 13+)
+* Credential-file tampering timeline (mtime vs. ctime — flags forged modification times), including the Directory Services account records
 * Multi-user, multi-shell command history (bash/zsh/sh/fish)
 
 ### 💻 System Information
@@ -183,8 +192,8 @@ Requires `python3` (no other dependency — HTTP calls go through Python's own s
 * System Integrity Protection (SIP) status
 * Gatekeeper status
 * Kernel/kext integrity status — non-Apple loaded kernel extensions, alongside SIP context (the closest macOS analog to Linux's kernel taint flags)
-* TCC privacy database (app access to privacy-sensitive resources)
-* Quarantine events database (files downloaded from the internet)
+* TCC privacy databases, system and per-user (app access to privacy-sensitive resources)
+* Quarantine events database for every user (files downloaded from the internet)
 
 ### 🌐 Network Information
 
@@ -196,8 +205,8 @@ Requires `python3` (no other dependency — HTTP calls go through Python's own s
 ### ⚙️ Processes & Persistence
 
 * Running processes
-* LaunchCtl services, LaunchDaemons, LaunchAgents (system and user)
-* Cron jobs
+* LaunchCtl services, LaunchDaemons, LaunchAgents (system and every user), with each item's program, arguments and environment read from its plist
+* Cron jobs for every user
 * Loaded kernel extensions
 
 ### 🔎 Security Checks
@@ -224,8 +233,8 @@ Requires `python3` (no other dependency — HTTP calls go through Python's own s
 ### 🚀 Extended Features
 
 * Network tracing (PCAP)
-* RAM acquisition (osxpmem or avml)
-* Browser history analysis
+* RAM acquisition (osxpmem, Intel Macs only)
+* Browser history analysis (Safari, Chrome, Firefox, Edge, Brave, Arc, Vivaldi, Opera; every user)
 * Ransomware extension detection
 * Optional artifact encryption (AES-256)
 * Structured per-check JSON output under `investigation/`, plus a hashed investigation archive for Forensicator Enterprise upload
@@ -246,6 +255,22 @@ Forensicator generates:
 ## ✨ Changelog
 
 ```bash
+v4.3.0
+- FIX: The report and detection engine no longer break on the bash 3.2 that macOS ships (bash 4-only syntax).
+- FIX: -e now encrypts (it was parsed but never ran); the key goes to openssl through a file, and the unencrypted output is removed. Added -d to decrypt; the format is the Linux collector's, so either one decrypts the other's.
+- FIX: User accounts come from Directory Services: real users and dscl-created backdoor accounts were missing from the user list and the UID 0 check.
+- FIX: Chrome/Edge/Brave/Firefox history was never collected (paths with spaces); the write-ahead log is now included, and every user's history is read.
+- FIX: Per-user artifacts were read only from the home folder of the account running the script.
+- FIX: An earlier collection is moved aside instead of deleted, and only after options are parsed.
+- FIX: RAM capture no longer runs the Linux-only avml or reports success when nothing was captured; network capture reports failures too.
+- FIX: The python3 stub on Macs without the Command Line Tools is no longer run (it opened an install dialog on the console).
+- FIX: Login items come from Background Task Management instead of osascript, which raised a consent prompt and could block.
+- FIX: -z checked a branch that does not exist, compared versions as strings, and ran only after the case prompts; it now updates and exits.
+- FIX: Detections: launch item and cron rules now read the plists' programs (they matched file names before), DYLD/HISTFILE checks read launch items and shell startup files (not the collector's own environment), listening-port and temp-folder rules no longer fire on stock macOS services, failed logins come from the unified log (macOS has no lastb), MITRE IDs corrected.
+- FIX: Sigma: log messages are no longer matched as command lines (false positives), one finding per rule and process, bounded memory.
+- FIX: Ransomware scan skips system, cache and temp trees, drops .bak, and adds a per-directory count (mass encryption) and a ransom-note search.
+- FIX: Finding severities follow what was found; metadata.json and LOGS/detections.csv are valid JSON/CSV; the report's launch item panel was always empty.
+
 v4.1.6
 - NEW: Best-effort Sigma rule engine sourced from real SigmaHQ community rules, evaluated against the unified log.
 - NEW: Detection engine expanded — added deleted-binary execution, kernel/kext integrity status, credential-file timestomping, PATH-hijack, and application code-signature checks.

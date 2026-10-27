@@ -4,6 +4,7 @@
 
 # Make all relative paths (./config.json, ./Forensicator-Share/*, output dirs)
 # resolve against the script's own location rather than the caller's CWD.
+CALLER_DIR="$(pwd)"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR" || { echo "Error: unable to resolve script directory"; exit 1; }
 
@@ -1518,9 +1519,14 @@ encrypt_artifacts() {
 
 # Function to decrypt artifacts
 decrypt_artifacts() {
+    # Relative to where the operator ran the script (it has cd'ed to its own
+    # folder since), and extracted next to the encrypted file.
     local encrypted_file="$1"
+    [[ -n "$encrypted_file" && "$encrypted_file" != /* ]] && encrypted_file="$CALLER_DIR/$encrypted_file"
+    cd "$(dirname "$encrypted_file")" 2>/dev/null || { echo "Error: Encrypted file not found: $1"; return 1; }
+    encrypted_file=$(basename "$encrypted_file")
     local keyfile="${encrypted_file%.forensicator}"
-    keyfile="${keyfile%.tar.gz}_key.txt"
+    keyfile="${keyfile%_artifacts.tar.gz}_key.txt"
 
     if [[ ! -f "$encrypted_file" ]]; then
         echo "Error: Encrypted file not found: $encrypted_file"
