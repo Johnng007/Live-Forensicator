@@ -30,6 +30,7 @@ PRUNE_PATHS=(-path /dev -o -path /Volumes -o -path /System/Volumes/Data -o -path
 usage() {
     echo "Usage: $0 [OPTIONS]"
     echo ""
+    echo "  -A, --artifacts       Collect raw artifacts for Forensicator Core's Host Artifacts (run as root)"
     echo "  -p, --pcap            Record network traffic and save as pcap file"
     echo "  -r, --ram             Extract system RAM (osxpmem: Intel Macs that allow its kernel extension only)"
     echo "  -s, --ransom          Check filesystem for ransomware encrypted files"
@@ -103,6 +104,9 @@ for _py in python3 python; do
     break
 done
 unset _py _py_path
+
+# Raw artifact acquisition (-A), see Forensicator-Share/macos_artifacts.sh
+source "$SCRIPT_DIR/Forensicator-Share/macos_artifacts.sh"
 
 green()  { echo -e "\e[32m$*\e[0m"; }
 cyan()   { echo -e "\e[36m$*\e[0m"; }
@@ -1510,6 +1514,7 @@ TITLE=""
 LOCATION=""
 DEVICE=""
 RUN_PCAP=0
+RUN_ARTIFACTS=0
 RUN_RAM=0
 RUN_RANSOM=0
 RUN_WEBLOGS=0
@@ -1525,6 +1530,7 @@ while [[ $# -gt 0 ]]; do
         -title|--title)   TITLE="$2";    shift 2 ;;
         -loc|--location)  LOCATION="$2"; shift 2 ;;
         -device|--device) DEVICE="$2";   shift 2 ;;
+        -A|--artifacts)   RUN_ARTIFACTS=1; shift ;;
         -p|--pcap)        RUN_PCAP=1;    shift ;;
         -r|--ram)         RUN_RAM=1;     shift ;;
         -s|--ransom)      RUN_RANSOM=1;  shift ;;
@@ -1562,8 +1568,10 @@ create_directory || exit 1
 
 CheckForUpdates
 
-# Order of volatility: memory first, then the 60-second capture.
+# Order of volatility: memory first, then the raw collection (which reads
+# processes and sockets before anything else), then the 60-second capture.
 if [[ $RUN_RAM      -eq 1 ]]; then ram;     fi
+if [[ $RUN_ARTIFACTS -eq 1 ]]; then raw_artifacts; fi
 if [[ $RUN_PCAP     -eq 1 ]]; then pcap;    fi
 if [[ $RUN_WEBLOGS  -eq 1 ]]; then weblogs; fi
 if [[ $RUN_BROWSER  -eq 1 ]]; then browser; fi

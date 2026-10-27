@@ -23,6 +23,52 @@
   "sigma_cmd_timeout_seconds": [
     "120"
   ],
+  "raw_max_file_mb": [
+    "500"
+  ],
+  "raw_unifiedlog_days": [
+    "7"
+  ],
+  "raw_logarchive": [
+    "false"
+  ],
+  "raw_fsevents_max_files": [
+    "500"
+  ],
+  "raw_bodyfile_max_entries": [
+    "200000"
+  ],
+  "raw_bodyfile_paths": [
+    "/Users",
+    "/Applications",
+    "/Library/LaunchAgents",
+    "/Library/LaunchDaemons",
+    "/Library/Application Support",
+    "/Library/Security",
+    "/private/tmp",
+    "/private/var/tmp",
+    "/usr/local",
+    "/opt",
+    "/private/etc"
+  ],
+  "raw_bodyfile_excluded_dir_names": [
+    "Caches",
+    "node_modules",
+    ".git",
+    "CloudStorage",
+    "Mobile Documents",
+    "Photos Library.photoslibrary",
+    "Containers",
+    "Group Containers",
+    "DerivedData"
+  ],
+  "raw_log_globs": [
+    "/private/var/log/install.log*",
+    "/private/var/log/system.log*",
+    "/private/var/log/apache2/*log*",
+    "/opt/homebrew/var/log/nginx/*.log*",
+    "/usr/local/var/log/nginx/*.log*"
+  ],
   "suspicious_executables": [
     "bash",
     "sh",

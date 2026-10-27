@@ -38,8 +38,9 @@ The collector gathers the evidence; **[Forensicator Core](https://github.com/Rap
 
 With Core you can:
 
-* Upload a whole Windows host folder in one step. Core routes each file to its parser and verifies its SHA-256 against the collector's CollectionManifest.
+* Upload a whole host folder in one step (Host Artifacts). Core routes each file to its parser and verifies its SHA-256 against the collector's CollectionManifest.
 * Parse the raw Windows artifacts collected with `-WINARTIFACTS`: registry hives with their transaction logs, Prefetch, $MFT/$UsnJrnl/$LogFile, SRUM, Windows Search, Defender quarantine, WER, BITS, WMI subscriptions, OneDrive logs, and more.
+* Parse the raw Linux and macOS artifacts collected with `-A`: accounts, sudoers, shell histories, SSH keys, cron, systemd or launch items, login items, code signatures, TCC privacy grants, downloads, FSEvents, processes and a filesystem timeline — with their logs sent to Log Analysis in the same case.
 * Analyze RAM captures (Volatility3), network captures (PCAP), and event logs (raw `.evtx` or the collector's Event XML channel exports).
 * Enrich IOCs automatically against VirusTotal, AbuseIPDB, OTX, URLhaus, ThreatFox, and MalwareBazaar.
 * Group investigations and hosts under Cases, correlate findings across uploads, and produce executive and technical reports.
@@ -63,7 +64,7 @@ docker compose up -d           # then open http://localhost:3000
 
 ### 🖳 Windows (PowerShell)
 
-* Windows Artifact Analysis collection (opt-in) — raw Shimcache/Amcache/Prefetch/UserAssist/BAM/Autoruns/LNK/Jump List/Shellbag/$MFT/$UsnJrnl/SRUM/Defender quarantine/WER/Windows Search database/Recycle Bin/Notifications/BITS/Windows Timeline artifacts, plus each registry hive's own `.LOG1`/`.LOG2` transaction logs for Forensicator Core to replay into a more complete hive — all via a Volume Shadow Copy snapshot to reach locked registry hives, $MFT, $UsnJrnl:$J, SRUDB.dat, Windows.edb, wpndatabase.db, and ActivitiesCache.db
+* Raw artifact collection for Core's Host Artifacts (`-WINARTIFACTS`, opt-in) — raw Shimcache/Amcache/Prefetch/UserAssist/BAM/Autoruns/LNK/Jump List/Shellbag/$MFT/$UsnJrnl/SRUM/Defender quarantine/WER/Windows Search database/Recycle Bin/Notifications/BITS/Windows Timeline artifacts, plus each registry hive's own `.LOG1`/`.LOG2` transaction logs for Forensicator Core to replay into a more complete hive — all via a Volume Shadow Copy snapshot to reach locked registry hives, $MFT, $UsnJrnl:$J, SRUDB.dat, Windows.edb, wpndatabase.db, and ActivitiesCache.db
 * Advanced Event Log collection — System/Security/Application as raw .evtx, plus a configurable, richer channel list (Sysmon, Defender Operational, PowerShell, TaskScheduler, WMI-Activity, BITS-Client, RDP, etc.) exported as Core-ready single-line Event XML for Forensicator-Core's Log Analysis feature
 * Windows Defender tamper-protection state and current exclusion configuration, captured as standalone findings
 * Browser history extraction with IOC matching
@@ -79,6 +80,7 @@ docker compose up -d           # then open http://localhost:3000
 
 ### 🍎 macOS (Shell)
 
+* Raw artifact collection for Core's Host Artifacts (`-A`, opt-in) — Directory Services account records, launch items, login and background items, code signatures of running and persistent programs, TCC privacy databases, quarantine events (downloads), KnowledgeC, install history, XProtect detections, FSEvents, histories, a process table, unified log exports and a filesystem timeline, with a SHA-256 manifest
 * Collection of key forensic artifacts (system, user, network, process, file), FileVault/SIP/Gatekeeper/TCC/Signed System Volume integrity state, and browser history
 * Investigation archive + structured JSON output for Forensicator Core
 * Optional artifact encryption (AES)
@@ -96,6 +98,7 @@ docker compose up -d           # then open http://localhost:3000
 ### 🐧 Linux (Bash)
 
 * Cross-distro compatible Bash scripts, no non-native dependencies
+* Raw artifact collection for Core's Host Artifacts (`-A`, opt-in) — accounts, sudoers, PAM, login records, every user's histories and SSH files, cron/at, systemd and other persistence, logs with their rotations, a journal export, the process table (deleted executables recovered), sockets, packages, containers and a filesystem timeline, with a SHA-256 manifest
 * LUKS disk-encryption status and credential-file tampering timeline collection
 * Structured JSON output for Forensicator Core
 * Optional artifact encryption (AES)
@@ -137,7 +140,7 @@ docker compose up -d           # then open http://localhost:3000
 * Sigma rule integration on the three host platforms — coverage and data source vary by OS; see each platform's section below and its own README. Network Devices uses its own declarative rule engine instead (Sigma's process/event-log model doesn't apply to network-device config auditing) — see its README's Detection Rules section
 * Malware hash and IOC matching, with auto-updating threat-intel feeds (host platforms); IP/CIDR threat-intel blocklist matching against device session tables (Network Devices)
 * Detection Insight with Mitre Mapping
-* Forensicator AI — optional, per-finding AI verdicts from a local (Ollama) or commercial LLM (Windows and Network Devices now; Linux/macOS planned)
+* Forensicator AI — optional, per-finding AI verdicts from a local (Ollama) or commercial LLM, on every platform
 
 ---
 
@@ -183,7 +186,7 @@ This is useful when:
 
 Off by default. When enabled, each finding is sent to a local or commercial LLM as it's collected, and gets a real, plain-language verdict shown right in the report's tooltip.
 
-**Quick setup (local LLM via Ollama), currently Windows and Network Devices:**
+**Quick setup (local LLM via Ollama), on every platform:**
 
 ```bash
 # 1. Install Ollama (https://ollama.com) and pull a model
@@ -290,6 +293,14 @@ Windows: v4.3.0 (October 2026)
 - NEW: -WINARTIFACTS also collects each registry hive's own `.LOG1`/`.LOG2` transaction logs (SYSTEM/SOFTWARE/SECURITY/Amcache.hve and the per-profile NTUSER.DAT/UsrClass.dat), alongside the hive — Forensicator Core replays their uncommitted "dirty page" transactions for a more complete/accurate hive before parsing.
 - NEW: -WINARTIFACTS also collects the Windows Timeline database (ActivitiesCache.db, one per user profile, under a randomly-named ConnectedDevicesPlatform\<UUID>\ subfolder this globs for) — raw, for Core to interpret.
 - CHANGE: Sigma rule scanning is now OFF by default (config.json: `sigma.enabled`) — it's a real-time scan of Security/System/Sysmon event logs against ~1,400 community rules with meaningful runtime/log-query cost, so it now requires an explicit opt-in, same posture as Forensicator AI's own `enabled` flag.
+
+Linux: v4.3.0 (October 2026)
+- NEW: -A / --artifacts raw artifact collection for Forensicator Core's Host Artifacts, with a SHA-256 CollectionManifest.
+- FIX: -t timeline, -z update, detection tuning and IOC matching fixes; an earlier collection is moved aside, never deleted; -d finds the key file -e writes.
+
+macOS: v4.3.0 (October 2026)
+- NEW: -A / --artifacts raw artifact collection for Forensicator Core's Host Artifacts (account records, launch and login items, code signatures, TCC, downloads, KnowledgeC, XProtect, FSEvents, histories, processes, unified log exports, filesystem timeline), with a SHA-256 CollectionManifest.
+- FIX: Report and detections no longer break on macOS's bash 3.2; -e now encrypts (and -d decrypts); real user accounts, every user's artifacts and Chrome/Firefox history are collected; RAM capture and Sigma report honestly; detections tuned for stock macOS.
 
 ```
 

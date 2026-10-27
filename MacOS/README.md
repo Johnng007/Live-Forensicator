@@ -32,6 +32,7 @@ Apple restricts real process-creation telemetry (comparable to Linux `auditd` or
 
 ## ⚙️ Key Features
 
+* Raw artifact collection (`-A`) for Forensicator Core's Host Artifacts: account records, launch items, login items, code signatures, TCC, downloads, KnowledgeC, XProtect, FSEvents, histories, a process table, unified log exports and a filesystem timeline, with a SHA-256 manifest
 * FileVault, SIP, Gatekeeper, and TCC privacy database inspection
 * Signed System Volume (SSV) seal status and application code-signature verification (the macOS analog of package-checksum verification — there is no `rpm`/`dpkg` here)
 * Credential-file tampering timeline (mtime vs. ctime on passwd/sudoers/authorized_keys)
@@ -93,6 +94,9 @@ chmod +x forensicator.sh
 # Basic execution
 ./forensicator.sh
 
+# Raw artifacts for Forensicator Core (Host Artifacts -> Upload -> Collector folder)
+sudo ./forensicator.sh -A
+
 # Help
 ./forensicator.sh --usage
 
@@ -140,6 +144,7 @@ chmod +x forensicator.sh
 * You can find all extracted artifacts in the script's working directory — open `<hostname>/reports/index.html` to navigate the findings. An earlier collection of the same host is moved aside to `<hostname>.previous-<time>`, never deleted
 * Per-user artifacts (launch agents, shell history and startup files, browser history, TCC, quarantine events, recent files) are read from every home folder, not only the account running the script
 * IOC lists, hash/URL feed sources, and Sigma engine settings are configurable via `config.json`
+* `-A` writes `<hostname>/artifacts/MacArtifacts/` (see below); upload the `artifacts` folder to Forensicator Core
 * Operator-maintained hash/IOC lists (`Forensicator-Share/custom_hashes.txt`, `Forensicator-Share/custom_iocs.txt`) are never overwritten by the auto-download feed refresh
 
 ---
@@ -241,6 +246,27 @@ Requires `python3` (no other dependency — HTTP calls go through Python's own s
 
 ---
 
+## 🧳 Raw Artifacts (`-A`)
+
+`sudo ./forensicator.sh -A` copies the artifacts themselves, for Forensicator Core's **Host Artifacts** (Upload → Collector folder → pick the host folder), which parses them, checks them against built-in macOS detection rules and sends the logs to Log Analysis. Run it as root from a terminal with **Full Disk Access**, or account records, TCC, FSEvents and other users' files will be missing (the manifest records what was skipped and why).
+
+```text
+<hostname>/artifacts/MacArtifacts/
+├── Files/<absolute path>      raw copies (timestamps, modes and extended attributes kept; SQLite -wal/-shm alongside)
+├── Commands/                  sockets, sfltool dumpbtm, codesign.tsv, security settings, applications, kexts,
+│                              system extensions, profiles, proxy, authorization rule, packages, ...
+├── Processes/processes.tsv    every process with its executable's SHA-256 and signer
+├── Timeline/bodyfile.txt      filesystem timeline, with birth times
+├── Logs/unifiedlog-*.log      authentication, XProtect/Gatekeeper/TCC and install events (RFC 3339)
+└── CollectionManifest/        artifact-collection-manifest.json — SHA-256 of every file
+```
+
+Collected: Directory Services account and group records, sudoers, PAM, LaunchAgents/LaunchDaemons, Background Task Management, login window settings, emond, periodic and rc scripts, StartupItems, cron and `at`, shell startup files, every user's shell and Terminal session histories and SSH files, the system and per-user TCC databases, quarantine events, KnowledgeC, install history, XProtect's database, FSEvents, `install.log`/`system.log`, and the code signature of every running executable and launch item program.
+
+Settings in `config.json`: `raw_max_file_mb`, `raw_unifiedlog_days`, `raw_logarchive` (also save the full unified log as a `.logarchive`), `raw_fsevents_max_files`, `raw_bodyfile_paths`, `raw_bodyfile_excluded_dir_names`, `raw_bodyfile_max_entries`, `raw_log_globs`.
+
+---
+
 ## 📊 Output
 
 Forensicator generates:
@@ -256,6 +282,7 @@ Forensicator generates:
 
 ```bash
 v4.3.0
+- NEW: -A / --artifacts raw artifact collection for Forensicator Core's Host Artifacts (account records, launch and login items, code signatures, TCC, quarantine events, KnowledgeC, XProtect, FSEvents, histories, processes, unified log exports, filesystem timeline) with a SHA-256 manifest.
 - FIX: The report and detection engine no longer break on the bash 3.2 that macOS ships (bash 4-only syntax).
 - FIX: -e now encrypts (it was parsed but never ran); the key goes to openssl through a file, and the unencrypted output is removed. Added -d to decrypt; the format is the Linux collector's, so either one decrypts the other's.
 - FIX: User accounts come from Directory Services: real users and dscl-created backdoor accounts were missing from the user list and the UID 0 check.
