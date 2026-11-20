@@ -67,6 +67,23 @@ _VTY_BLOCK_RE = re.compile(r"^line vty.*?(?=^line |\Z)", re.MULTILINE | re.DOTAL
 
 _IPV4_RE = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
 
+
+def _is_public_ipv4(ip_str: str) -> bool:
+    """
+    True only for a parseable, globally routable unicast IPv4 address.
+    Used by the threat-intel rule so internal/special-use addresses
+    (RFC1918, CGNAT 100.64/10, loopback, link-local, multicast,
+    reserved, documentation ranges, 0.0.0.0/8) are never checked
+    against a blocklist — some public lists (e.g. FireHOL level1, which
+    bundles fullbogons) carry those ranges, and matching them would flag
+    every LAN host behind the device.
+    """
+    try:
+        ip = ipaddress.IPv4Address(ip_str)
+    except ValueError:
+        return False
+    return ip.is_global and not (ip.is_multicast or ip.is_reserved or ip.is_unspecified)
+
 # Best-effort negative-response phrases used by the presence-type
 # evaluators below to tell "genuinely empty" output apart from real
 # content — necessarily approximate given how much these responses vary
@@ -401,7 +418,8 @@ def _eval_transit_known_malicious_destination(
     if not entries:
         return None
     found_ips = sorted(set(_IPV4_RE.findall(raw)))
-    matches = [ip for ip in found_ips if not ip.startswith("127.") and _ip_in_baseline(ip, list(entries))]
+    entry_list = list(entries)
+    matches = [ip for ip in found_ips if _is_public_ipv4(ip) and _ip_in_baseline(ip, entry_list)]
     if not matches:
         return None
     return {"malicious_destinations": matches, "blocklist_source": threat_intel.get("source", "unknown")}

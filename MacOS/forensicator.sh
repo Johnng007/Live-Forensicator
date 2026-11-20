@@ -128,6 +128,52 @@ read_config_array() {
     ' "$json_file"
 }
 
+# abuse.ch feeds (MalwareBazaar, URLhaus) need a free Auth-Key since Oct
+# 2026 (https://auth.abuse.ch/); the key sits in the export URL's path.
+# Replaces {ABUSECH_AUTH_KEY} in a feed URL with $ABUSECH_AUTH_KEY, else
+# config.json's abusech_auth_key, and prints the result. Returns 1 when
+# the URL needs a key and none is set, 2 when the key isn't letters and
+# digits only. A URL without the placeholder is printed unchanged.
+resolve_abusech_url() {
+    local url="$1" ph='{ABUSECH_AUTH_KEY}'
+    if [[ "$url" != *"$ph"* ]]; then
+        printf '%s\n' "$url"
+        return 0
+    fi
+    local key="${ABUSECH_AUTH_KEY:-}"
+    [[ -z "$key" ]] && key=$(read_config_array "abusech_auth_key" | head -1)
+    key=$(printf '%s' "$key" | tr -d '[:space:]')
+    [[ -z "$key" ]] && return 1
+    [[ "$key" =~ ^[A-Za-z0-9]+$ ]] || return 2
+    printf '%s\n' "${url//"$ph"/$key}"
+}
+
+# Prints why a feed URL couldn't be resolved (resolve_abusech_url's code).
+abusech_key_warning() {
+    local what="$1" rc="$2"
+    if [[ "$rc" -eq 2 ]]; then
+        echo "[!] abuse.ch Auth-Key is not letters and digits only -- skipping $what download"
+    else
+        echo "[!] No abuse.ch Auth-Key set -- skipping $what download. Get a free key at https://auth.abuse.ch/ and set ABUSECH_AUTH_KEY or config.json's abusech_auth_key"
+    fi
+}
+
+# Downloads $1 to $2 (timeout $3 s). The URL goes to curl through a config
+# on stdin, not its command line, so an Auth-Key in it never shows in a
+# process listing. -f: an HTTP error (401 bad key, 410 retired feed) is a
+# failure, not a file.
+fetch_feed() {
+    printf 'url = "%s"\n' "$1" | curl -fsS --max-time "$3" -K - -o "$2"
+}
+
+# False when a cached feed is really an error page saved by an older
+# version (before curl -f): HTML, or abuse.ch's JSON error body.
+feed_cache_valid() {
+    local first
+    first=$(grep -m1 -v '^[[:space:]]*$' "$1" 2>/dev/null)
+    [[ -n "$first" && "$first" != "<"* && "$first" != "{"* ]]
+}
+
 read_first_available_config_array() {
     local key values
     for key in "$@"; do
@@ -513,13 +559,13 @@ hash_check() {
     # since-epoch number, not a filename, so the Linux idiom would break here.
     local hash_source
     hash_source=$(read_config_array "hash_source" | head -1)
-    [[ -z "$hash_source" ]] && hash_source="https://bazaar.abuse.ch/export/txt/md5/recent/"
+    [[ -z "$hash_source" ]] && hash_source="https://mb-api.abuse.ch/v2/files/exports/{ABUSECH_AUTH_KEY}/md5_recent.txt"
 
     local hashfile="$SCRIPT_DIR/Forensicator-Share/md5hashes.txt"
     local custom_hashfile="$SCRIPT_DIR/Forensicator-Share/custom_hashes.txt"
 
     local needs_download=0
-    if [[ ! -s "$hashfile" ]]; then
+    if [[ ! -s "$hashfile" ]] || ! feed_cache_valid "$hashfile"; then
         needs_download=1
     else
         local age_days
@@ -531,14 +577,19 @@ hash_check() {
     fi
 
     if [[ $needs_download -eq 1 ]]; then
-        if command -v curl >/dev/null 2>&1; then
+        local hash_url rc=0
+        hash_url=$(resolve_abusech_url "$hash_source") || rc=$?
+        if [[ $rc -ne 0 ]]; then
+            abusech_key_warning "hash feed" "$rc"
+        elif command -v curl >/dev/null 2>&1; then
+            # Logs the configured URL, never the resolved one with the key.
             cyan "[*] Downloading known-bad MD5 hash feed from $hash_source"
-            if curl -s --max-time 60 -o "${hashfile}.tmp" "$hash_source" && [[ -s "${hashfile}.tmp" ]]; then
+            if fetch_feed "$hash_url" "${hashfile}.tmp" 120 && [[ -s "${hashfile}.tmp" ]]; then
                 mv -f "${hashfile}.tmp" "$hashfile"
                 green "[!] Hash feed downloaded"
             else
                 rm -f "${hashfile}.tmp"
-                echo "[!] Hash feed download failed -- using cached copy if available"
+                echo "[!] Hash feed download failed (check the abuse.ch Auth-Key and connectivity) -- using cached copy if available"
             fi
         else
             echo "[!] curl not found -- cannot download hash feed, using cached copy if available"
@@ -546,7 +597,7 @@ hash_check() {
     fi
 
     local hash_files=()
-    [[ -f "$hashfile" ]] && hash_files+=("$hashfile")
+    [[ -f "$hashfile" ]] && feed_cache_valid "$hashfile" && hash_files+=("$hashfile")
     [[ -f "$custom_hashfile" ]] && hash_files+=("$custom_hashfile")
 
     if [[ ${#hash_files[@]} -eq 0 ]]; then
@@ -591,30 +642,49 @@ browser_ioc_check() {
     cyan "[*] Checking browser history against malicious URL list..."
 
     # Auto-download the malicious URL/domain feed (default: abuse.ch URLhaus
-    # recent list) if it isn't already present -- same feed and
-    # download-if-missing policy as the Windows/Linux browser-IOC collectors.
+    # recent list, ~12 MB), refreshing it when missing or older than 7 days
+    # -- same feed and staleness policy as the Windows/Linux browser-IOC
+    # collectors and the hash feed above.
     local url_source
     url_source=$(read_config_array "url_source" | head -1)
-    [[ -z "$url_source" ]] && url_source="https://urlhaus.abuse.ch/downloads/text_recent/"
+    [[ -z "$url_source" ]] && url_source="https://urlhaus-api.abuse.ch/v2/files/exports/{ABUSECH_AUTH_KEY}/urls_recent.txt"
 
     local urlfile="$SCRIPT_DIR/Forensicator-Share/malicious_URLs.txt"
     local custom_iocsfile="$SCRIPT_DIR/Forensicator-Share/custom_iocs.txt"
     local outfile="${Hostname}/OTHER/browser_ioc_hits.txt"
     : >"$outfile"
 
-    if [[ ! -s "$urlfile" ]] && command -v curl >/dev/null 2>&1; then
-        cyan "[*] Downloading malicious URL feed from $url_source"
-        if curl -s --max-time 60 -o "${urlfile}.tmp" "$url_source" && [[ -s "${urlfile}.tmp" ]]; then
-            mv -f "${urlfile}.tmp" "$urlfile"
-            green "[!] Malicious URL feed downloaded"
+    local url_needs_download=0
+    if [[ ! -s "$urlfile" ]] || ! feed_cache_valid "$urlfile"; then
+        url_needs_download=1
+    else
+        local url_age_days
+        url_age_days=$(( ( $(date +%s) - $(stat -f %m "$urlfile" 2>/dev/null || echo 0) ) / 86400 ))
+        if [[ $url_age_days -gt 7 ]]; then
+            url_needs_download=1
+            echo "[!] Malicious URL feed is ${url_age_days} days old -- refreshing"
+        fi
+    fi
+
+    if [[ $url_needs_download -eq 1 ]] && command -v curl >/dev/null 2>&1; then
+        local feed_url rc=0
+        feed_url=$(resolve_abusech_url "$url_source") || rc=$?
+        if [[ $rc -ne 0 ]]; then
+            abusech_key_warning "malicious URL feed" "$rc"
         else
-            rm -f "${urlfile}.tmp"
-            echo "[!] Malicious URL feed download failed"
+            cyan "[*] Downloading malicious URL feed from $url_source"
+            if fetch_feed "$feed_url" "${urlfile}.tmp" 300 && [[ -s "${urlfile}.tmp" ]]; then
+                mv -f "${urlfile}.tmp" "$urlfile"
+                green "[!] Malicious URL feed downloaded"
+            else
+                rm -f "${urlfile}.tmp"
+                echo "[!] Malicious URL feed download failed (check the abuse.ch Auth-Key and connectivity) -- using cached copy if available"
+            fi
         fi
     fi
 
     local ioc_files=()
-    [[ -f "$urlfile" ]] && ioc_files+=("$urlfile")
+    [[ -f "$urlfile" ]] && feed_cache_valid "$urlfile" && ioc_files+=("$urlfile")
     [[ -f "$custom_iocsfile" ]] && ioc_files+=("$custom_iocsfile")
 
     if [[ ${#ioc_files[@]} -eq 0 ]]; then

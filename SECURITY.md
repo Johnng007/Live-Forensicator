@@ -85,3 +85,10 @@ A few things worth knowing if you're auditing this codebase:
   files — a compromised feed source could inject bad IOC data, but not
   arbitrary code, since fetched content is only ever compared as text, never
   executed or deserialized.
+* The abuse.ch feeds need a free Auth-Key (https://auth.abuse.ch/), which
+  abuse.ch puts in the export URL's path. Set it in the `ABUSECH_AUTH_KEY`
+  environment variable rather than `config.json`'s `abusech_auth_key` when
+  the config is shared. The collectors substitute it only into the URL they
+  fetch: logs, reports and cached feed files show the
+  `{ABUSECH_AUTH_KEY}` placeholder, and the Linux/macOS collectors pass the
+  URL to curl on stdin, so it never appears in a process listing.

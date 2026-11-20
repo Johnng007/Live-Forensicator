@@ -4449,6 +4449,32 @@ $script:AllDownloadRecords   = [System.Collections.Generic.List[PSCustomObject]]
 # THREAT-INTEL FEED FETCH — shared by the malicious-URL list (below) and
 # the hash-match list (HASHLOOKUP section, further down).
 # ---------------------------------------------------------
+# abuse.ch feeds (MalwareBazaar, URLhaus) need a free Auth-Key since Oct
+# 2026 (https://auth.abuse.ch/); the key sits in the export URL's path.
+# Replaces {ABUSECH_AUTH_KEY} in a feed URL with $env:ABUSECH_AUTH_KEY,
+# else config.json's abusech_auth_key. Returns the URL unchanged when it
+# has no placeholder, and $null when it needs a key that isn't set (or
+# isn't letters and digits only) — the caller skips that source.
+function Resolve-AbuseChFeedUrl {
+    param([string]$Url, [string]$Section)
+    $placeholder = '{ABUSECH_AUTH_KEY}'
+    if(-not $Url.Contains($placeholder)){ return $Url }
+    $key = $env:ABUSECH_AUTH_KEY
+    if([string]::IsNullOrWhiteSpace($key) -and $null -ne $configData -and $configData.PSObject.Properties["abusech_auth_key"]){
+        $key = [string]$configData.abusech_auth_key
+    }
+    $key = if($key){ $key.Trim() } else { "" }
+    if($key -eq ""){
+        $null = Write-ForensicLog "[!] No abuse.ch Auth-Key set — skipping $Url. Get a free key at https://auth.abuse.ch/ and set ABUSECH_AUTH_KEY or config.json's abusech_auth_key" -Level WARN -Section $Section
+        return $null
+    }
+    if($key -notmatch '^[A-Za-z0-9]+$'){
+        $null = Write-ForensicLog "[!] abuse.ch Auth-Key is not letters and digits only — skipping $Url" -Level WARN -Section $Section
+        return $null
+    }
+    return $Url.Replace($placeholder, $key)
+}
+
 function Save-MergedThreatIntelFeed {
     param(
         [array]$Sources,
@@ -4473,7 +4499,12 @@ function Save-MergedThreatIntelFeed {
     $merged = New-Object System.Text.StringBuilder
     foreach($url in $urls){
         try{
-            $uriHost = ([System.Uri]$url).Host
+            # $url stays the configured template — it's what gets logged and
+            # written to the cache's "# --- Source:" line, so the key never
+            # lands in a log or report. Only $fetchUrl carries it.
+            $fetchUrl = Resolve-AbuseChFeedUrl -Url $url -Section $Section
+            if($null -eq $fetchUrl){ continue }
+            $uriHost = ([System.Uri]$fetchUrl).Host
 
             # Quick TCP reachability check without Test-NetConnection overhead
             $tcp = [System.Net.Sockets.TcpClient]::new()
@@ -4486,7 +4517,7 @@ function Save-MergedThreatIntelFeed {
             }
 
             Write-ForensicLog "[*] Downloading from $uriHost..." -Level INFO -Section $Section
-            $resp = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec $TimeoutSec -ErrorAction Stop
+            $resp = Invoke-WebRequest -Uri $fetchUrl -UseBasicParsing -TimeoutSec $TimeoutSec -ErrorAction Stop
             [void]$merged.AppendLine("# --- Source: $url ---")
             [void]$merged.AppendLine($resp.Content)
             $downloadedAny = $true
@@ -4519,12 +4550,28 @@ $configFile = "$PSScriptRoot\config.json"
 $urlSources = @()
 if($null -ne $configData -and $null -ne $configData.url_source){
     $urlSources = @($configData.url_source)
+} else {
+    $urlSources = @("https://urlhaus-api.abuse.ch/v2/files/exports/{ABUSECH_AUTH_KEY}/urls_recent.txt")
 }
 
-if(-not (Test-Path $maliciousUrlsFilePath)){
+# Download when missing, refresh when older than 7 days — same staleness
+# policy as the hash feed (HASHLOOKUP). A failed refresh keeps the cached copy.
+$urlNeedsDownload = -not (Test-Path $maliciousUrlsFilePath)
+if($urlNeedsDownload){
     Write-ForensicLog "[*] malicious_URLs.txt not found — attempting download..." -Level INFO -Section "BROWSER_HISTORY"
-    if(-not (Save-MergedThreatIntelFeed -Sources $urlSources -OutputPath $maliciousUrlsFilePath -Section "BROWSER_HISTORY")){
-        Write-ForensicLog "[!] All malicious-URL feed source(s) unreachable or failed — malicious URL checking disabled" -Level ERROR -Section "BROWSER_HISTORY"
+} else {
+    $urlAgeDays = (New-TimeSpan -Start (Get-Item $maliciousUrlsFilePath).LastWriteTime -End (Get-Date)).TotalDays
+    if($urlAgeDays -gt 7){
+        $urlNeedsDownload = $true
+        Write-ForensicLog "[*] malicious_URLs.txt is $([Math]::Round($urlAgeDays,0)) days old — refreshing" -Level WARN -Section "BROWSER_HISTORY"
+    }
+}
+
+if($urlNeedsDownload){
+    # ~12 MB for the URLhaus recent export — well past the 30 s default on a slow link.
+    if(-not (Save-MergedThreatIntelFeed -Sources $urlSources -OutputPath $maliciousUrlsFilePath -Section "BROWSER_HISTORY" -TimeoutSec 300)){
+        $urlFailMsg = if(Test-Path $maliciousUrlsFilePath){ "using the cached copy (may be stale)" } else { "malicious URL checking disabled" }
+        Write-ForensicLog "[!] All malicious-URL feed source(s) unreachable or failed — $urlFailMsg" -Level ERROR -Section "BROWSER_HISTORY"
     }
 }
 
@@ -7869,7 +7916,7 @@ $execExtensions = if($null -ne $configData -and $configData.PSObject.Properties[
 $hashSources = if($null -ne $configData -and $configData.PSObject.Properties["hash_source"] -and $configData.hash_source){
     @($configData.hash_source)
 } else {
-    @("https://bazaar.abuse.ch/export/txt/md5/recent/")
+    @("https://mb-api.abuse.ch/v2/files/exports/{ABUSECH_AUTH_KEY}/md5_recent.txt")
 }
 
 $hashFilePath = "$PSScriptRoot\Forensicator-Share\md5hashes.txt"

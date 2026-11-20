@@ -74,10 +74,9 @@
   },
 
   "threat_intel": {
-    "_comment": "Feeds the transit-known-malicious-destination rule (checks a device's NAT/conntrack session table against known-bad IPs — see README's Detection Rules section). Same fetch-with-local-fallback pattern as the Windows collector's hash_source/url_source: at startup, each malicious_ip_sources URL is tried in order until one succeeds and the result is cached to malicious_ips_cache_file; if every URL fails (or malicious_ip_sources is empty), whatever's already in the cache file is used as-is, however stale. The default source below (Feodo Tracker's base ipblocklist.txt, NOT the 'recommended' variant, which is no longer maintained) and the FireHOL fallback are best-effort — verify they're still live for your environment; nothing here fetches on every single run, only when the cache is missing or older than malicious_ip_max_age_days.",
+    "_comment": "Feeds the transit-known-malicious-destination rule (checks a device's NAT/conntrack session table against known-bad IPs — see README's Detection Rules section). Same fetch-with-local-fallback pattern as the Windows collector's hash_source/url_source: at startup, each malicious_ip_sources URL is tried in order until one succeeds and the result is cached to malicious_ips_cache_file; if every URL fails (or malicious_ip_sources is empty), whatever's already in the cache file is used as-is, however stale. The default source below (Feodo Tracker's base ipblocklist.txt, NOT the 'recommended' variant, which is no longer maintained) is best-effort — verify they're still live for your environment; nothing here fetches on every single run, only when the cache is missing or older than malicious_ip_max_age_days. Only globally routable unicast addresses from the session table are ever checked (private/CGNAT/loopback/link-local/multicast/reserved are skipped), so a feed that bundles bogon ranges can't flag internal hosts — but prefer feeds of specific bad IPs over broad CIDR aggregates like FireHOL level1, which was removed as a fallback for that reason.",
     "malicious_ip_sources": [
-      "https://feodotracker.abuse.ch/downloads/ipblocklist.txt",
-      "https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level1.netset"
+      "https://feodotracker.abuse.ch/downloads/ipblocklist.txt"
     ],
     "malicious_ip_max_age_days": 7,
     "malicious_ips_cache_file": "Forensicator-Share/malicious_ips_cache.txt",

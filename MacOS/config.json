@@ -1,9 +1,13 @@
 {
+  "_comment_abusech": "abuse.ch feeds (hash_source/url_source) need a free abuse.ch Auth-Key since Oct 2026 - get one at https://auth.abuse.ch/. Put it in abusech_auth_key, or set the ABUSECH_AUTH_KEY environment variable (takes precedence, keeps the key out of this file). Each {ABUSECH_AUTH_KEY} in a source URL is replaced with it; with no key, those sources are skipped and only the custom_hashes.txt / custom_iocs.txt lists are used.",
+  "abusech_auth_key": [
+    ""
+  ],
   "hash_source": [
-    "https://bazaar.abuse.ch/export/txt/md5/recent/"
+    "https://mb-api.abuse.ch/v2/files/exports/{ABUSECH_AUTH_KEY}/md5_recent.txt"
   ],
   "url_source": [
-    "https://urlhaus.abuse.ch/downloads/text_recent/"
+    "https://urlhaus-api.abuse.ch/v2/files/exports/{ABUSECH_AUTH_KEY}/urls_recent.txt"
   ],
   "pkg_integrity_timeout_seconds": [
     "180"
